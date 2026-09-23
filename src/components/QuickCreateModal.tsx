@@ -43,7 +43,12 @@ const CharacterPicker: React.FC<CharacterPickerProps> = ({
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Search characters..."
+          placeholder={
+            characters.length
+              ? "Search characters (optional)..."
+              : "No characters yet (optional)"
+          }
+          disabled={!characters.length}
           className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs text-zinc-200"
         />
         {open && (
@@ -75,7 +80,9 @@ const CharacterPicker: React.FC<CharacterPickerProps> = ({
               })
             ) : (
               <p className="px-3 py-2 text-xs text-zinc-500">
-                No characters found.
+                {characters.length
+                  ? "No characters found."
+                  : "Add other characters first to create a relationship."}
               </p>
             )}
           </div>
@@ -124,6 +131,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
   const [sketchUrl, setSketchUrl] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [availableCharacters, setAvailableCharacters] = useState<any[]>([]);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     fetch("/api/characters")
@@ -151,6 +159,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    setSaveError("");
 
     let payload: any = {
       name,
@@ -171,13 +180,15 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
       payload.family = selectedFamily;
       if (sketchUrl) {
         payload.portrait = sketchUrl;
-        payload.sketch = sketchUrl;
       }
       if (imageFile) {
         const upload = await uploadArchiveImage(imageFile, entityType);
         if (upload.error) throw upload.error;
-        payload.portrait = upload.url;
-        payload.image = upload.url;
+        if (entityType === "characters") payload.portrait = upload.url;
+        else if (entityType === "teams") payload.logo = upload.url;
+        else if (entityType === "issues") payload.cover = upload.url;
+        else if (["planets", "locations", "artifacts"].includes(entityType))
+          payload.image = upload.url;
       }
     } else if (entityType === "teams") {
       payload.type = extraField || "Taskforce";
@@ -197,9 +208,15 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
         confetti({ particleCount: 60, spread: 60, origin: { y: 0.6 } });
         onCreated();
         onClose();
+      } else {
+        const result = await res.json().catch(() => ({}));
+        setSaveError(result.error || "The record could not be saved.");
       }
     } catch (err) {
       console.error(err);
+      setSaveError(
+        err instanceof Error ? err.message : "The record could not be saved.",
+      );
     }
   };
 
@@ -374,6 +391,8 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
               className="w-full bg-zinc-900 border border-white/10 rounded-2xl p-3 text-xs text-zinc-200"
             />
           </div>
+
+          {saveError && <p className="auth-message">{saveError}</p>}
 
           <div className="flex justify-end space-x-3 pt-2">
             <button

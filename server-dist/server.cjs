@@ -137,7 +137,7 @@ async function generateAIText(prompt) {
           Authorization: `Bearer ${apiKey2}`
         },
         body: JSON.stringify({
-          model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+          model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
           temperature: 0.2,
           messages: [{ role: "user", content: prompt }]
         })
@@ -159,7 +159,8 @@ async function generateAIText(prompt) {
 }
 async function sendResendEmail(to, subject, html) {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error("RESEND_API_KEY is not configured on the server.");
+  if (!apiKey)
+    throw new Error("RESEND_API_KEY is not configured on the server.");
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -174,7 +175,8 @@ async function sendResendEmail(to, subject, html) {
     })
   });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.message || "Resend email request failed.");
+  if (!response.ok)
+    throw new Error(data.message || "Resend email request failed.");
   return data.id;
 }
 app.use(import_express.default.json());
@@ -755,9 +757,13 @@ app.post("/api/admin/invite", async (req, res) => {
       email,
       options: { redirectTo: inviteRedirect }
     });
-    if (error) return res.status(400).json({ error: `Supabase could not create the invite: ${error.message}` });
+    if (error)
+      return res.status(400).json({
+        error: `Supabase could not create the invite: ${error.message}`
+      });
     const actionLink = data.properties?.action_link;
-    if (!actionLink) return res.status(500).json({ error: "Supabase did not return an invite link." });
+    if (!actionLink)
+      return res.status(500).json({ error: "Supabase did not return an invite link." });
     try {
       await sendResendEmail(
         email,
@@ -769,8 +775,14 @@ app.post("/api/admin/invite", async (req, res) => {
     }
     invitedUserId = data.user.id;
   } else {
-    const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, { redirectTo: inviteRedirect });
-    if (error) return res.status(400).json({ error: `Supabase could not send the invite: ${error.message}` });
+    const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+      email,
+      { redirectTo: inviteRedirect }
+    );
+    if (error)
+      return res.status(400).json({
+        error: `Supabase could not send the invite: ${error.message}`
+      });
     invitedUserId = data.user.id;
   }
   const { error: profileError } = await supabaseAdmin.from("profiles").upsert({ id: invitedUserId, email, role: "admin" });

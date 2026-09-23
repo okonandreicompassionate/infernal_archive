@@ -33,7 +33,7 @@ async function generateAIText(prompt: string) {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+          model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
           temperature: 0.2,
           messages: [{ role: "user", content: prompt }],
         }),
@@ -748,11 +748,9 @@ app.post("/api/admin/invite", async (req, res) => {
       options: { redirectTo: inviteRedirect },
     });
     if (error)
-      return res
-        .status(400)
-        .json({
-          error: `Supabase could not create the invite: ${error.message}`,
-        });
+      return res.status(400).json({
+        error: `Supabase could not create the invite: ${error.message}`,
+      });
     const actionLink = data.properties?.action_link;
     if (!actionLink)
       return res
@@ -776,11 +774,9 @@ app.post("/api/admin/invite", async (req, res) => {
       { redirectTo: inviteRedirect },
     );
     if (error)
-      return res
-        .status(400)
-        .json({
-          error: `Supabase could not send the invite: ${error.message}`,
-        });
+      return res.status(400).json({
+        error: `Supabase could not send the invite: ${error.message}`,
+      });
     invitedUserId = data.user.id;
   }
   const { error: profileError } = await supabaseAdmin
