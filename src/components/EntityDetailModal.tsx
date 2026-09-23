@@ -23,6 +23,8 @@ import {
   RotateCcw,
   Bot,
   Upload,
+  Pencil,
+  Save,
 } from "lucide-react";
 import { uploadArchiveImage } from "../utils/supabase";
 
@@ -59,6 +61,36 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
   const [moodCategory, setMoodCategory] = useState("AESTHETIC");
   const [generatingMood, setGeneratingMood] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileDraft, setProfileDraft] = useState<Record<string, string>>({});
+
+  const editableCharacterFields = [
+    ["codeName", "Code name / alias"],
+    ["species", "Species / race"],
+    ["hair", "Hair color"],
+    ["eyes", "Eye color"],
+    ["height", "Height / build"],
+    ["occupation", "Occupation"],
+    ["affiliation", "Affiliation"],
+    ["positionRole", "Position / role"],
+    ["romanticInterests", "Romantic interests / partners"],
+    ["enemiesRivals", "Enemies & rivals"],
+    ["primaryEnergySource", "Primary energy / power source"],
+    ["majorAbilities", "Major abilities"],
+    ["secondaryAbilities", "Secondary abilities"],
+    ["signatureTechniques", "Signature techniques"],
+    ["positiveTraits", "Positive traits"],
+    ["negativeTraits", "Negative traits"],
+    ["quirksHabits", "Quirks & habits"],
+    ["physicalAppearance", "Physical appearance"],
+    ["description", "Description / lore summary"],
+    ["centralThemes", "Central themes"],
+    ["corePhilosophy", "Core philosophy"],
+    ["signatureQuote", "Signature quote"],
+    ["battlePhilosophy", "Battle philosophy"],
+    ["characterArc", "Character arc"],
+    ["heroicVillainousLegacy", "Heroic / villainous legacy"],
+  ] as const;
 
   const endpointMap: Record<string, string> = {
     characters: "characters",
@@ -176,6 +208,30 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
     });
     if (response.ok) loadData();
     setUploadingImage(false);
+  };
+
+  const beginProfileEdit = () => {
+    setProfileDraft(
+      Object.fromEntries(
+        editableCharacterFields.map(([key]) => [key, item[key] || ""]),
+      ),
+    );
+    setEditingProfile(true);
+  };
+
+  const saveProfileEdit = async () => {
+    const response = await fetch(`/api/${apiPath}/${entityId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(profileDraft),
+    });
+    if (!response.ok)
+      return alert(
+        (await response.json().catch(() => ({}))).error ||
+          "Profile could not be saved.",
+      );
+    setEditingProfile(false);
+    loadData();
   };
 
   const handleDeleteMoodItem = async (moodId: string) => {
@@ -438,6 +494,22 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                       className="sr-only"
                     />
                   </label>
+                  {entityType === "characters" && (
+                    <button
+                      type="button"
+                      onClick={
+                        editingProfile ? saveProfileEdit : beginProfileEdit
+                      }
+                      className="inline-flex items-center gap-2 border border-white/10 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 hover:bg-white/10"
+                    >
+                      {editingProfile ? (
+                        <Save className="w-3.5 h-3.5" />
+                      ) : (
+                        <Pencil className="w-3.5 h-3.5" />
+                      )}
+                      {editingProfile ? "Save profile" : "Edit profile"}
+                    </button>
+                  )}
                   <div className="flex items-center space-x-3">
                     <h1 className="text-2xl font-bold text-zinc-100 font-sans">
                       {title}
@@ -455,6 +527,36 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                       item.goals ||
                       "No detailed summary available."}
                   </p>
+
+                  {editingProfile && entityType === "characters" && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border border-white/10 bg-zinc-900/50 p-4 rounded-2xl">
+                      {editableCharacterFields.map(([key, label]) => (
+                        <label
+                          key={key}
+                          className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono"
+                        >
+                          <span>{label}</span>
+                          <textarea
+                            rows={
+                              key === "description" ||
+                              key === "physicalAppearance" ||
+                              key === "characterArc"
+                                ? 3
+                                : 2
+                            }
+                            value={profileDraft[key] || ""}
+                            onChange={(event) =>
+                              setProfileDraft((current) => ({
+                                ...current,
+                                [key]: event.target.value,
+                              }))
+                            }
+                            className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
                     {item.species && (

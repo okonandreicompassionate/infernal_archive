@@ -156,6 +156,24 @@ create table if not exists public.characters (
   updated_at timestamptz not null default now()
 );
 alter table public.characters add column if not exists description text not null default '';
+alter table public.characters add column if not exists affiliation text not null default '';
+alter table public.characters add column if not exists position_role text not null default '';
+alter table public.characters add column if not exists romantic_interests text not null default '';
+alter table public.characters add column if not exists enemies_rivals text not null default '';
+alter table public.characters add column if not exists primary_energy_source text not null default '';
+alter table public.characters add column if not exists major_abilities text not null default '';
+alter table public.characters add column if not exists secondary_abilities text not null default '';
+alter table public.characters add column if not exists signature_techniques text not null default '';
+alter table public.characters add column if not exists positive_traits text not null default '';
+alter table public.characters add column if not exists negative_traits text not null default '';
+alter table public.characters add column if not exists quirks_habits text not null default '';
+alter table public.characters add column if not exists physical_appearance text not null default '';
+alter table public.characters add column if not exists central_themes text not null default '';
+alter table public.characters add column if not exists core_philosophy text not null default '';
+alter table public.characters add column if not exists signature_quote text not null default '';
+alter table public.characters add column if not exists battle_philosophy text not null default '';
+alter table public.characters add column if not exists character_arc text not null default '';
+alter table public.characters add column if not exists heroic_villainous_legacy text not null default '';
 
 create table if not exists public.teams (
   id text primary key,

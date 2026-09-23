@@ -52,6 +52,24 @@ for each row execute function public.handle_new_user();
 -- Keep character creation compatible with the workspace description field.
 alter table if exists public.characters
 add column if not exists description text not null default '';
+alter table if exists public.characters add column if not exists affiliation text not null default '';
+alter table if exists public.characters add column if not exists position_role text not null default '';
+alter table if exists public.characters add column if not exists romantic_interests text not null default '';
+alter table if exists public.characters add column if not exists enemies_rivals text not null default '';
+alter table if exists public.characters add column if not exists primary_energy_source text not null default '';
+alter table if exists public.characters add column if not exists major_abilities text not null default '';
+alter table if exists public.characters add column if not exists secondary_abilities text not null default '';
+alter table if exists public.characters add column if not exists signature_techniques text not null default '';
+alter table if exists public.characters add column if not exists positive_traits text not null default '';
+alter table if exists public.characters add column if not exists negative_traits text not null default '';
+alter table if exists public.characters add column if not exists quirks_habits text not null default '';
+alter table if exists public.characters add column if not exists physical_appearance text not null default '';
+alter table if exists public.characters add column if not exists central_themes text not null default '';
+alter table if exists public.characters add column if not exists core_philosophy text not null default '';
+alter table if exists public.characters add column if not exists signature_quote text not null default '';
+alter table if exists public.characters add column if not exists battle_philosophy text not null default '';
+alter table if exists public.characters add column if not exists character_arc text not null default '';
+alter table if exists public.characters add column if not exists heroic_villainous_legacy text not null default '';
 
 -- Backfill the profile if the Auth user was created before the trigger existed.
 insert into public.profiles (id, email)
