@@ -335,6 +335,12 @@ create table if not exists public.scripts (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.scripts add column if not exists panel_type text not null default 'Standard';
+alter table public.scripts add column if not exists camera_angle text not null default 'Eye-level';
+alter table public.scripts add column if not exists shot_notes text not null default '';
+alter table public.scripts add column if not exists caption text not null default '';
+alter table public.scripts add column if not exists panel_status text not null default 'DRAFT';
+alter table public.scripts add column if not exists page_notes text not null default '';
 
 create table if not exists public.artwork (
   id text primary key,

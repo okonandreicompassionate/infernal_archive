@@ -158,6 +158,7 @@ export default function App() {
         )}
         {[
           "characters",
+          "species",
           "teams",
           "planets",
           "locations",

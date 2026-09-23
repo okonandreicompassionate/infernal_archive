@@ -36,10 +36,11 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
   const [canonFilter, setCanonFilter] = useState("ALL");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkTagInput, setBulkTagInput] = useState("");
-  const [columns, setColumns] = useState<6 | 12 | 20>(6);
+  const [columns, setColumns] = useState<4 | 8 | 12>(4);
 
   const endpointMap: Record<string, string> = {
     characters: "characters",
+    species: "species",
     teams: "teams",
     planets: "planets",
     locations: "locations",
@@ -287,11 +288,11 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
           </select>
           <div className="record-density-control" aria-label="Records per row">
             <LayoutGrid className="w-3.5 h-3.5 text-zinc-400" />
-            {[6, 12, 20].map((value) => (
+            {[4, 8, 12].map((value) => (
               <button
                 type="button"
                 key={value}
-                onClick={() => setColumns(value as 6 | 12 | 20)}
+                onClick={() => setColumns(value as 4 | 8 | 12)}
                 className={
                   columns === value ? "density-option active" : "density-option"
                 }

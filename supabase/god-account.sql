@@ -70,6 +70,12 @@ alter table if exists public.characters add column if not exists signature_quote
 alter table if exists public.characters add column if not exists battle_philosophy text not null default '';
 alter table if exists public.characters add column if not exists character_arc text not null default '';
 alter table if exists public.characters add column if not exists heroic_villainous_legacy text not null default '';
+alter table if exists public.scripts add column if not exists panel_type text not null default 'Standard';
+alter table if exists public.scripts add column if not exists camera_angle text not null default 'Eye-level';
+alter table if exists public.scripts add column if not exists shot_notes text not null default '';
+alter table if exists public.scripts add column if not exists caption text not null default '';
+alter table if exists public.scripts add column if not exists panel_status text not null default 'DRAFT';
+alter table if exists public.scripts add column if not exists page_notes text not null default '';
 
 -- Backfill the profile if the Auth user was created before the trigger existed.
 insert into public.profiles (id, email)

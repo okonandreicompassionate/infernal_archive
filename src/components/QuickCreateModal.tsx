@@ -302,6 +302,17 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
     } else if (entityType === "artifacts") {
       payload.type = extraField || "Weapon";
       payload.status = "Active";
+    } else if (entityType === "species") {
+      Object.assign(payload, {
+        homePlanet: profileFields.homePlanet || "",
+        lifespan: profileFields.lifespan || "",
+        biology: profileFields.biology || "",
+        abilities: profileFields.abilities || "",
+        weaknesses: profileFields.weaknesses || "",
+        culture: profileFields.culture || "",
+        language: profileFields.language || "",
+        population: profileFields.population || "",
+      });
     }
 
     try {
@@ -355,6 +366,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
               className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs text-zinc-200"
             >
               <option value="characters">Character (Detailed)</option>
+              <option value="species">Species / Race</option>
               <option value="teams">Team</option>
               <option value="planets">Planet</option>
               <option value="locations">Location</option>
@@ -572,6 +584,39 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
                 )}
               </div>
             </>
+          )}
+
+          {entityType === "species" && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-zinc-900/40 p-4 rounded-2xl border border-white/5">
+              {[
+                ["homePlanet", "Home planet"],
+                ["lifespan", "Lifespan"],
+                ["biology", "Biology"],
+                ["abilities", "Abilities"],
+                ["weaknesses", "Weaknesses"],
+                ["culture", "Culture"],
+                ["language", "Language"],
+                ["population", "Population"],
+              ].map(([key, label]) => (
+                <label
+                  key={key}
+                  className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono"
+                >
+                  <span>{label}</span>
+                  <textarea
+                    rows={2}
+                    value={profileFields[key] || ""}
+                    onChange={(event) =>
+                      setProfileFields((current) => ({
+                        ...current,
+                        [key]: event.target.value,
+                      }))
+                    }
+                    className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                  />
+                </label>
+              ))}
+            </div>
           )}
 
           <div className="space-y-1.5">

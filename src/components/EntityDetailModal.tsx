@@ -94,6 +94,7 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
 
   const endpointMap: Record<string, string> = {
     characters: "characters",
+    species: "species",
     teams: "teams",
     planets: "planets",
     locations: "locations",

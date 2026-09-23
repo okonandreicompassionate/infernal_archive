@@ -74,6 +74,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       label: "Archive",
       items: [
         { id: "characters", label: "Characters", icon: Users },
+        { id: "species", label: "Species & Races", icon: Users },
         { id: "teams", label: "Teams & Orgs", icon: Shield },
         { id: "planets", label: "Planets & Locs", icon: Globe },
         { id: "powers", label: "Powers & Tech", icon: Zap },
