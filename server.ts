@@ -60,6 +60,29 @@ async function generateAIText(prompt: string) {
   return response.text || "";
 }
 
+async function sendResendEmail(to: string, subject: string, html: string) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey)
+    throw new Error("RESEND_API_KEY is not configured on the server.");
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: process.env.RESEND_FROM || "onboarding@resend.dev",
+      to,
+      subject,
+      html,
+    }),
+  });
+  const data = (await response.json()) as { id?: string; message?: string };
+  if (!response.ok)
+    throw new Error(data.message || "Resend email request failed.");
+  return data.id;
+}
+
 app.use(express.json());
 app.use((req, res, next) => {
   const origin = process.env.CORS_ORIGIN || "*";
@@ -717,19 +740,52 @@ app.post("/api/admin/invite", async (req, res) => {
         "APP_URL is missing or invalid on the server. Set it to your Vercel URL, for example https://your-app.vercel.app.",
     });
   const inviteRedirect = `${appUrl}/reset-password`;
-  const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-    email,
-    {
-      redirectTo: inviteRedirect,
-    },
-  );
-  if (error)
-    return res.status(400).json({
-      error: `Supabase could not send the invite: ${error.message}`,
+  let invitedUserId: string;
+  if (process.env.RESEND_API_KEY) {
+    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+      type: "invite",
+      email,
+      options: { redirectTo: inviteRedirect },
     });
+    if (error)
+      return res
+        .status(400)
+        .json({
+          error: `Supabase could not create the invite: ${error.message}`,
+        });
+    const actionLink = data.properties?.action_link;
+    if (!actionLink)
+      return res
+        .status(500)
+        .json({ error: "Supabase did not return an invite link." });
+    try {
+      await sendResendEmail(
+        email,
+        "You have been invited to the Archive workspace",
+        `<p>You have been invited to the Archive workspace as an admin.</p><p><a href="${actionLink}">Set your password and enter the workspace</a></p><p>This invitation link may expire.</p>`,
+      );
+    } catch (error: any) {
+      return res
+        .status(502)
+        .json({ error: `Resend could not send the invite: ${error.message}` });
+    }
+    invitedUserId = data.user.id;
+  } else {
+    const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+      email,
+      { redirectTo: inviteRedirect },
+    );
+    if (error)
+      return res
+        .status(400)
+        .json({
+          error: `Supabase could not send the invite: ${error.message}`,
+        });
+    invitedUserId = data.user.id;
+  }
   const { error: profileError } = await supabaseAdmin
     .from("profiles")
-    .upsert({ id: data.user.id, email, role: "admin" });
+    .upsert({ id: invitedUserId, email, role: "admin" });
   if (profileError)
     return res.status(400).json({ error: profileError.message });
   res.status(201).json({ invited: true, email });
