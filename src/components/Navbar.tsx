@@ -65,21 +65,37 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: Layers },
-    { id: "characters", label: "Characters", icon: Users },
-    { id: "teams", label: "Teams & Orgs", icon: Shield },
-    { id: "planets", label: "Planets & Locs", icon: Globe },
-    { id: "powers", label: "Powers & Tech", icon: Zap },
-    { id: "artifacts", label: "Artifacts", icon: Sword },
-    { id: "events", label: "Events", icon: Calendar },
-    { id: "issues", label: "Issues & Arcs", icon: BookOpen },
-    { id: "graph", label: "Knowledge Graph", icon: Network },
-    { id: "timeline", label: "Timeline", icon: Calendar },
-    { id: "writer", label: "Writer Studio", icon: FileText },
-    { id: "artist", label: "Artist Studio", icon: Layers },
-    { id: "lorekeeper", label: "AI Lorekeeper", icon: Bot },
-    { id: "settings", label: "Settings", icon: Settings },
+  const navGroups = [
+    {
+      label: "Overview",
+      items: [{ id: "dashboard", label: "Dashboard", icon: Layers }],
+    },
+    {
+      label: "Archive",
+      items: [
+        { id: "characters", label: "Characters", icon: Users },
+        { id: "teams", label: "Teams & Orgs", icon: Shield },
+        { id: "planets", label: "Planets & Locs", icon: Globe },
+        { id: "powers", label: "Powers & Tech", icon: Zap },
+        { id: "artifacts", label: "Artifacts", icon: Sword },
+        { id: "events", label: "Events", icon: Calendar },
+        { id: "issues", label: "Issues & Arcs", icon: BookOpen },
+      ],
+    },
+    {
+      label: "Production",
+      items: [
+        { id: "graph", label: "Knowledge Graph", icon: Network },
+        { id: "timeline", label: "Timeline", icon: Calendar },
+        { id: "writer", label: "Writer Studio", icon: FileText },
+        { id: "artist", label: "Artist Studio", icon: Layers },
+        { id: "lorekeeper", label: "Lorekeeper", icon: Bot },
+      ],
+    },
+    {
+      label: "Workspace",
+      items: [{ id: "settings", label: "Settings", icon: Settings }],
+    },
   ];
 
   // Fetch all entities for global fuzzy search
@@ -382,26 +398,32 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Subnav Tabs */}
       <div className="bg-white/[0.03] border-t border-white/5 overflow-x-auto scrollbar-none">
         <div className="max-w-7xl mx-auto px-4 flex space-x-1 py-1.5">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
-                  isActive
-                    ? "bg-yellow-400 text-zinc-950 shadow-sm"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5"
-                }`}
-              >
-                <Icon
-                  className={`w-3.5 h-3.5 ${isActive ? "text-zinc-950" : "text-zinc-400"}`}
-                />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
+          {navGroups.map((group) => (
+            <div className="nav-group" key={group.label}>
+              <span className="nav-group-label">{group.label}</span>
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                      isActive
+                        ? "bg-yellow-400 text-zinc-950 shadow-sm"
+                        : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5"
+                    }`}
+                    aria-current={isActive ? "page" : undefined}
+                  >
+                    <Icon
+                      className={`w-3.5 h-3.5 ${isActive ? "text-zinc-950" : "text-zinc-400"}`}
+                    />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
     </header>

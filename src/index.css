@@ -735,6 +735,23 @@ body {
   gap: 0.25rem;
 }
 
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-bottom: 0.75rem;
+}
+
+.nav-group-label {
+  padding: 0.65rem 0.6rem 0.35rem;
+  color: #6f706d;
+  font:
+    0.58rem "DM Mono",
+    monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .universe-nav > div:last-child button {
   width: 100%;
   justify-content: flex-start;
@@ -742,6 +759,19 @@ body {
   border: 0 !important;
   border-radius: 0.55rem !important;
   font-size: 0.7rem;
+}
+
+.universe-nav > div:last-child .nav-group button {
+  min-height: 2.15rem;
+  border-left: 2px solid transparent !important;
+  border-radius: 3px !important;
+}
+
+.universe-nav > div:last-child .nav-group button.bg-yellow-400 {
+  border-left-color: var(--champagne) !important;
+  background: #242424 !important;
+  color: #fff !important;
+  box-shadow: none !important;
 }
 
 .universe-nav > div:last-child button:hover,

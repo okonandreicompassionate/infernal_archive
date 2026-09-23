@@ -451,22 +451,43 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
                 </label>
                 <input
                   type="search"
-                  value={speciesQuery || species}
+                  value={speciesQuery}
                   onChange={(event) => {
                     setSpeciesQuery(event.target.value);
                     setShowSpecies(true);
                   }}
-                  onFocus={() => setShowSpecies(true)}
-                  placeholder="Search species..."
+                  onFocus={() => {
+                    setSpeciesQuery("");
+                    setShowSpecies(true);
+                  }}
+                  placeholder={`Search species (selected: ${species})...`}
                   className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs text-zinc-200"
                 />
                 {showSpecies && (
                   <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-44 overflow-y-auto rounded border border-white/10 bg-zinc-950 shadow-xl">
+                    {speciesQuery.trim() &&
+                      !speciesOptions.some(
+                        (option) =>
+                          option.toLowerCase() ===
+                          speciesQuery.trim().toLowerCase(),
+                      ) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSpecies(speciesQuery.trim());
+                            setSpeciesQuery("");
+                            setShowSpecies(false);
+                          }}
+                          className="block w-full border-b border-white/10 px-3 py-2 text-left text-xs text-yellow-300 hover:bg-white/10"
+                        >
+                          Use custom: “{speciesQuery.trim()}”
+                        </button>
+                      )}
                     {speciesOptions
                       .filter((option) =>
                         option
                           .toLowerCase()
-                          .includes((speciesQuery || species).toLowerCase()),
+                          .includes(speciesQuery.toLowerCase()),
                       )
                       .map((option) => (
                         <button
