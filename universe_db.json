@@ -1,0 +1,484 @@
+{
+  "universes": [
+    {
+      "id": "univ-1",
+      "name": "Prime Universe",
+      "code": "U-88",
+      "description": "The primary continuity where the events of Night Watch and the Eclipse Wars unfold.",
+      "status": "Active",
+      "timelineSystem": "Standard Galactic Epoch (SGE)",
+      "creationDate": "2024-01-01",
+      "canonStatus": "CANON",
+      "coverImage": "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1200&q=80"
+    },
+    {
+      "id": "univ-2",
+      "name": "Alternate Epoch (Future 2099)",
+      "code": "U-99",
+      "description": "A dark dystopian timeline where the Black Sun syndicate rules New Lagos.",
+      "status": "Divergent",
+      "timelineSystem": "Post-Collapse Chronology",
+      "creationDate": "2080-05-12",
+      "canonStatus": "ALTERNATE",
+      "coverImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80"
+    }
+  ],
+  "planets": [
+    {
+      "id": "plan-1",
+      "name": "Earth",
+      "designation": "Sol-3",
+      "universeId": "univ-1",
+      "starSystem": "Solar System",
+      "planetType": "Terrestrial",
+      "population": "8.2 Billion",
+      "gravity": "1.0 G",
+      "atmosphere": "Nitrogen-Oxygen (Standard)",
+      "climate": "Diverse / Temperate",
+      "diameter": "12,742 km",
+      "moons": 1,
+      "technologyLevel": "Advanced / Hybrid Meta-Tech",
+      "politicalSystem": "Global Coalition & Sovereign States",
+      "dominantSpecies": "Human / Enhanced",
+      "description": "Cradle of humanity and ground zero for meta-human awakenings following the Eclipse Incident.",
+      "canonStatus": "CANON",
+      "image": "https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?auto=format&fit=crop&w=800&q=80"
+    }
+  ],
+  "locations": [
+    {
+      "id": "loc-1",
+      "name": "New Lagos",
+      "planetId": "plan-1",
+      "type": "Megacity",
+      "parentLocation": "Nigeria / West African Union",
+      "description": "A sprawling vertical metropolis humming with neon cyber-kinetics and ancient mystical wards.",
+      "coordinates": "6.5244° N, 3.3792° E",
+      "history": "Rebuilt after the 2026 Black Tower explosion.",
+      "canonStatus": "CANON",
+      "image": "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80"
+    },
+    {
+      "id": "loc-2",
+      "name": "Black Tower",
+      "planetId": "plan-1",
+      "type": "Secret Headquarters",
+      "parentLocation": "New Lagos",
+      "description": "Orbital-anchored monolith serving as the base of operations for the Night Watch.",
+      "coordinates": "Altitude 12,000m",
+      "history": "Infiltrated by Viper during Issue #7.",
+      "canonStatus": "CANON",
+      "image": "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80"
+    }
+  ],
+  "characters": [
+    {
+      "id": "char-1",
+      "name": "Marcus Vale",
+      "codeName": "Archer",
+      "aliases": [
+        "The Shadow of Lagos",
+        "Mark"
+      ],
+      "universeId": "univ-1",
+      "species": "Enhanced Human",
+      "gender": "Male",
+      "age": 28,
+      "birthDate": "1999-04-12",
+      "birthplace": "New Lagos, Earth",
+      "currentLocation": "Black Tower",
+      "occupation": "Vigilante / Night Watch Operative",
+      "height": "6'2\"",
+      "build": "Athletic / Lean",
+      "hair": "Black / Short Dreadlocks",
+      "eyes": "Amber Luminescent",
+      "distinguishingFeatures": "Cybernetic optic nerve scar over left eye.",
+      "costume": "Matte-black ballisticweave tactical coat with kinetic dampeners.",
+      "personality": "Stoic, analytical, fiercely protective of civilians, haunted by his brother's disappearance.",
+      "powers": [
+        "Enhanced Reflexes",
+        "Kinetic Energy Absorption",
+        "Night Vision"
+      ],
+      "skills": [
+        "Master Archer",
+        "CQC Combat",
+        "Hacking",
+        "Tactical Tracking"
+      ],
+      "weaknesses": [
+        "Overloads when absorbing excessive kinetic feedback",
+        "Estranged from family"
+      ],
+      "equipment": [
+        "Eclipse Bow",
+        "Grapple Gauntlets",
+        "EMP Arrows"
+      ],
+      "origin": "Exposed to anomalous dark-matter radiation during the 2024 orbital eclipse.",
+      "biography": "Once a premier tactical officer for the Global Defense Accord, Marcus Vale forged the identity of Archer after discovering systemic corruption within the upper ranks. Now he protects the streets of New Lagos alongside the Night Watch.",
+      "firstAppearance": "Issue #1",
+      "currentStatus": "Active",
+      "canonStatus": "CANON",
+      "portrait": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80"
+    }
+  ],
+  "teams": [
+    {
+      "id": "team-1",
+      "name": "Night Watch",
+      "type": "Vigilante Taskforce",
+      "leader": "Marcus Vale (Archer)",
+      "headquarters": "Black Tower, New Lagos",
+      "foundingDate": "2024-03-14",
+      "members": [
+        "Marcus Vale (Archer)",
+        "Dr. Nova Chen (Nova)"
+      ],
+      "formerMembers": [
+        "Dr. Alika Vane (Viper)"
+      ],
+      "allies": [
+        "Global Defense Accord (Fringe)"
+      ],
+      "enemies": [
+        "Black Sun Syndicate",
+        "Viper"
+      ],
+      "goals": "Protect New Lagos from meta-human corruption and uncover corporate cover-ups.",
+      "history": "Founded in the ashes of the Eclipse Incident.",
+      "status": "Active",
+      "universeId": "univ-1",
+      "canonStatus": "CANON",
+      "logo": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80"
+    }
+  ],
+  "organizations": [
+    {
+      "id": "org-1",
+      "name": "Black Sun Syndicate",
+      "type": "Criminal Syndicate",
+      "leadership": "Viper",
+      "headquarters": "Undercity Catacombs, New Lagos",
+      "resources": "High-grade cybernetics, illegal neurotoxins, smuggled alien tech.",
+      "goals": "Overthrow the New Lagos council and monopolize dark-matter energy.",
+      "influence": "High in the undercity, covertly infiltrating corporate boards.",
+      "status": "Active",
+      "canonStatus": "CANON"
+    }
+  ],
+  "species": [
+    {
+      "id": "spec-1",
+      "name": "Enhanced Human (Metahuman)",
+      "homePlanet": "Earth",
+      "lifespan": "90-120 years",
+      "biology": "Cellular structure capable of absorbing and metabolizing cosmic radiation without cellular necrosis.",
+      "abilities": "Varies widely (energy projection, enhanced physical traits, sensory augmentation).",
+      "weaknesses": "Electromagnetic dampening fields, heavy lead isotopes.",
+      "culture": "Fragmented between integrationists and separatist metahuman supremacists.",
+      "language": "Standard Earth Dialects & Binary Code",
+      "population": "14 Million worldwide",
+      "canonStatus": "CANON"
+    }
+  ],
+  "powers": [
+    {
+      "id": "pow-1",
+      "name": "Kinetic Energy Absorption",
+      "category": "Physical / Energy",
+      "description": "Absorbs physical impacts and kinetic force, storing it within cellular muscle fibers for explosive physical release or energy discharge.",
+      "knownUsers": [
+        "Marcus Vale (Archer)"
+      ],
+      "limitations": "Maximum absorption threshold before muscular tearing occurs.",
+      "strengthRating": 8,
+      "canonStatus": "CANON"
+    },
+    {
+      "id": "pow-2",
+      "name": "Neurotoxic Secretion",
+      "category": "Biological",
+      "description": "Produces complex synthetic neurotoxins capable of paralyzing motor functions within 3.4 seconds of epidermal contact.",
+      "knownUsers": [
+        "Viper"
+      ],
+      "limitations": "Requires 12 hours to synthesize a full dose after depletion.",
+      "strengthRating": 9,
+      "canonStatus": "CANON"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "art-1",
+      "name": "Eclipse Bow",
+      "type": "Composite Weapon / Relic",
+      "creator": "Unknown Pre-Collapse Artisan",
+      "currentOwner": "Marcus Vale (Archer)",
+      "origin": "Retrieved from the wreckage of orbital station Daedalus.",
+      "abilities": "Materializes quantum arrows formed from ambient dark matter when drawn.",
+      "history": "Bonded to Archer's biometric signature during the Eclipse Incident.",
+      "status": "Active",
+      "canonStatus": "CANON",
+      "image": "https://images.unsplash.com/photo-1511447333015-45b65e60f6d5?auto=format&fit=crop&w=800&q=80"
+    }
+  ],
+  "events": [
+    {
+      "id": "evt-2",
+      "name": "Black Tower Siege",
+      "date": "2026-08-19",
+      "location": "Black Tower",
+      "characters": [
+        "Marcus Vale",
+        "Viper"
+      ],
+      "teams": [
+        "Night Watch"
+      ],
+      "consequences": "Viper escapes with encrypted quantum drives; Black Tower defense grid upgraded.",
+      "issues": [
+        "#7",
+        "#8"
+      ],
+      "canonStatus": "CANON"
+    }
+  ],
+  "issues": [
+    {
+      "id": "issue-1",
+      "issueNumber": 7,
+      "title": "Shadows Over New Lagos",
+      "storyArc": "The Eclipse War",
+      "releaseStatus": "Published",
+      "publicationDate": "2026-09-01",
+      "synopsis": "Viper launches a surprise assault on the Black Tower while Archer investigates anomalies in the undercity.",
+      "characters": [
+        "Marcus Vale (Archer)",
+        "Viper",
+        "Dr. Nova Chen (Nova)"
+      ],
+      "locations": [
+        "New Lagos",
+        "Black Tower"
+      ],
+      "events": [
+        "Black Tower Siege"
+      ],
+      "writer": "Elena Vance",
+      "artist": "Kaelen Voss",
+      "colorist": "Maya Lin",
+      "letterer": "Samira Khan",
+      "editor": "Andrei Thorne",
+      "pages": 24,
+      "canonStatus": "CANON",
+      "cover": "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80"
+    }
+  ],
+  "storyArcs": [
+    {
+      "id": "arc-1",
+      "title": "The Eclipse War",
+      "issues": [
+        "Issue #7",
+        "Issue #8",
+        "Issue #9"
+      ],
+      "mainCharacters": [
+        "Archer",
+        "Viper",
+        "Nova"
+      ],
+      "majorEvents": [
+        "Eclipse Incident",
+        "Black Tower Siege"
+      ],
+      "status": "Active Production",
+      "canonStatus": "CANON"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "rel-1",
+      "source": "char-1",
+      "sourceName": "Marcus Vale (Archer)",
+      "target": "team-1",
+      "targetName": "Night Watch",
+      "type": "MEMBER_OF",
+      "startDate": "2024-03-14",
+      "endDate": "Present",
+      "description": "Founder and current leader of the taskforce.",
+      "canonStatus": "CANON"
+    },
+    {
+      "id": "rel-2",
+      "source": "char-1",
+      "sourceName": "Marcus Vale (Archer)",
+      "target": "char-2",
+      "targetName": "Viper",
+      "type": "ENEMY_OF",
+      "startDate": "2024-03-14",
+      "endDate": "Present",
+      "description": "Bitterness stemming from the Genesis Project tragedy and subsequent terrorist attacks.",
+      "canonStatus": "CANON"
+    },
+    {
+      "id": "rel-3",
+      "source": "char-1",
+      "sourceName": "Marcus Vale (Archer)",
+      "target": "loc-1",
+      "targetName": "New Lagos",
+      "type": "LIVES_IN",
+      "startDate": "2024-03-14",
+      "endDate": "Present",
+      "description": "Primary operational sector.",
+      "canonStatus": "CANON"
+    },
+    {
+      "id": "rel-4",
+      "source": "char-1",
+      "sourceName": "Marcus Vale (Archer)",
+      "target": "art-1",
+      "targetName": "Eclipse Bow",
+      "type": "USES",
+      "startDate": "2024-03-14",
+      "endDate": "Present",
+      "description": "Primary signature weapon.",
+      "canonStatus": "CANON"
+    },
+    {
+      "id": "rel-5",
+      "source": "char-3",
+      "sourceName": "Dr. Nova Chen (Nova)",
+      "target": "char-1",
+      "targetName": "Marcus Vale (Archer)",
+      "type": "ALLY_OF",
+      "startDate": "2024-05-10",
+      "endDate": "Present",
+      "description": "Close tactical partner and confidante.",
+      "canonStatus": "CANON"
+    }
+  ],
+  "scripts": [
+    {
+      "id": "script-1",
+      "issueId": "issue-1",
+      "pageNumber": 1,
+      "panelNumber": 1,
+      "setting": "EXT. NEW LAGOS SKYLINE — NIGHT",
+      "description": "Heavy cyber-rain pours over glowing neon pagoda spires. A lone figure stands perched on the gargoyle ridge of the Black Tower.",
+      "dialogue": [
+        {
+          "character": "ARCHER",
+          "text": "The rain doesn't wash away the blood, Nova. It just makes it conduct better."
+        }
+      ],
+      "narration": "New Lagos. Year 2026 of the Post-Eclipse Epoch. The city breathes in neon and exhales smoke.",
+      "sfx": "THROBBING LOW-FREQUENCY HUM",
+      "artistNote": "Emphasize verticality and glowing cyan neon against obsidian armor.",
+      "editorNote": "Approved."
+    },
+    {
+      "id": "script-2",
+      "issueId": "issue-1",
+      "pageNumber": 1,
+      "panelNumber": 2,
+      "setting": "INT. BLACK TOWER COMMAND DECK",
+      "description": "Nova's fingers fly across holographic touch-displays as alarm runes flare red.",
+      "dialogue": [
+        {
+          "character": "NOVA",
+          "text": "Archer, we've got an unauthorized quantum signature breaching Sector 4! It's Viper's bio-signature."
+        }
+      ],
+      "sfx": "WARNING KLAXON BEEP BEEP",
+      "artistNote": "Warm amber glow from holographic displays contrasting with cold blue room lighting.",
+      "editorNote": ""
+    }
+  ],
+  "artwork": [
+    {
+      "id": "artw-1",
+      "title": "Archer Official Character Sheet",
+      "entityId": "char-1",
+      "entityType": "Character",
+      "stage": "OFFICIAL",
+      "url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=80",
+      "artist": "Kaelen Voss",
+      "version": "3.0",
+      "notes": "Updated tactical coat with kinetic weave lines.",
+      "canonStatus": "CANON"
+    },
+    {
+      "id": "artw-2",
+      "title": "Viper Concept Thumbnail",
+      "entityId": "char-2",
+      "entityType": "Character",
+      "stage": "CONCEPT",
+      "url": "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=1200&q=80",
+      "artist": "Maya Lin",
+      "version": "1.2",
+      "notes": "Exploring venom duct glow patterns.",
+      "canonStatus": "DRAFT"
+    }
+  ],
+  "auditLogs": [
+    {
+      "id": "audit-1",
+      "timestamp": "2026-09-22T09:47:59.781Z",
+      "user": "Andrei Thorne (Editor)",
+      "action": "APPROVED_CANON",
+      "details": "Approved Issue #7 and updated Archer's kinetic energy absorption threshold."
+    },
+    {
+      "id": "audit-2",
+      "timestamp": "2026-09-21T09:47:59.781Z",
+      "user": "Elena Vance (Writer)",
+      "action": "CREATED_SCRIPT",
+      "details": "Added Script pages 1-2 for Issue #7."
+    }
+  ],
+  "comments": [
+    {
+      "id": "comm-1",
+      "targetId": "issue-1",
+      "targetType": "Issue",
+      "author": "Andrei Thorne",
+      "text": "Great opening hook on page 1. Make sure Viper's entrance matches her dialogue in Issue #2.",
+      "timestamp": "2026-09-22T21:47:59.781Z",
+      "resolved": false
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-1",
+      "issueId": "issue-1",
+      "stage": "PENCILS",
+      "assignee": "Kaelen Voss",
+      "deadline": "2026-10-01",
+      "status": "IN_PROGRESS"
+    },
+    {
+      "id": "task-2",
+      "issueId": "issue-1",
+      "stage": "COLORS",
+      "assignee": "Maya Lin",
+      "deadline": "2026-10-10",
+      "status": "PENDING"
+    }
+  ],
+  "retcons": [
+    {
+      "id": "ret-1",
+      "entityId": "char-1",
+      "entityName": "Marcus Vale (Archer)",
+      "field": "birthDate",
+      "oldValue": "1999-04-12",
+      "newValue": "2001-04-12",
+      "reason": "Timeline synchronization for orbital academy flashback in Issue #12.",
+      "issue": "Issue #12",
+      "approvedBy": "Andrei Thorne (Editor)",
+      "date": "2026-08-01"
+    }
+  ]
+}

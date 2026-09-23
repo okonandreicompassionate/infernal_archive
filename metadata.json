@@ -1,0 +1,6 @@
+{
+  "name": "Archive",
+  "description": "Private workspace for characters, stories, timelines, scripts, and visual development.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
