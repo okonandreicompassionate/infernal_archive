@@ -722,14 +722,22 @@ app.post("/api/admin/invite", async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   if (!email)
     return res.status(400).json({ error: "An admin email is required." });
-  const inviteRedirect = process.env.APP_URL ? `${process.env.APP_URL.replace(/\/$/, "")}/reset-password` : void 0;
+  const appUrl = process.env.APP_URL?.trim().replace(/\/$/, "");
+  if (!appUrl || !/^https?:\/\/[^\s]+$/i.test(appUrl))
+    return res.status(500).json({
+      error: "APP_URL is missing or invalid on the server. Set it to your Vercel URL, for example https://your-app.vercel.app."
+    });
+  const inviteRedirect = `${appUrl}/reset-password`;
   const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
     email,
     {
       redirectTo: inviteRedirect
     }
   );
-  if (error) return res.status(400).json({ error: error.message });
+  if (error)
+    return res.status(400).json({
+      error: `Supabase could not send the invite: ${error.message}`
+    });
   const { error: profileError } = await supabaseAdmin.from("profiles").upsert({ id: data.user.id, email, role: "admin" });
   if (profileError)
     return res.status(400).json({ error: profileError.message });
