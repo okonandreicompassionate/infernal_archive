@@ -713,7 +713,8 @@ app.post("/api/admin/invite", async (req, res) => {
   const appUrl = process.env.APP_URL?.trim().replace(/\/$/, "");
   if (!appUrl || !/^https?:\/\/[^\s]+$/i.test(appUrl))
     return res.status(500).json({
-      error: "APP_URL is missing or invalid on the server. Set it to your Vercel URL, for example https://your-app.vercel.app.",
+      error:
+        "APP_URL is missing or invalid on the server. Set it to your Vercel URL, for example https://your-app.vercel.app.",
     });
   const inviteRedirect = `${appUrl}/reset-password`;
   const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
@@ -793,11 +794,9 @@ app.delete("/api/admin/users/:id", async (req, res) => {
       .status(403)
       .json({ error: "Only the god account can delete admins." });
   if (!supabaseAdmin)
-    return res
-      .status(500)
-      .json({
-        error: "SUPABASE_SERVICE_ROLE_KEY is not configured on the server.",
-      });
+    return res.status(500).json({
+      error: "SUPABASE_SERVICE_ROLE_KEY is not configured on the server.",
+    });
   if (req.params.id === actor.user.id)
     return res
       .status(400)
