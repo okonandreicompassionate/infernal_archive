@@ -49,6 +49,10 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();
 
+-- Keep character creation compatible with the workspace description field.
+alter table if exists public.characters
+add column if not exists description text not null default '';
+
 -- Backfill the profile if the Auth user was created before the trigger existed.
 insert into public.profiles (id, email)
 select id, coalesce(email, '')

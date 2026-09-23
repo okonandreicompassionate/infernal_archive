@@ -155,6 +155,7 @@ create table if not exists public.characters (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.characters add column if not exists description text not null default '';
 
 create table if not exists public.teams (
   id text primary key,
