@@ -710,8 +710,15 @@ app.post("/api/admin/invite", async (req, res) => {
     .toLowerCase();
   if (!email)
     return res.status(400).json({ error: "An admin email is required." });
-  const { data, error } =
-    await supabaseAdmin.auth.admin.inviteUserByEmail(email);
+  const inviteRedirect = process.env.APP_URL
+    ? `${process.env.APP_URL.replace(/\/$/, "")}/reset-password`
+    : undefined;
+  const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+    email,
+    {
+      redirectTo: inviteRedirect,
+    },
+  );
   if (error) return res.status(400).json({ error: error.message });
   const { error: profileError } = await supabaseAdmin
     .from("profiles")
@@ -771,6 +778,36 @@ app.patch("/api/admin/users/:id", async (req, res) => {
     .single();
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
+});
+
+app.delete("/api/admin/users/:id", async (req, res) => {
+  const actor = await getAuthenticatedProfile(req.headers.authorization);
+  if (!actor || actor.profile.role !== "god")
+    return res
+      .status(403)
+      .json({ error: "Only the god account can delete admins." });
+  if (!supabaseAdmin)
+    return res
+      .status(500)
+      .json({
+        error: "SUPABASE_SERVICE_ROLE_KEY is not configured on the server.",
+      });
+  if (req.params.id === actor.user.id)
+    return res
+      .status(400)
+      .json({ error: "The god account cannot delete itself." });
+  const { data: target } = await supabaseAdmin
+    .from("profiles")
+    .select("role, email")
+    .eq("id", req.params.id)
+    .maybeSingle();
+  if (!target || target.role !== "admin")
+    return res
+      .status(400)
+      .json({ error: "Only normal admin accounts can be deleted here." });
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(req.params.id);
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ deleted: true, email: target.email });
 });
 
 app.patch("/api/profiles/:id", async (req, res) => {

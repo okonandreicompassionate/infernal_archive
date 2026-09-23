@@ -8,6 +8,18 @@ export const AuthScreen: React.FC = () => {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const resetPassword = async () => {
+    if (!supabase || !email) return setMessage("Enter your email first.");
+    setBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setBusy(false);
+    setMessage(
+      error ? error.message : "Check your email for a password setup link.",
+    );
+  };
+
   const signIn = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!supabase)
@@ -60,6 +72,14 @@ export const AuthScreen: React.FC = () => {
           {message && <p className="auth-message">{message}</p>}
           <button type="submit" disabled={busy}>
             {busy ? "Checking credentials..." : "Sign in"} <ArrowRight />
+          </button>
+          <button
+            type="button"
+            className="auth-secondary-action"
+            onClick={resetPassword}
+            disabled={busy}
+          >
+            Forgot password? Send a setup link
           </button>
         </form>
         <p className="auth-footnote">

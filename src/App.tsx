@@ -16,6 +16,7 @@ import { GuideModal } from "./components/GuideModal";
 import { InviteAdminModal } from "./components/InviteAdminModal";
 import { NicknameModal } from "./components/NicknameModal";
 import { SettingsPage } from "./components/SettingsPage";
+import { PasswordSetupScreen } from "./components/PasswordSetupScreen";
 import { getProfile, supabase, type UserRole } from "./utils/supabase";
 
 export default function App() {
@@ -42,6 +43,9 @@ export default function App() {
   const [profileChecked, setProfileChecked] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  const [passwordRecovery, setPasswordRecovery] = useState(
+    () => window.location.pathname === "/reset-password",
+  );
 
   useEffect(() => {
     const handlePopState = () =>
@@ -80,7 +84,8 @@ export default function App() {
       setAuthReady(true);
     });
     const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
+        if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
         const sessionUser = session?.user;
         setUser(
           sessionUser ? { id: sessionUser.id, email: sessionUser.email } : null,
@@ -123,6 +128,7 @@ export default function App() {
   if (!authReady)
     return <div className="auth-loading">Loading secure archive...</div>;
   if (!user) return <AuthScreen />;
+  if (passwordRecovery) return <PasswordSetupScreen />;
 
   return (
     <div className="universe-shell min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500 selection:text-white">

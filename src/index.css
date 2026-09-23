@@ -123,6 +123,14 @@
   opacity: 0.55;
   cursor: wait;
 }
+.auth-secondary-action {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--champagne) !important;
+  box-shadow: none !important;
+  font-size: 0.68rem !important;
+  text-decoration: underline;
+}
 .auth-message {
   margin: 0;
   color: #e58c7f;
@@ -368,6 +376,87 @@
     @media (max-width: 800px) {
       .universe-nav {
         background: #080808 !important;
+      }
+    }
+
+    /* Utility rail refinement: quiet controls, one clear action, no ornamental shadows. */
+    .universe-nav > div:first-child > div:last-child {
+      gap: 0.5rem;
+    }
+
+    .universe-nav > div:first-child input {
+      height: 2.75rem;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      border-radius: 4px !important;
+      background: #1b1b1b !important;
+      color: #f7f7f5 !important;
+    }
+
+    .universe-nav > div:first-child > div:last-child > button {
+      min-height: 2.75rem;
+      border-radius: 4px !important;
+      box-shadow: none !important;
+      transition:
+        background-color 140ms ease,
+        color 140ms ease,
+        border-color 140ms ease;
+    }
+
+    .universe-nav > div:first-child > div:last-child > button.bg-yellow-400,
+    .universe-nav
+      > div:first-child
+      > div:last-child
+      > button[class*="bg-yellow-400"] {
+      background: #bd403b !important;
+      border: 1px solid #d45a54 !important;
+      color: #fff !important;
+      box-shadow: none !important;
+    }
+
+    .universe-nav
+      > div:first-child
+      > div:last-child
+      > button.bg-yellow-400:hover,
+    .universe-nav
+      > div:first-child
+      > div:last-child
+      > button[class*="bg-yellow-400"]:hover {
+      background: #a73531 !important;
+    }
+
+    .universe-nav
+      > div:first-child
+      > div:last-child
+      > button:not([class*="bg-yellow-400"]) {
+      background: #151515 !important;
+      border: 1px solid #303030 !important;
+      color: #c7c7c2 !important;
+    }
+
+    .universe-nav
+      > div:first-child
+      > div:last-child
+      > button:not([class*="bg-yellow-400"]):hover {
+      background: #242424 !important;
+      color: #fff !important;
+    }
+
+    .universe-nav > div:first-child > div:last-child > button:last-child {
+      flex: 0 0 2.75rem;
+    }
+
+    @media (min-width: 801px) {
+      .universe-nav > div:first-child > div:last-child > button {
+        min-height: 2.5rem;
+      }
+
+      .universe-nav
+        > div:first-child
+        > div:last-child
+        > button:not(:first-child)
+        span {
+        white-space: nowrap;
       }
     }
     padding: 1.5rem;
@@ -1262,6 +1351,17 @@ body {
   color: var(--paper-muted);
   font-size: 0.72rem;
 }
+.managed-user-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.managed-user-actions button svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
 .danger-button {
   border-color: #b85b50;
   background: transparent;
@@ -1271,6 +1371,19 @@ body {
   border-color: var(--champagne);
   background: transparent;
   color: var(--champagne);
+}
+.delete-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid #7f2927;
+  background: transparent;
+  color: #e58c7f;
+  padding: 0.7rem 0.85rem;
+  font:
+    0.68rem "DM Mono",
+    monospace;
+  cursor: pointer;
 }
 .settings-empty {
   color: var(--paper-muted);

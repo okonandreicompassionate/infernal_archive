@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Check, LockKeyhole, Settings, UserRound, UserX } from "lucide-react";
+import {
+  Check,
+  LockKeyhole,
+  Settings,
+  UserRound,
+  UserX,
+  Trash2,
+} from "lucide-react";
 import { authorizedFetch, supabase, type UserRole } from "../utils/supabase";
 
 interface SettingsPageProps {
@@ -69,6 +76,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       setUsers((current) =>
         current.map((user) => (user.id === updated.id ? updated : user)),
       );
+    }
+  };
+
+  const deleteUser = async (managedUser: ManagedUser) => {
+    if (
+      !window.confirm(
+        `Delete ${managedUser.email}? This removes the Auth account and profile. The email can then be invited again.`,
+      )
+    )
+      return;
+    const response = await authorizedFetch(
+      `/api/admin/users/${managedUser.id}`,
+      { method: "DELETE" },
+    );
+    if (response.ok) {
+      setUsers((current) =>
+        current.filter((user) => user.id !== managedUser.id),
+      );
+    } else {
+      const result = await response.json().catch(() => ({}));
+      setMessage(result.error || "Admin could not be deleted.");
     }
   };
 
@@ -152,12 +180,23 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     <strong>{user.display_name || user.email}</strong>
                     <span>{user.email}</span>
                   </div>
-                  <button
-                    onClick={() => toggleUser(user)}
-                    className={user.active ? "danger-button" : "restore-button"}
-                  >
-                    {user.active ? "Deactivate" : "Reactivate"}
-                  </button>
+                  <div className="managed-user-actions">
+                    <button
+                      onClick={() => toggleUser(user)}
+                      className={
+                        user.active ? "danger-button" : "restore-button"
+                      }
+                    >
+                      {user.active ? "Deactivate" : "Reactivate"}
+                    </button>
+                    <button
+                      onClick={() => deleteUser(user)}
+                      className="delete-button"
+                      title="Delete admin account"
+                    >
+                      <Trash2 /> Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             {users.filter((user) => user.role === "admin").length === 0 && (
