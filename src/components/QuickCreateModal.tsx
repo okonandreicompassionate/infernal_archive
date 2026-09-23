@@ -169,7 +169,6 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
 
     if (entityType === "characters") {
       payload.codeName = codeName || extraField || "Operative";
-      payload.universeId = "univ-1";
       payload.species = "Human";
       payload.currentStatus = "Active";
       payload.hair = hairColor || "Unspecified";
@@ -192,7 +191,6 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
       }
     } else if (entityType === "teams") {
       payload.type = extraField || "Taskforce";
-      payload.universeId = "univ-1";
     } else if (entityType === "artifacts") {
       payload.type = extraField || "Weapon";
       payload.status = "Active";
