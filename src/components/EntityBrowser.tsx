@@ -98,6 +98,32 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (!selectedIds.length) return;
+    if (
+      !confirm(
+        `Delete ${selectedIds.length} selected ${entityType} record${selectedIds.length === 1 ? "" : "s"}? This cannot be undone.`,
+      )
+    )
+      return;
+    try {
+      const responses = await Promise.all(
+        selectedIds.map((id) =>
+          fetch(`/api/${apiPath}/${id}`, { method: "DELETE" }),
+        ),
+      );
+      const failed = responses.filter((response) => !response.ok).length;
+      if (failed)
+        alert(
+          `${failed} record${failed === 1 ? "" : "s"} could not be deleted.`,
+        );
+      loadData();
+    } catch (error) {
+      console.error("Bulk delete failed", error);
+      alert("The selected records could not be deleted.");
+    }
+  };
+
   const handleBulkAddTag = async () => {
     if (!bulkTagInput.trim() || selectedIds.length === 0) return;
     const tagToAdd = bulkTagInput.trim();
@@ -455,6 +481,14 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
           </div>
 
           <div className="flex-1 flex flex-col sm:flex-row items-center gap-2 w-full">
+            <button
+              onClick={handleBulkDelete}
+              className="delete-button whitespace-nowrap"
+              title="Delete selected records"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete selected
+            </button>
             <div className="flex items-center space-x-2 w-full">
               <div className="relative flex-1">
                 <Tag className="absolute left-3 top-2.5 w-3.5 h-3.5 text-zinc-400" />
