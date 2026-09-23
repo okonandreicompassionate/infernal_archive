@@ -16,6 +16,7 @@ import {
   CheckSquare,
   Square,
   X,
+  LayoutGrid,
 } from "lucide-react";
 
 interface EntityBrowserProps {
@@ -35,6 +36,7 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
   const [canonFilter, setCanonFilter] = useState("ALL");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkTagInput, setBulkTagInput] = useState("");
+  const [columns, setColumns] = useState<6 | 12 | 20>(6);
 
   const endpointMap: Record<string, string> = {
     characters: "characters",
@@ -257,6 +259,22 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
             <option value="DRAFT">Draft</option>
             <option value="ALTERNATE">Alternate</option>
           </select>
+          <div className="record-density-control" aria-label="Records per row">
+            <LayoutGrid className="w-3.5 h-3.5 text-zinc-400" />
+            {[6, 12, 20].map((value) => (
+              <button
+                type="button"
+                key={value}
+                onClick={() => setColumns(value as 6 | 12 | 20)}
+                className={
+                  columns === value ? "density-option active" : "density-option"
+                }
+                title={`${value} records per row`}
+              >
+                {value}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -277,7 +295,10 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div
+          className="record-grid"
+          style={{ "--record-columns": columns } as React.CSSProperties}
+        >
           {filteredItems.map((item) => {
             const isSelected = selectedIds.includes(item.id);
             return (

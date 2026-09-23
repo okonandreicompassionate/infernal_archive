@@ -1385,6 +1385,58 @@ body {
     monospace;
   cursor: pointer;
 }
+.record-density-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  border: 1px solid var(--line);
+  background: #151515;
+}
+.density-option {
+  min-width: 1.8rem;
+  padding: 0.35rem 0.25rem;
+  border: 0;
+  background: transparent;
+  color: #a8a8a3;
+  font:
+    0.65rem "DM Mono",
+    monospace;
+  cursor: pointer;
+}
+.density-option.active,
+.density-option:hover {
+  background: var(--acid);
+  color: #fff;
+}
+.record-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--record-columns), minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.record-grid > * {
+  min-width: 0;
+}
+.record-grid img {
+  max-height: 12rem;
+}
+@media (max-width: 1100px) {
+  .record-grid {
+    grid-template-columns: repeat(
+      min(6, var(--record-columns)),
+      minmax(0, 1fr)
+    );
+  }
+}
+@media (max-width: 700px) {
+  .record-density-control {
+    display: none;
+  }
+  .record-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
+}
 .settings-empty {
   color: var(--paper-muted);
   font-size: 0.8rem;
