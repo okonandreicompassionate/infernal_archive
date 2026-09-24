@@ -1664,11 +1664,13 @@ app.post("/api/ai/character-drafts", async (req, res) => {
 Turn the user's raw character notes into editable draft records. Split multiple characters when the notes clearly describe multiple people.
 Do not create canon facts silently. Preserve supplied facts, label uncertain additions as suggestions in the notes, and keep names faithful to the input.
 Return ONLY valid JSON with this exact shape:
-{"characters":[{"name":"","codeName":"","species":"","height":"","occupation":"","description":"","origin":"","majorAbilities":"","secondaryAbilities":"","weaknesses":"","personality":"","appearance":"","affiliation":"","currentStatus":"DRAFT","suggestions":[""]}]}
-Use empty strings when unknown. Never include markdown fences or commentary.
+{"characters":[{"name":"","codeName":"","species":"","height":"","occupation":"","description":"","origin":"","majorAbilities":"","secondaryAbilities":"","weaknesses":"","personality":"","appearance":"","affiliation":"","currentStatus":"DRAFT","suggestions":[""],"relationSuggestions":[{"targetName":"","targetType":"character","relationType":"ALLY_OF","description":"","confidence":"medium"}]}]}
+Use empty strings when unknown. Only suggest relationships supported by the raw notes or clear archive matches. Never include markdown fences or commentary.
 
-Existing archive context for continuity only:
-${JSON.stringify((archive.characters || []).map((character) => ({ name: character.name, codeName: character.codeName, species: character.species })))}
+Existing archive context for continuity and relationship matching:
+Characters: ${JSON.stringify((archive.characters || []).map((character) => ({ name: character.name, codeName: character.codeName, species: character.species })))}
+Teams: ${JSON.stringify((archive.teams || []).map((team) => ({ name: team.name, type: team.type })))}
+Existing relationships: ${JSON.stringify((archive.relationships || []).slice(0, 200))}
 
 User's raw notes:
 ${rawText}`;
@@ -1692,7 +1694,14 @@ ${rawText}`;
         appearance: String(character.appearance || ""),
         affiliation: String(character.affiliation || ""),
         currentStatus: String(character.currentStatus || "DRAFT"),
-        suggestions: Array.isArray(character.suggestions) ? character.suggestions.map(String) : []
+        suggestions: Array.isArray(character.suggestions) ? character.suggestions.map(String) : [],
+        relationSuggestions: Array.isArray(character.relationSuggestions) ? character.relationSuggestions.map((relation) => ({
+          targetName: String(relation.targetName || ""),
+          targetType: relation.targetType === "team" ? "team" : "character",
+          relationType: String(relation.relationType || "ALLY_OF"),
+          description: String(relation.description || ""),
+          confidence: String(relation.confidence || "medium")
+        })) : []
       }))
     });
   } catch (error) {

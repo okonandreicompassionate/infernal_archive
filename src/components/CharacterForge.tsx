@@ -17,6 +17,15 @@ type DraftCharacter = {
   affiliation: string;
   currentStatus: string;
   suggestions: string[];
+  relationSuggestions: RelationSuggestion[];
+};
+
+type RelationSuggestion = {
+  targetName: string;
+  targetType: "character" | "team";
+  relationType: string;
+  description: string;
+  confidence: string;
 };
 
 const emptyDraft: DraftCharacter = {
@@ -35,6 +44,7 @@ const emptyDraft: DraftCharacter = {
   affiliation: "",
   currentStatus: "DRAFT",
   suggestions: [],
+  relationSuggestions: [],
 };
 
 const fields: Array<[keyof DraftCharacter, string]> = [
@@ -126,6 +136,55 @@ export const CharacterForge: React.FC = () => {
         }),
       );
       const failed = results.filter((response) => !response.ok).length;
+      if (!failed) {
+        const createdCharacters = await Promise.all(
+          results.map((response) => response.json()),
+        );
+        const [existingCharacters, existingTeams] = await Promise.all([
+          fetch("/api/characters").then((response) => response.json()),
+          fetch("/api/teams").then((response) => response.json()),
+        ]);
+        const allCharacters = [
+          ...(Array.isArray(existingCharacters) ? existingCharacters : []),
+          ...createdCharacters,
+        ];
+        const relationRequests = selected.flatMap((index, selectedIndex) => {
+          const source = createdCharacters[selectedIndex];
+          const draft = drafts[index];
+          return (draft.relationSuggestions || []).flatMap((relation) => {
+            const targetPool =
+              relation.targetType === "team" ? existingTeams : allCharacters;
+            const target = (Array.isArray(targetPool) ? targetPool : []).find(
+              (candidate: any) =>
+                String(candidate.name || "").toLowerCase() ===
+                  relation.targetName.toLowerCase() ||
+                String(candidate.codeName || "").toLowerCase() ===
+                  relation.targetName.toLowerCase(),
+            );
+            if (!target || !source?.id) return [];
+            return [
+              {
+                source: source.id,
+                sourceName: source.name,
+                target: target.id,
+                targetName: target.name,
+                type: relation.relationType,
+                description: relation.description,
+                canonStatus: "DRAFT",
+              },
+            ];
+          });
+        });
+        await Promise.all(
+          relationRequests.map((relation) =>
+            fetch("/api/relationships", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(relation),
+            }),
+          ),
+        );
+      }
       setMessage(
         failed
           ? `${failed} draft(s) could not be saved.`
@@ -290,6 +349,26 @@ export const CharacterForge: React.FC = () => {
                 {draft.suggestions.map((suggestion) => (
                   <p key={suggestion} className="mt-1 text-xs text-zinc-300">
                     {suggestion}
+                  </p>
+                ))}
+              </div>
+            )}
+            {draft.relationSuggestions.length > 0 && (
+              <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-cyan-300">
+                  Suggested relationships
+                </p>
+                {draft.relationSuggestions.map((relation) => (
+                  <p
+                    key={`${relation.targetType}-${relation.targetName}-${relation.relationType}`}
+                    className="mt-1 text-xs text-zinc-300"
+                  >
+                    <strong>{relation.relationType}</strong>{" "}
+                    {relation.targetName}{" "}
+                    <span className="text-zinc-500">
+                      ({relation.confidence})
+                    </span>
+                    {relation.description ? `: ${relation.description}` : ""}
                   </p>
                 ))}
               </div>
