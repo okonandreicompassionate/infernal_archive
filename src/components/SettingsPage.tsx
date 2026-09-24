@@ -89,10 +89,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   };
 
   useEffect(() => {
-    if (role !== "god") return;
-    authorizedFetch("/api/admin/users").then(async (response) => {
-      if (response.ok) setUsers(await response.json());
-    });
+    if (role !== "god" && role !== "admin") return;
+    if (role === "god") {
+      authorizedFetch("/api/admin/users").then(async (response) => {
+        if (response.ok) setUsers(await response.json());
+      });
+    }
     refreshProviderKeyState().catch(() => undefined);
   }, [role]);
 
@@ -252,7 +254,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           </div>
         </article>
       </section>
-      {role === "god" && (
+      {(role === "god" || role === "admin") && (
         <>
           <section className="settings-panel admin-management">
             <div className="settings-panel-heading">
