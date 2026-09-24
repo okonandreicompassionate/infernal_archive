@@ -1,4 +1,10 @@
 {
-  "groq": [],
+  "groq": [
+    {
+      "key": "gsk_test_key_123",
+      "label": "Test",
+      "provider": "groq"
+    }
+  ],
   "gemini": []
 }

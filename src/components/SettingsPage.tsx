@@ -66,30 +66,34 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     setName(displayName);
   }, [displayName]);
 
+  const refreshProviderKeyState = async () => {
+    const response = await fetch("/api/ai/provider-keys");
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    setActiveProvider(data.activeProvider === "gemini" ? "gemini" : "groq");
+    setProviderKeyStatus({
+      groq: data.providers?.groq || [],
+      gemini: data.providers?.gemini || [],
+    });
+    setProviderKeys({
+      groq: (data.providers?.groq || [])
+        .map((item: any) => `${item.label || "Key"} | ${item.key}`)
+        .join("\n"),
+      gemini: (data.providers?.gemini || [])
+        .map((item: any) => `${item.label || "Key"} | ${item.key}`)
+        .join("\n"),
+    });
+
+    return data;
+  };
+
   useEffect(() => {
     if (role !== "god") return;
     authorizedFetch("/api/admin/users").then(async (response) => {
       if (response.ok) setUsers(await response.json());
     });
-    fetch("/api/ai/provider-keys")
-      .then(async (response) => {
-        if (!response.ok) return;
-        const data = await response.json();
-        setActiveProvider(data.activeProvider === "gemini" ? "gemini" : "groq");
-        setProviderKeyStatus({
-          groq: data.providers?.groq || [],
-          gemini: data.providers?.gemini || [],
-        });
-        setProviderKeys({
-          groq: (data.providers?.groq || [])
-            .map((item: any) => `${item.label || "Key"} | ${item.key}`)
-            .join("\n"),
-          gemini: (data.providers?.gemini || [])
-            .map((item: any) => `${item.label || "Key"} | ${item.key}`)
-            .join("\n"),
-        });
-      })
-      .catch(() => undefined);
+    refreshProviderKeyState().catch(() => undefined);
   }, [role]);
 
   const saveName = async (event: React.FormEvent) => {
@@ -178,11 +182,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       return;
     }
 
+    await refreshProviderKeyState();
     setProviderKeyStatus((current) => ({
       ...current,
       [provider]: result.keys || [],
     }));
-    setKeyMessage(`${provider.toUpperCase()} keys updated.`);
+    setKeyMessage(
+      `${provider.toUpperCase()} keys saved to disk and reloaded from the server.`,
+    );
     setActiveProvider(result.activeProvider === "gemini" ? "gemini" : "groq");
   };
 
