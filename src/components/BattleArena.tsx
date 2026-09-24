@@ -61,6 +61,7 @@ type BattleSummary = {
 type PartyPlayer = {
   id: string;
   name: string;
+  teamName: string;
   isHost?: boolean;
   picks: CharacterRecord[];
 };
@@ -234,10 +235,18 @@ function BattleArena({ publicMode = false }: { publicMode?: boolean }) {
   const [teamA, setTeamA] = useState<CharacterRecord[]>([]);
   const [teamB, setTeamB] = useState<CharacterRecord[]>([]);
   const [partyPlayers, setPartyPlayers] = useState<PartyPlayer[]>([
-    { id: "host", name: "HOST", isHost: true, picks: [] },
-    { id: "guest-1", name: "PLAYER 2", picks: [] },
+    {
+      id: "host",
+      name: "HOST",
+      teamName: "Host Squad",
+      isHost: true,
+      picks: [],
+    },
   ]);
   const [roomCode, setRoomCode] = useState(generateRoomCode());
+  const [joinName, setJoinName] = useState("");
+  const [joinTeamName, setJoinTeamName] = useState("");
+  const [joinRoomCode, setJoinRoomCode] = useState("");
   const [battleResult, setBattleResult] = useState<BattleSummary | null>(null);
   const [gameStats, setGameStats] = useState<any>(() => getStoredGameStats());
 
@@ -414,9 +423,44 @@ function BattleArena({ publicMode = false }: { publicMode?: boolean }) {
       {
         id: `guest-${Date.now()}`,
         name: `PLAYER ${current.length + 1}`,
+        teamName: `Rival Squad ${current.length}`,
         picks: [],
       },
     ]);
+  };
+
+  const joinPartyRoom = () => {
+    const trimmedName = joinName.trim();
+    const trimmedTeam = joinTeamName.trim();
+    const trimmedRoomCode = joinRoomCode.trim().toUpperCase();
+    if (!trimmedName || !trimmedTeam || !trimmedRoomCode) return;
+    if (trimmedRoomCode !== roomCode) return;
+
+    setPartyPlayers((current) => {
+      if (current.some((player) => player.name === trimmedName)) {
+        return current;
+      }
+      return [
+        ...current,
+        {
+          id: `join-${Date.now()}`,
+          name: trimmedName,
+          teamName: trimmedTeam,
+          picks: [],
+        },
+      ];
+    });
+    setJoinName("");
+    setJoinTeamName("");
+    setJoinRoomCode("");
+  };
+
+  const updatePartyPlayerTeamName = (id: string, teamName: string) => {
+    setPartyPlayers((current) =>
+      current.map((player) =>
+        player.id === id ? { ...player, teamName } : player,
+      ),
+    );
   };
 
   const autoDraftParty = () => {
@@ -792,6 +836,54 @@ function BattleArena({ publicMode = false }: { publicMode?: boolean }) {
                 </button>
               </div>
 
+              <div className="mb-4 grid gap-3 rounded-2xl border border-white/10 bg-zinc-950/80 p-3 md:grid-cols-3">
+                <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+                  Room code
+                  <input
+                    value={roomCode}
+                    readOnly
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white"
+                  />
+                </label>
+                <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+                  Player name
+                  <input
+                    value={joinName}
+                    onChange={(event) => setJoinName(event.target.value)}
+                    placeholder="Your name"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
+                  />
+                </label>
+                <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+                  Team name
+                  <input
+                    value={joinTeamName}
+                    onChange={(event) => setJoinTeamName(event.target.value)}
+                    placeholder="Shadow Vanguard"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
+                  />
+                </label>
+              </div>
+
+              <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-white/10 bg-zinc-950/80 p-3 md:flex-row md:items-end">
+                <label className="flex-1 text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+                  Join room code
+                  <input
+                    value={joinRoomCode}
+                    onChange={(event) => setJoinRoomCode(event.target.value)}
+                    placeholder="ENTER CODE"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-sm uppercase tracking-[0.2em] text-white placeholder:text-zinc-500"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={joinPartyRoom}
+                  className="rounded-full border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-cyan-200"
+                >
+                  Join room
+                </button>
+              </div>
+
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 {partyPlayers.map((player) => (
                   <div
@@ -808,6 +900,19 @@ function BattleArena({ publicMode = false }: { publicMode?: boolean }) {
                         </span>
                       )}
                     </div>
+                    <label className="mt-3 block text-[9px] uppercase tracking-[0.2em] text-zinc-500">
+                      Team name
+                      <input
+                        value={player.teamName}
+                        onChange={(event) =>
+                          updatePartyPlayerTeamName(
+                            player.id,
+                            event.target.value,
+                          )
+                        }
+                        className="mt-1 w-full rounded-lg border border-white/10 bg-zinc-900 px-2 py-1.5 text-xs text-white"
+                      />
+                    </label>
                     <div className="mt-3 space-y-2">
                       {player.picks.length > 0 ? (
                         player.picks.map((pick) => (

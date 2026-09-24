@@ -488,11 +488,13 @@ function loadPersistedKeyConfig() {
 var persistedKeyConfig = loadPersistedKeyConfig();
 function normalizeProviderEntries(provider, rawEntries) {
   const list = Array.isArray(rawEntries) ? rawEntries : [];
-  const normalized = list.map((entry) => ({
-    key: String(entry?.key || "").trim(),
-    label: String(entry?.label || "Key").trim() || "Key",
-    provider
-  })).filter((entry) => entry.key);
+  const normalized = list.map((entry) => {
+    const rawKey = typeof entry === "string" ? entry : entry?.key || entry?.value || entry?.token || entry?.apiKey || "";
+    const rawLabel = typeof entry === "string" ? "Key" : entry?.label || entry?.name || "Key";
+    const key = String(rawKey).trim();
+    const label = String(rawLabel).trim() || "Key";
+    return { key, label, provider };
+  }).filter((entry) => entry.key);
   const seen = /* @__PURE__ */ new Set();
   return normalized.filter((entry) => {
     if (seen.has(entry.key)) return false;
@@ -756,7 +758,8 @@ async function sendResendEmail(to, subject, html) {
     throw new Error(data.message || "Resend email request failed.");
   return data.id;
 }
-app.use(import_express.default.json());
+app.use(import_express.default.json({ limit: "1mb" }));
+app.use(import_express.default.urlencoded({ extended: true }));
 app.get("/api/ai/provider-keys", (_req, res) => {
   persistedKeyConfig = loadPersistedKeyConfig();
   const providers = ["groq", "gemini"];
@@ -773,7 +776,14 @@ app.post("/api/ai/provider-keys", (req, res) => {
   if (!targetProvider || !["groq", "gemini"].includes(targetProvider)) {
     return res.status(400).json({ error: "Provider must be groq or gemini." });
   }
-  const rawEntries = Array.isArray(entries) ? entries : typeof keys === "string" ? keys.split(/\n|,/).map((value) => value.trim()).filter(Boolean).map((key) => ({ key, label: "Key" })) : [];
+  const rawEntries = Array.isArray(entries) ? entries : typeof keys === "string" ? keys.split(/\n|,/).map((value) => value.trim()).filter(Boolean).map((value) => {
+    const separatorIndex = value.indexOf("|");
+    if (separatorIndex === -1) return { key: value, label: "Key" };
+    return {
+      key: value.slice(separatorIndex + 1).trim(),
+      label: value.slice(0, separatorIndex).trim() || "Key"
+    };
+  }).filter((entry) => entry.key) : [];
   const savedEntries = applyProviderConfig(targetProvider, rawEntries, {
     setActiveProvider: Boolean(manualProvider)
   });

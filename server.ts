@@ -89,11 +89,19 @@ function normalizeProviderEntries(
 ) {
   const list = Array.isArray(rawEntries) ? rawEntries : [];
   const normalized = list
-    .map((entry: any) => ({
-      key: String(entry?.key || "").trim(),
-      label: String(entry?.label || "Key").trim() || "Key",
-      provider,
-    }))
+    .map((entry: any) => {
+      const rawKey =
+        typeof entry === "string"
+          ? entry
+          : entry?.key || entry?.value || entry?.token || entry?.apiKey || "";
+      const rawLabel =
+        typeof entry === "string"
+          ? "Key"
+          : entry?.label || entry?.name || "Key";
+      const key = String(rawKey).trim();
+      const label = String(rawLabel).trim() || "Key";
+      return { key, label, provider };
+    })
     .filter((entry) => entry.key);
 
   const seen = new Set<string>();
@@ -435,7 +443,8 @@ async function sendResendEmail(to: string, subject: string, html: string) {
   return data.id;
 }
 
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true }));
 
 app.get("/api/ai/provider-keys", (_req, res) => {
   persistedKeyConfig = loadPersistedKeyConfig();
@@ -463,7 +472,15 @@ app.post("/api/ai/provider-keys", (req, res) => {
           .split(/\n|,/)
           .map((value) => value.trim())
           .filter(Boolean)
-          .map((key) => ({ key, label: "Key" }))
+          .map((value) => {
+            const separatorIndex = value.indexOf("|");
+            if (separatorIndex === -1) return { key: value, label: "Key" };
+            return {
+              key: value.slice(separatorIndex + 1).trim(),
+              label: value.slice(0, separatorIndex).trim() || "Key",
+            };
+          })
+          .filter((entry) => entry.key)
       : [];
 
   const savedEntries = applyProviderConfig(targetProvider, rawEntries, {
