@@ -41,12 +41,19 @@ var supabaseAdmin = supabaseUrl && serviceRoleKey ? (0, import_supabase_js.creat
   auth: { autoRefreshToken: false, persistSession: false }
 }) : null;
 var databaseClient = () => supabaseAdmin || supabase;
+function getUserClient(authorization) {
+  if (!supabaseUrl || !supabaseKey || !authorization?.startsWith("Bearer "))
+    return null;
+  const token = authorization.slice("Bearer ".length);
+  return (0, import_supabase_js.createClient)(supabaseUrl, supabaseKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } }
+  });
+}
 async function getAuthenticatedProfile(authorization) {
   if (!supabase || !authorization?.startsWith("Bearer ")) return null;
   const token = authorization.slice("Bearer ".length);
-  const userClient = (0, import_supabase_js.createClient)(supabaseUrl, supabaseKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } }
-  });
+  const userClient = getUserClient(authorization);
+  if (!userClient) return null;
   const { data: userData } = await userClient.auth.getUser(token);
   if (!userData.user) return null;
   const { data: profile } = await userClient.from("profiles").select("id, email, display_name, role, active").eq("id", userData.user.id).maybeSingle();
@@ -118,6 +125,279 @@ async function deleteRow(collection, id) {
   const { data, error } = await client.from(tableForCollection(collection)).delete().eq("id", id).select().single();
   if (error) return { data: null, error: error.message };
   return { data: fromSupabaseRow(data), error: null };
+}
+
+// utils/combatEngine.ts
+function mulberry32(seed) {
+  let a = seed;
+  return () => {
+    a |= 0;
+    a = a + 1831565813 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = Math.imul(31, hash) + str.charCodeAt(i) | 0;
+  }
+  return hash >>> 0;
+}
+function countMatches(text, keywords) {
+  const lower = text.toLowerCase();
+  return keywords.reduce((count, kw) => lower.includes(kw) ? count + 1 : count, 0);
+}
+var textBlob = (c) => [
+  c.personality,
+  c.positiveTraits,
+  c.negativeTraits,
+  c.battlePhilosophy,
+  c.majorAbilities,
+  c.secondaryAbilities,
+  c.signatureTechniques,
+  c.physicalAppearance,
+  c.occupation,
+  (c.powers || []).join(" "),
+  (c.skills || []).join(" ")
+].filter(Boolean).join(" ").toLowerCase();
+function deriveStats(c, rng) {
+  const blob = textBlob(c);
+  const powerCount = c.powers?.length || 0;
+  const skillCount = c.skills?.length || 0;
+  const weaknessCount = c.weaknesses?.length || 0;
+  const equipmentCount = c.equipment?.length || 0;
+  const variance = () => rng() * 10;
+  const speed = 40 + powerCount * 3 + countMatches(blob, ["speed", "reflexes", "agile", "swift", "fast"]) * 8 + variance();
+  const durability = 40 + countMatches(blob, [
+    "durab",
+    "regenerat",
+    "armor",
+    "resilient",
+    "tank",
+    "invulnerab"
+  ]) * 10 + equipmentCount * 3 + variance();
+  const intelligence = 40 + countMatches(blob, [
+    "genius",
+    "tactician",
+    "strategist",
+    "scientist",
+    "intellect",
+    "analytical",
+    "engineer"
+  ]) * 10 + skillCount * 2 + variance();
+  const combatExperience = 40 + countMatches(blob, [
+    "veteran",
+    "trained",
+    "master",
+    "combat",
+    "soldier",
+    "warrior",
+    "assassin",
+    "operative"
+  ]) * 8 + skillCount * 3 + variance();
+  const rawPower = 40 + powerCount * 12 + countMatches(blob, [
+    "cosmic",
+    "godlike",
+    "omnipotent",
+    "reality",
+    "multiversal",
+    "primordial"
+  ]) * 15 + variance();
+  const weaknessPenalty = weaknessCount * 6;
+  const basePower = rawPower * 0.35 + speed * 0.15 + durability * 0.2 + intelligence * 0.1 + combatExperience * 0.2 - weaknessPenalty;
+  return {
+    speed,
+    durability,
+    intelligence,
+    combatExperience,
+    rawPower,
+    weaknessPenalty,
+    basePower: Math.max(10, basePower)
+  };
+}
+var INTERACTIONS = [
+  { a: ["fire", "flame", "heat", "pyro", "inferno"], b: ["ice", "cold", "frost", "cryo"], label: "Thermal matchup" },
+  { a: ["light", "solar", "radiant", "photon"], b: ["void", "shadow", "dark", "umbra"], label: "Light vs. void matchup" },
+  { a: ["reality", "anchor", "stabiliz"], b: ["void", "shadow", "dark", "phase", "intangib"], label: "Reality anchoring" },
+  { a: ["electric", "lightning", "volt"], b: ["water", "aqua", "hydro"], label: "Conductive matchup" },
+  { a: ["telepath", "mind", "psychic"], b: ["mindless", "construct", "robot", "android"], label: "Psionic immunity" },
+  { a: ["sonic", "sound", "vibration"], b: ["crystal", "glass", "brittle"], label: "Resonance matchup" }
+];
+function matchupModifier(a, b) {
+  const aPowers = (a.powers || []).join(" ").toLowerCase();
+  const bPowers = (b.powers || []).join(" ").toLowerCase();
+  const aWeak = (a.weaknesses || []).join(" ").toLowerCase();
+  const bWeak = (b.weaknesses || []).join(" ").toLowerCase();
+  for (const rule of INTERACTIONS) {
+    const aHasA = rule.a.some((kw) => aPowers.includes(kw));
+    const bHasA = rule.a.some((kw) => bPowers.includes(kw));
+    const bVulnerable = rule.b.some((kw) => bPowers.includes(kw) || bWeak.includes(kw));
+    const aVulnerable = rule.b.some((kw) => aPowers.includes(kw) || aWeak.includes(kw));
+    if (aHasA && bVulnerable) return { aMod: 1.18, bMod: 0.88, label: rule.label };
+    if (bHasA && aVulnerable) return { aMod: 0.88, bMod: 1.18, label: rule.label };
+  }
+  return { aMod: 1, bMod: 1, label: null };
+}
+function environmentModifier(c, location, conditions) {
+  if (!location) return { mod: 1, label: null };
+  const blob = textBlob(c);
+  const cond = conditions.toLowerCase();
+  let mod = 1;
+  let label = null;
+  if (location.dominantSpecies && c.species && location.dominantSpecies.toLowerCase().includes(c.species.toLowerCase())) {
+    mod *= 1.1;
+    label = "Home-turf familiarity";
+  }
+  if (cond.includes("night") && countMatches(blob, ["shadow", "void", "stealth", "night", "dark"]) > 0) {
+    mod *= 1.12;
+    label = label || "Cover of darkness";
+  }
+  if (location.atmosphere && countMatches(location.atmosphere.toLowerCase(), ["toxic", "radiation", "corrosive"]) > 0 && countMatches(blob, ["immun", "resistan", "adapt"]) === 0) {
+    mod *= 0.92;
+    label = label || "Hostile atmosphere exposure";
+  }
+  if (location.technologyLevel && countMatches(location.technologyLevel.toLowerCase(), ["high", "advanced", "futuristic"]) > 0 && countMatches(blob, ["hack", "tech", "engineer", "cyber"]) > 0) {
+    mod *= 1.1;
+    label = label || "Technological exploitation";
+  }
+  return { mod, label };
+}
+function conditionModifier(index, setup) {
+  let mod = 1;
+  let label = null;
+  if (setup.preparation === "both" || setup.preparation === "combatant1" && index === 0 || setup.preparation === "combatant2" && index === 1) {
+    mod *= 1.1;
+    label = "Preparation advantage";
+  }
+  return { mod, label };
+}
+function personalityModifier(c, setup) {
+  const blob = textBlob(c);
+  let mod = 1;
+  let label = null;
+  if (countMatches(blob, ["arrogant", "overconfiden", "cocky"]) > 0) {
+    mod *= 0.95;
+    label = "Overconfidence";
+  }
+  if (setup.morals === "canon" && countMatches(blob, ["protective", "merciful", "compassion", "heroic"]) > 0) {
+    mod *= 0.97;
+    label = label || "Restraint / held back";
+  }
+  if (countMatches(blob, ["ruthless", "strategic", "calculating", "adapt"]) > 0) {
+    mod *= 1.06;
+    label = label || "Tactical adaptability";
+  }
+  return { mod, label };
+}
+function runSimulation(combatants, location, setup, seed) {
+  const baseSeed = seed ?? hashString(`${combatants[0].id}:${combatants[1].id}:${Date.now()}:${Math.random()}`);
+  const rng = mulberry32(baseSeed);
+  const stats = [
+    deriveStats(combatants[0], rng),
+    deriveStats(combatants[1], rng)
+  ];
+  const { aMod, bMod, label: matchupLabel } = matchupModifier(combatants[0], combatants[1]);
+  const env0 = environmentModifier(combatants[0], location, setup.conditions);
+  const env1 = environmentModifier(combatants[1], location, setup.conditions);
+  const cond0 = conditionModifier(0, setup);
+  const cond1 = conditionModifier(1, setup);
+  const pers0 = personalityModifier(combatants[0], setup);
+  const pers1 = personalityModifier(combatants[1], setup);
+  const randSpread = setup.knowledge === "unknown" ? 0.35 : setup.knowledge === "partial" ? 0.22 : 0.1;
+  const rand0 = 1 - randSpread / 2 + rng() * randSpread;
+  const rand1 = 1 - randSpread / 2 + rng() * randSpread;
+  const modifiers = [
+    {
+      matchup: aMod,
+      environment: env0.mod,
+      condition: cond0.mod,
+      personality: pers0.mod,
+      randomness: rand0,
+      total: aMod * env0.mod * cond0.mod * pers0.mod * rand0
+    },
+    {
+      matchup: bMod,
+      environment: env1.mod,
+      condition: cond1.mod,
+      personality: pers1.mod,
+      randomness: rand1,
+      total: bMod * env1.mod * cond1.mod * pers1.mod * rand1
+    }
+  ];
+  const effective = [
+    stats[0].basePower * modifiers[0].total,
+    stats[1].basePower * modifiers[1].total
+  ];
+  const probability = [
+    effective[0] / (effective[0] + effective[1]),
+    effective[1] / (effective[0] + effective[1])
+  ];
+  const roll = rng();
+  const winnerIndex = roll < probability[0] ? 0 : 1;
+  const favoredIndex = stats[0].basePower >= stats[1].basePower ? 0 : 1;
+  const isUpset = winnerIndex !== favoredIndex;
+  const winnerMods = modifiers[winnerIndex];
+  const categories = [
+    ["Power matchup", winnerMods.matchup],
+    ["Environmental exploitation", winnerMods.environment],
+    ["Preparation advantage", winnerMods.condition],
+    ["Behavioral deviation", winnerMods.personality]
+  ];
+  categories.sort((a, b) => b[1] - a[1]);
+  const primaryCause = categories[0][1] > 1.01 ? categories[0][0] : "Statistical favorite";
+  const turningPoint = matchupLabel || env0.label || env1.label || cond0.label || cond1.label || pers0.label || pers1.label || "A single decisive exchange";
+  const unexpectedFactor = isUpset ? `${combatants[winnerIndex].name} overcame the numbers via ${primaryCause.toLowerCase()}.` : "None \u2014 the statistical favorite prevailed.";
+  return {
+    stats,
+    modifiers,
+    effective,
+    probability,
+    winnerIndex,
+    isUpset,
+    turningPoint,
+    primaryCause,
+    unexpectedFactor
+  };
+}
+function buildNarrativePrompt(combatants, location, setup, computation) {
+  const [a, b] = combatants;
+  const winner = combatants[computation.winnerIndex];
+  const loser = combatants[computation.winnerIndex === 0 ? 1 : 0];
+  const describe = (c) => `${c.name}${c.codeName ? ` ("${c.codeName}")` : ""} \u2014 Species: ${c.species || "Unknown"}. Powers: ${(c.powers || []).join(", ") || "none listed"}. Weaknesses: ${(c.weaknesses || []).join(", ") || "none listed"}. Fighting style / techniques: ${c.signatureTechniques || c.majorAbilities || "unspecified"}. Personality: ${c.personality || "unspecified"}. Equipment: ${(c.equipment || []).join(", ") || "none"}.`;
+  return `You are writing the narrative for a comic-book combat simulation. A rules engine has already decided the numeric outcome below \u2014 you must NOT change who wins. Your only job is to dramatize it in terse, comic-panel-style prose.
+
+COMBATANT 1: ${describe(a)}
+COMBATANT 2: ${describe(b)}
+
+LOCATION: ${location?.name || setup.locationName || "Unspecified"} (${location?.description || "no further detail"})
+STARTING DISTANCE: ${setup.distance || "unspecified"}
+KNOWLEDGE OF EACH OTHER: ${setup.knowledge}
+PREPARATION: ${setup.preparation}
+MORALS: ${setup.morals}
+CONDITIONS: ${setup.conditions}
+WIN CONDITION: ${setup.winCondition}
+
+ENGINE RESULT (do not contradict this):
+- Winner: ${winner.name}
+- Win probability at simulation start: ${(computation.probability[0] * 100).toFixed(0)}% / ${(computation.probability[1] * 100).toFixed(0)}%
+- Turning point: ${computation.turningPoint}
+- Primary cause of outcome: ${computation.primaryCause}
+- Was this an upset over the statistical favorite: ${computation.isUpset ? "yes" : "no"}
+
+Write 4 to 6 short "ROUND" beats (label each "ROUND 01", "ROUND 02", etc.), each 2-4 short sentences, escalating tension, in present tense. Reference the turning point explicitly in the round it occurs. End with one short "TWIST" paragraph revealing something about ${winner.name} or ${loser.name} that recontextualizes the fight (tie it to their personality, weakness, or relationship if plausible), still consistent with ${winner.name} winning. Do not use markdown headers, just plain paragraphs separated by "---" on their own line.`;
+}
+function fallbackNarrative(combatants, computation, setup) {
+  const winner = combatants[computation.winnerIndex];
+  const loser = combatants[computation.winnerIndex === 0 ? 1 : 0];
+  return [
+    `${combatants[0].name} and ${combatants[1].name} size each other up at ${setup.distance || "close range"}, neither committing first.`,
+    `${loser.name} opens the engagement, testing the other's reactions.`,
+    `The fight shifts: ${computation.turningPoint.toLowerCase()} changes the balance of the exchange.`,
+    `${winner.name} capitalizes on the opening, pressing the advantage before ${loser.name} can recover.`,
+    `TWIST: ${computation.unexpectedFactor}`
+  ];
 }
 
 // server.ts
@@ -696,7 +976,9 @@ var initialSeed = {
       approvedBy: "Andrei Thorne (Editor)",
       date: "2026-08-01"
     }
-  ]
+  ],
+  chatMessages: [],
+  simulations: []
 };
 function loadDB() {
   try {
@@ -718,6 +1000,8 @@ function saveDB(db2) {
   }
 }
 var db = loadDB();
+db.chatMessages = db.chatMessages || [];
+db.simulations = db.simulations || [];
 async function getCurrentArchive() {
   if (!supabase) return db;
   const entries = await Promise.all(
@@ -852,6 +1136,122 @@ app.patch("/api/profiles/:id", async (req, res) => {
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
 });
+app.get("/api/chat/contacts", async (req, res) => {
+  const actor = await getAuthenticatedProfile(req.headers.authorization);
+  if (!actor) return res.status(401).json({ error: "Sign in required." });
+  const client = supabaseAdmin || getUserClient(req.headers.authorization);
+  if (!client) return res.json([]);
+  const { data, error } = await client.from("profiles").select("id, display_name, email, role, active").neq("id", actor.user.id).eq("active", true).order("display_name", { ascending: true });
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(fromSupabaseRow(data || []));
+});
+app.get("/api/chat/dm-summary", async (req, res) => {
+  const actor = await getAuthenticatedProfile(req.headers.authorization);
+  if (!actor) return res.status(401).json({ error: "Sign in required." });
+  const meId = actor.user.id;
+  let rows = [];
+  if (supabase) {
+    const userClient = getUserClient(req.headers.authorization);
+    if (!userClient)
+      return res.status(401).json({ error: "Sign in required." });
+    const { data, error } = await userClient.from("chat_messages").select("*").eq("channel", "dm").or(`sender_id.eq.${meId},recipient_id.eq.${meId}`).order("created_at", { ascending: false }).limit(300);
+    if (error) return res.status(400).json({ error: error.message });
+    rows = fromSupabaseRow(data || []);
+  } else {
+    rows = (db.chatMessages || []).filter(
+      (m) => m.channel === "dm" && (m.senderId === meId || m.recipientId === meId)
+    ).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+  const latestByContact = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const otherId = row.senderId === meId ? row.recipientId : row.senderId;
+    if (!otherId || latestByContact.has(otherId)) continue;
+    latestByContact.set(otherId, row);
+  }
+  res.json(
+    Array.from(latestByContact.entries()).map(([contactId, row]) => ({
+      contactId,
+      contactName: row.senderId === meId ? row.recipientName : row.senderName,
+      lastMessage: row.text,
+      lastMessageAt: row.createdAt,
+      lastSenderId: row.senderId,
+      hasAttachment: Boolean(row.attachmentUrl)
+    }))
+  );
+});
+app.get("/api/chat/messages", async (req, res) => {
+  const actor = await getAuthenticatedProfile(req.headers.authorization);
+  if (!actor) return res.status(401).json({ error: "Sign in required." });
+  const channel = req.query.channel === "dm" ? "dm" : "public";
+  const otherId = String(req.query.with || "");
+  if (channel === "dm" && !otherId)
+    return res.status(400).json({ error: "A conversation partner is required." });
+  if (supabase) {
+    const userClient = getUserClient(req.headers.authorization);
+    if (!userClient)
+      return res.status(401).json({ error: "Sign in required." });
+    let query = userClient.from("chat_messages").select("*").eq("channel", channel).order("created_at", { ascending: true }).limit(200);
+    if (channel === "dm")
+      query = query.or(
+        `and(sender_id.eq.${actor.user.id},recipient_id.eq.${otherId}),and(sender_id.eq.${otherId},recipient_id.eq.${actor.user.id})`
+      );
+    const { data, error } = await query;
+    if (error) return res.status(400).json({ error: error.message });
+    return res.json(fromSupabaseRow(data || []));
+  }
+  const all = db.chatMessages || [];
+  if (channel === "public")
+    return res.json(all.filter((m) => m.channel === "public"));
+  res.json(
+    all.filter(
+      (m) => m.channel === "dm" && (m.senderId === actor.user.id && m.recipientId === otherId || m.senderId === otherId && m.recipientId === actor.user.id)
+    )
+  );
+});
+app.post("/api/chat/messages", async (req, res) => {
+  const actor = await getAuthenticatedProfile(req.headers.authorization);
+  if (!actor) return res.status(401).json({ error: "Sign in required." });
+  const text = String(req.body.text || "").trim().slice(0, 2e3);
+  const attachmentUrl = req.body.attachmentUrl ? String(req.body.attachmentUrl) : null;
+  const attachmentType = attachmentUrl ? req.body.attachmentType === "image" ? "image" : "file" : null;
+  const attachmentName = attachmentUrl ? String(req.body.attachmentName || "Attachment").slice(0, 200) : null;
+  if (!text && !attachmentUrl)
+    return res.status(400).json({ error: "A message or attachment is required." });
+  const channel = req.body.channel === "dm" ? "dm" : "public";
+  const recipientId = channel === "dm" ? String(req.body.recipientId || "") : null;
+  if (channel === "dm" && !recipientId)
+    return res.status(400).json({ error: "A DM recipient is required." });
+  const newMessage = {
+    id: `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    channel,
+    senderId: actor.user.id,
+    senderName: actor.profile.display_name || actor.profile.email,
+    recipientId,
+    // Never send a bare `null` here: the column is NOT NULL, so an explicit
+    // null (rather than an omitted key) fails the insert instead of falling
+    // back to its default.
+    recipientName: channel === "dm" ? String(req.body.recipientName || "") : "",
+    text,
+    attachmentUrl,
+    attachmentType,
+    attachmentName,
+    createdAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  if (supabase) {
+    const userClient = getUserClient(req.headers.authorization);
+    if (!userClient)
+      return res.status(401).json({ error: "Sign in required." });
+    const { data, error } = await userClient.from("chat_messages").insert(toSupabaseRow(newMessage)).select().single();
+    if (error) return res.status(400).json({ error: error.message });
+    return res.status(201).json(fromSupabaseRow(data));
+  }
+  db.chatMessages = db.chatMessages || [];
+  db.chatMessages.push(newMessage);
+  saveDB(db);
+  res.status(201).json(newMessage);
+});
 app.get("/api/overview", async (req, res) => {
   const remoteCollections = await Promise.all(
     collections.map(
@@ -980,6 +1380,155 @@ for (const col of collections) {
     res.json(removed);
   });
 }
+var publicArchiveCollections = [
+  "characters",
+  "species",
+  "powers",
+  "artifacts",
+  "teams",
+  "organizations",
+  "planets",
+  "locations"
+];
+app.get("/api/public/archive/search", async (req, res) => {
+  const query = String(req.query.q || "").trim().toLowerCase();
+  const results = [];
+  const collections2 = await Promise.all(
+    publicArchiveCollections.map(async (type) => {
+      const remote = await readCollection(type);
+      const items = supabase && remote.data !== null ? remote.data : remote.data && remote.data.length > 0 ? remote.data : db[type] || [];
+      return { type, items };
+    })
+  );
+  for (const { type, items } of collections2) {
+    for (const item of items) {
+      if (item.canonStatus !== "CANON") continue;
+      const searchable = JSON.stringify({
+        name: item.name,
+        title: item.title,
+        codeName: item.codeName,
+        description: item.description,
+        aliases: item.aliases
+      }).toLowerCase();
+      if (!query || searchable.includes(query)) results.push({ type, item });
+    }
+  }
+  res.json(results.slice(0, 100));
+});
+app.post("/api/simulate", async (req, res) => {
+  try {
+    const {
+      combatant1Id,
+      combatant2Id,
+      locationId,
+      locationName,
+      distance,
+      knowledge,
+      preparation,
+      morals,
+      conditions,
+      winCondition,
+      seed
+    } = req.body;
+    if (!combatant1Id || !combatant2Id)
+      return res.status(400).json({ error: "Two combatants are required." });
+    const charactersResult = await readCollection("characters");
+    const characters = supabase && charactersResult.data !== null ? charactersResult.data : charactersResult.data && charactersResult.data.length > 0 ? charactersResult.data : db.characters;
+    const c1 = characters.find(
+      (c) => c.id === combatant1Id && c.canonStatus === "CANON"
+    );
+    const c2 = characters.find(
+      (c) => c.id === combatant2Id && c.canonStatus === "CANON"
+    );
+    if (!c1 || !c2)
+      return res.status(404).json({ error: "One or both combatants could not be found." });
+    let location = null;
+    if (locationId) {
+      const [planetsResult, locationsResult] = await Promise.all([
+        readCollection("planets"),
+        readCollection("locations")
+      ]);
+      const planets = supabase && planetsResult.data !== null ? planetsResult.data : planetsResult.data && planetsResult.data.length > 0 ? planetsResult.data : db.planets;
+      const locations = supabase && locationsResult.data !== null ? locationsResult.data : locationsResult.data && locationsResult.data.length > 0 ? locationsResult.data : db.locations;
+      location = planets.find(
+        (p) => p.id === locationId && p.canonStatus === "CANON"
+      ) || locations.find(
+        (l) => l.id === locationId && l.canonStatus === "CANON"
+      ) || null;
+    }
+    const setup = {
+      locationName: location?.name || locationName || "Unspecified",
+      distance: distance || "Unspecified",
+      knowledge: ["unknown", "partial", "full"].includes(knowledge) ? knowledge : "unknown",
+      preparation: ["none", "combatant1", "combatant2", "both"].includes(
+        preparation
+      ) ? preparation : "none",
+      morals: ["canon", "bloodlusted", "no_kill"].includes(morals) ? morals : "canon",
+      conditions: conditions || "Day",
+      winCondition: winCondition || "Incapacitation"
+    };
+    const computation = runSimulation([c1, c2], location, setup, seed);
+    const prompt = buildNarrativePrompt([c1, c2], location, setup, computation);
+    let rounds;
+    try {
+      const aiText = await generateAIText(prompt);
+      rounds = aiText.split(/\n?---\n?/).map((r) => r.trim()).filter(Boolean);
+      if (rounds.length === 0) throw new Error("Empty AI narrative");
+    } catch (err) {
+      console.error("Narrative generation failed, using fallback", err);
+      rounds = fallbackNarrative([c1, c2], computation, setup);
+    }
+    const combatants = [c1, c2];
+    const winner = combatants[computation.winnerIndex];
+    const loser = combatants[computation.winnerIndex === 0 ? 1 : 0];
+    const record = {
+      id: `sim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      combatant1Id: c1.id,
+      combatant1Name: c1.name,
+      combatant2Id: c2.id,
+      combatant2Name: c2.name,
+      setup,
+      rounds,
+      winnerId: winner.id,
+      winnerName: winner.name,
+      loserName: loser.name,
+      probability1: Math.round(computation.probability[0] * 100),
+      probability2: Math.round(computation.probability[1] * 100),
+      turningPoint: computation.turningPoint,
+      primaryCause: computation.primaryCause,
+      unexpectedFactor: computation.unexpectedFactor,
+      isUpset: computation.isUpset,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    if (supabase) {
+      const created = await createRow("simulations", record);
+      if (created.error)
+        return res.status(502).json({ error: created.error });
+      return res.status(201).json(created.data);
+    }
+    db.simulations.unshift(record);
+    saveDB(db);
+    res.status(201).json(record);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Simulation failed."
+    });
+  }
+});
+app.get("/api/simulations", async (req, res) => {
+  const remote = await readCollection("simulations");
+  if (remote.data !== null && supabase) return res.json(remote.data);
+  if (remote.data && remote.data.length > 0) return res.json(remote.data);
+  res.json(db.simulations || []);
+});
+app.get("/api/simulations/:id", async (req, res) => {
+  const remote = await readCollection("simulations");
+  const list = supabase && remote.data !== null ? remote.data : remote.data && remote.data.length > 0 ? remote.data : db.simulations || [];
+  const found = list.find((s) => s.id === req.params.id);
+  if (!found) return res.status(404).json({ error: "Simulation not found." });
+  res.json(found);
+});
 app.post("/api/ai/lorekeeper", async (req, res) => {
   const { question } = req.body;
   if (!question) {

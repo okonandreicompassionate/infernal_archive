@@ -529,6 +529,53 @@ drop policy if exists chat_messages_insert on public.chat_messages;
 create policy chat_messages_insert on public.chat_messages for insert to authenticated
 with check (sender_id = auth.uid());
 
+create table if not exists public.simulations (
+  id text primary key,
+  combatant_1_id text not null,
+  combatant_1_name text not null default '',
+  combatant_2_id text not null,
+  combatant_2_name text not null default '',
+  setup jsonb not null default '{}'::jsonb,
+  rounds jsonb not null default '[]'::jsonb,
+  winner_id text not null default '',
+  winner_name text not null default '',
+  loser_name text not null default '',
+  probability_1 integer not null default 50,
+  probability_2 integer not null default 50,
+  turning_point text not null default '',
+  primary_cause text not null default '',
+  unexpected_factor text not null default '',
+  is_upset boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists simulations_created_at_idx on public.simulations(created_at desc);
+
+alter table public.simulations enable row level security;
+drop policy if exists simulations_full_access on public.simulations;
+create policy simulations_full_access on public.simulations for all to authenticated using (true) with check (true);
+
+-- Public simulator access: canon archive records and shareable simulation results only.
+do $$
+declare
+  table_name text;
+begin
+  foreach table_name in array array[
+    'characters', 'species', 'powers', 'artifacts', 'teams',
+    'organizations', 'planets', 'locations'
+  ] loop
+    execute format('drop policy if exists public_canon_read on public.%I', table_name);
+    execute format(
+      'create policy public_canon_read on public.%I for select to anon using (canon_status = ''CANON'')',
+      table_name
+    );
+  end loop;
+end;
+$$;
+
+drop policy if exists public_simulation_read on public.simulations;
+create policy public_simulation_read on public.simulations for select to anon using (true);
+
 -- Broadcast row changes over Supabase Realtime (websocket) so the frontend can
 -- refresh instantly instead of waiting on the next poll. Wrapped per-table
 -- since re-adding an already-published table raises a duplicate_object error.
@@ -540,7 +587,7 @@ begin
     'universes', 'planets', 'locations', 'characters', 'teams', 'organizations',
     'species', 'powers', 'artifacts', 'events', 'issues', 'story_arcs',
     'relationships', 'scripts', 'artwork', 'audit_logs', 'comments', 'tasks',
-    'retcons', 'chat_messages'
+    'retcons', 'chat_messages', 'simulations'
   ] loop
     begin
       execute format('alter publication supabase_realtime add table public.%I', table_name);

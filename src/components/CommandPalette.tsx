@@ -9,6 +9,7 @@ import {
   Bot,
   FileText,
   FileEdit,
+  Swords,
   X,
 } from "lucide-react";
 
@@ -47,6 +48,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       icon: FileEdit,
       action: () => {
         setActiveTab("drafts");
+        onClose();
+      },
+    },
+    {
+      label: "Open Combat Simulator",
+      icon: Swords,
+      action: () => {
+        window.history.pushState({}, "", "/simulator");
+        window.dispatchEvent(new PopStateEvent("popstate"));
         onClose();
       },
     },

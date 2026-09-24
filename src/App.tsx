@@ -20,12 +20,14 @@ import { NicknameModal } from "./components/NicknameModal";
 import { SettingsPage } from "./components/SettingsPage";
 import { PasswordSetupScreen } from "./components/PasswordSetupScreen";
 import { TeamChatWidget } from "./components/TeamChatWidget";
+import { CombatSimulator } from "./components/CombatSimulator";
 import { getProfile, supabase, type UserRole } from "./utils/supabase";
 
 export default function App() {
   const routeForTab = (tab: string) => (tab === "dashboard" ? "/" : `/${tab}`);
   const tabForPath = (path: string) => {
     const tab = path.replace(/^\//, "").split("/")[0];
+    if (tab === "sim") return "simulator";
     return tab || "dashboard";
   };
   const [activeTab, setActiveTabState] = useState(() =>
@@ -50,6 +52,9 @@ export default function App() {
   const [passwordRecovery, setPasswordRecovery] = useState(
     () => window.location.pathname === "/reset-password",
   );
+  const isPublicSimulatorRoute =
+    window.location.pathname === "/simulator" ||
+    window.location.pathname.startsWith("/sim/");
 
   useEffect(() => {
     const handlePopState = () =>
@@ -129,6 +134,25 @@ export default function App() {
     setRefreshKey((prev) => prev + 1);
   };
 
+  if (isPublicSimulatorRoute) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-yellow-400 selection:text-zinc-950">
+        <header className="flex items-center justify-between border-b border-white/5 px-4 py-3 sm:px-8">
+          <a
+            href="/"
+            className="text-xs font-bold tracking-[0.25em] text-zinc-300 hover:text-yellow-300"
+          >
+            INFERNAL ARCHIVE
+          </a>
+          <span className="text-[10px] uppercase tracking-widest text-zinc-600">
+            Public Simulation Lab
+          </span>
+        </header>
+        <CombatSimulator />
+      </div>
+    );
+  }
+
   if (!authReady)
     return <div className="auth-loading">Loading secure archive...</div>;
   if (!user) return <AuthScreen />;
@@ -182,6 +206,7 @@ export default function App() {
         {activeTab === "drafts" && (
           <DraftsView onSelectItem={handleSelectItem} />
         )}
+        {activeTab === "simulator" && <CombatSimulator />}
         {activeTab === "graph" && <UniverseGraph />}
         {activeTab === "timeline" && <VisualTimeline />}
         {activeTab === "writer" && <WriterWorkspace />}

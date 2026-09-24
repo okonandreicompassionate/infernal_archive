@@ -15,6 +15,12 @@ import {
   toSupabaseRow,
   updateRow,
 } from "./utils/supabase/server";
+import {
+  buildNarrativePrompt,
+  fallbackNarrative,
+  runSimulation,
+  type SimSetup,
+} from "./utils/combatEngine";
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -123,6 +129,7 @@ interface UniverseDB {
   tasks: any[];
   retcons: any[];
   chatMessages: any[];
+  simulations: any[];
 }
 
 const initialSeed: UniverseDB = {
@@ -679,6 +686,7 @@ const initialSeed: UniverseDB = {
     },
   ],
   chatMessages: [],
+  simulations: [],
 };
 
 function loadDB(): UniverseDB {
@@ -704,6 +712,7 @@ function saveDB(db: UniverseDB) {
 
 let db = loadDB();
 db.chatMessages = db.chatMessages || [];
+db.simulations = db.simulations || [];
 
 async function getCurrentArchive() {
   if (!supabase) return db;
@@ -1228,6 +1237,216 @@ for (const col of collections) {
     res.json(removed);
   });
 }
+
+const publicArchiveCollections = [
+  "characters",
+  "species",
+  "powers",
+  "artifacts",
+  "teams",
+  "organizations",
+  "planets",
+  "locations",
+] as const;
+
+// Public simulator search. It intentionally exposes canon records only;
+// drafts, retcons, and production notes stay inside the admin archive.
+app.get("/api/public/archive/search", async (req, res) => {
+  const query = String(req.query.q || "")
+    .trim()
+    .toLowerCase();
+  const results: { type: string; item: any }[] = [];
+
+  const collections = await Promise.all(
+    publicArchiveCollections.map(async (type) => {
+      const remote = await readCollection<any>(type);
+      const items =
+        supabase && remote.data !== null
+          ? remote.data
+          : remote.data && remote.data.length > 0
+            ? remote.data
+            : (db as any)[type] || [];
+      return { type, items };
+    }),
+  );
+
+  for (const { type, items } of collections) {
+    for (const item of items) {
+      if (item.canonStatus !== "CANON") continue;
+      const searchable = JSON.stringify({
+        name: item.name,
+        title: item.title,
+        codeName: item.codeName,
+        description: item.description,
+        aliases: item.aliases,
+      }).toLowerCase();
+      if (!query || searchable.includes(query)) results.push({ type, item });
+    }
+  }
+
+  res.json(results.slice(0, 100));
+});
+
+// Combat Simulator: engine computes the numeric outcome, AI only writes the prose around it.
+app.post("/api/simulate", async (req, res) => {
+  try {
+    const {
+      combatant1Id,
+      combatant2Id,
+      locationId,
+      locationName,
+      distance,
+      knowledge,
+      preparation,
+      morals,
+      conditions,
+      winCondition,
+      seed,
+    } = req.body;
+    if (!combatant1Id || !combatant2Id)
+      return res.status(400).json({ error: "Two combatants are required." });
+
+    const charactersResult = await readCollection<any>("characters");
+    const characters =
+      supabase && charactersResult.data !== null
+        ? charactersResult.data
+        : charactersResult.data && charactersResult.data.length > 0
+          ? charactersResult.data
+          : db.characters;
+
+    const c1 = characters.find(
+      (c: any) => c.id === combatant1Id && c.canonStatus === "CANON",
+    );
+    const c2 = characters.find(
+      (c: any) => c.id === combatant2Id && c.canonStatus === "CANON",
+    );
+    if (!c1 || !c2)
+      return res
+        .status(404)
+        .json({ error: "One or both combatants could not be found." });
+
+    let location: any = null;
+    if (locationId) {
+      const [planetsResult, locationsResult] = await Promise.all([
+        readCollection<any>("planets"),
+        readCollection<any>("locations"),
+      ]);
+      const planets =
+        supabase && planetsResult.data !== null
+          ? planetsResult.data
+          : planetsResult.data && planetsResult.data.length > 0
+            ? planetsResult.data
+            : db.planets;
+      const locations =
+        supabase && locationsResult.data !== null
+          ? locationsResult.data
+          : locationsResult.data && locationsResult.data.length > 0
+            ? locationsResult.data
+            : db.locations;
+      location =
+        planets.find(
+          (p: any) => p.id === locationId && p.canonStatus === "CANON",
+        ) ||
+        locations.find(
+          (l: any) => l.id === locationId && l.canonStatus === "CANON",
+        ) ||
+        null;
+    }
+
+    const setup: SimSetup = {
+      locationName: location?.name || locationName || "Unspecified",
+      distance: distance || "Unspecified",
+      knowledge: ["unknown", "partial", "full"].includes(knowledge)
+        ? knowledge
+        : "unknown",
+      preparation: ["none", "combatant1", "combatant2", "both"].includes(
+        preparation,
+      )
+        ? preparation
+        : "none",
+      morals: ["canon", "bloodlusted", "no_kill"].includes(morals)
+        ? morals
+        : "canon",
+      conditions: conditions || "Day",
+      winCondition: winCondition || "Incapacitation",
+    };
+
+    const computation = runSimulation([c1, c2], location, setup, seed);
+    const prompt = buildNarrativePrompt([c1, c2], location, setup, computation);
+
+    let rounds: string[];
+    try {
+      const aiText = await generateAIText(prompt);
+      rounds = aiText
+        .split(/\n?---\n?/)
+        .map((r) => r.trim())
+        .filter(Boolean);
+      if (rounds.length === 0) throw new Error("Empty AI narrative");
+    } catch (err) {
+      console.error("Narrative generation failed, using fallback", err);
+      rounds = fallbackNarrative([c1, c2], computation, setup);
+    }
+
+    const combatants = [c1, c2];
+    const winner = combatants[computation.winnerIndex];
+    const loser = combatants[computation.winnerIndex === 0 ? 1 : 0];
+
+    const record = {
+      id: `sim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      combatant1Id: c1.id,
+      combatant1Name: c1.name,
+      combatant2Id: c2.id,
+      combatant2Name: c2.name,
+      setup,
+      rounds,
+      winnerId: winner.id,
+      winnerName: winner.name,
+      loserName: loser.name,
+      probability1: Math.round(computation.probability[0] * 100),
+      probability2: Math.round(computation.probability[1] * 100),
+      turningPoint: computation.turningPoint,
+      primaryCause: computation.primaryCause,
+      unexpectedFactor: computation.unexpectedFactor,
+      isUpset: computation.isUpset,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (supabase) {
+      const created = await createRow("simulations", record);
+      if (created.error) return res.status(502).json({ error: created.error });
+      return res.status(201).json(created.data);
+    }
+
+    db.simulations.unshift(record);
+    saveDB(db);
+    res.status(201).json(record);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Simulation failed.",
+    });
+  }
+});
+
+app.get("/api/simulations", async (req, res) => {
+  const remote = await readCollection<any>("simulations");
+  if (remote.data !== null && supabase) return res.json(remote.data);
+  if (remote.data && remote.data.length > 0) return res.json(remote.data);
+  res.json(db.simulations || []);
+});
+
+app.get("/api/simulations/:id", async (req, res) => {
+  const remote = await readCollection<any>("simulations");
+  const list =
+    supabase && remote.data !== null
+      ? remote.data
+      : remote.data && remote.data.length > 0
+        ? remote.data
+        : db.simulations || [];
+  const found = list.find((s: any) => s.id === req.params.id);
+  if (!found) return res.status(404).json({ error: "Simulation not found." });
+  res.json(found);
+});
 
 // AI Lorekeeper Q&A Endpoint using @google/genai
 app.post("/api/ai/lorekeeper", async (req, res) => {

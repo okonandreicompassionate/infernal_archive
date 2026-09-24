@@ -22,6 +22,7 @@ import {
   Settings,
   FileEdit,
   Lock,
+  Swords,
 } from "lucide-react";
 import type { UserRole } from "../utils/supabase";
 
@@ -98,6 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         { id: "writer", label: "Writer Studio", icon: FileText },
         { id: "artist", label: "Artist Studio", icon: Layers },
         { id: "lorekeeper", label: "Lorekeeper", icon: Bot },
+        { id: "simulator", label: "Combat Simulator", icon: Swords },
       ],
     },
     {
