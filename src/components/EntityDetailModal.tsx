@@ -27,6 +27,7 @@ import {
   Save,
 } from "lucide-react";
 import { uploadArchiveImage } from "../utils/supabase";
+import { speciesOptions } from "./QuickCreateModal";
 
 interface EntityDetailModalProps {
   entityType: string;
@@ -63,6 +64,8 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
   const [uploadingImage, setUploadingImage] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileDraft, setProfileDraft] = useState<Record<string, string>>({});
+  const [speciesQuery, setSpeciesQuery] = useState("");
+  const [showSpecies, setShowSpecies] = useState(false);
 
   const editableCharacterFields = [
     ["codeName", "Code name / alias"],
@@ -217,6 +220,8 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
         editableCharacterFields.map(([key]) => [key, item[key] || ""]),
       ),
     );
+    setSpeciesQuery("");
+    setShowSpecies(false);
     setEditingProfile(true);
   };
 
@@ -531,31 +536,102 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
 
                   {editingProfile && entityType === "characters" && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border border-white/10 bg-zinc-900/50 p-4 rounded-2xl">
-                      {editableCharacterFields.map(([key, label]) => (
-                        <label
-                          key={key}
-                          className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono"
-                        >
-                          <span>{label}</span>
-                          <textarea
-                            rows={
-                              key === "description" ||
-                              key === "physicalAppearance" ||
-                              key === "characterArc"
-                                ? 3
-                                : 2
-                            }
-                            value={profileDraft[key] || ""}
-                            onChange={(event) =>
-                              setProfileDraft((current) => ({
-                                ...current,
-                                [key]: event.target.value,
-                              }))
-                            }
-                            className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
-                          />
-                        </label>
-                      ))}
+                      {editableCharacterFields.map(([key, label]) =>
+                        key === "species" ? (
+                          <label
+                            key={key}
+                            className="relative space-y-1 text-[10px] text-zinc-400 uppercase font-mono"
+                          >
+                            <span>{label}</span>
+                            <input
+                              type="search"
+                              value={speciesQuery}
+                              onChange={(event) => {
+                                setSpeciesQuery(event.target.value);
+                                setShowSpecies(true);
+                              }}
+                              onFocus={() => {
+                                setSpeciesQuery("");
+                                setShowSpecies(true);
+                              }}
+                              placeholder={`Search species (selected: ${profileDraft.species || "none"})...`}
+                              className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                            />
+                            {showSpecies && (
+                              <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-44 overflow-y-auto rounded border border-white/10 bg-zinc-950 shadow-xl normal-case">
+                                {speciesQuery.trim() &&
+                                  !speciesOptions.some(
+                                    (option) =>
+                                      option.toLowerCase() ===
+                                      speciesQuery.trim().toLowerCase(),
+                                  ) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setProfileDraft((current) => ({
+                                          ...current,
+                                          species: speciesQuery.trim(),
+                                        }));
+                                        setSpeciesQuery("");
+                                        setShowSpecies(false);
+                                      }}
+                                      className="block w-full border-b border-white/10 px-3 py-2 text-left text-xs text-yellow-300 hover:bg-white/10"
+                                    >
+                                      Use custom: "{speciesQuery.trim()}"
+                                    </button>
+                                  )}
+                                {speciesOptions
+                                  .filter((option) =>
+                                    option
+                                      .toLowerCase()
+                                      .includes(speciesQuery.toLowerCase()),
+                                  )
+                                  .map((option) => (
+                                    <button
+                                      type="button"
+                                      key={option}
+                                      onClick={() => {
+                                        setProfileDraft((current) => ({
+                                          ...current,
+                                          species: option,
+                                        }));
+                                        setSpeciesQuery("");
+                                        setShowSpecies(false);
+                                      }}
+                                      className="block w-full px-3 py-2 text-left text-xs text-zinc-200 hover:bg-white/10"
+                                    >
+                                      {option}
+                                    </button>
+                                  ))}
+                              </div>
+                            )}
+                          </label>
+                        ) : (
+                          <label
+                            key={key}
+                            className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono"
+                          >
+                            <span>{label}</span>
+                            <textarea
+                              rows={
+                                key === "description" ||
+                                key === "physicalAppearance" ||
+                                key === "characterArc"
+                                  ? 3
+                                  : 2
+                              }
+                              value={profileDraft[key] || ""}
+                              onChange={(event) =>
+                                setProfileDraft((current) => ({
+                                  ...current,
+                                  [key]: event.target.value,
+                                }))
+                              }
+                              className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                            />
+                          </label>
+                        ),
+                      )}
                     </div>
                   )}
 

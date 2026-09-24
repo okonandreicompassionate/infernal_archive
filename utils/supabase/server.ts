@@ -19,14 +19,22 @@ export const supabaseAdmin: SupabaseClient | null =
 
 const databaseClient = () => supabaseAdmin || supabase;
 
+export function getUserClient(authorization: string | undefined) {
+  if (!supabaseUrl || !supabaseKey || !authorization?.startsWith("Bearer "))
+    return null;
+  const token = authorization.slice("Bearer ".length);
+  return createClient(supabaseUrl, supabaseKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+}
+
 export async function getAuthenticatedProfile(
   authorization: string | undefined,
 ) {
   if (!supabase || !authorization?.startsWith("Bearer ")) return null;
   const token = authorization.slice("Bearer ".length);
-  const userClient = createClient(supabaseUrl!, supabaseKey!, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
+  const userClient = getUserClient(authorization);
+  if (!userClient) return null;
   const { data: userData } = await userClient.auth.getUser(token);
   if (!userData.user) return null;
   const { data: profile } = await userClient

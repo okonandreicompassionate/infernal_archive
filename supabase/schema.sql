@@ -485,3 +485,35 @@ begin
   end loop;
 end;
 $$;
+
+-- Let every teammate see who else is in the archive (needed for chat's name/DM directory).
+drop policy if exists profiles_select_authenticated on public.profiles;
+create policy profiles_select_authenticated on public.profiles for select to authenticated using (true);
+
+create table if not exists public.chat_messages (
+  id text primary key,
+  channel text not null default 'public' check (channel in ('public', 'dm')),
+  sender_id uuid not null references public.profiles(id) on delete cascade,
+  sender_name text not null default '',
+  recipient_id uuid references public.profiles(id) on delete cascade,
+  recipient_name text not null default '',
+  text text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists chat_messages_channel_idx on public.chat_messages(channel, created_at);
+create index if not exists chat_messages_sender_idx on public.chat_messages(sender_id);
+create index if not exists chat_messages_recipient_idx on public.chat_messages(recipient_id);
+
+alter table public.chat_messages enable row level security;
+
+-- Public channel is readable by everyone; DMs are only visible to the two participants.
+drop policy if exists chat_messages_select on public.chat_messages;
+create policy chat_messages_select on public.chat_messages for select to authenticated
+using (channel = 'public' or sender_id = auth.uid() or recipient_id = auth.uid());
+
+-- Senders can only ever post as themselves.
+drop policy if exists chat_messages_insert on public.chat_messages;
+create policy chat_messages_insert on public.chat_messages for insert to authenticated
+with check (sender_id = auth.uid());
+

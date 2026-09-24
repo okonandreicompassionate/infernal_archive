@@ -6,10 +6,13 @@ import fs from "fs";
 import {
   createRow,
   deleteRow,
+  fromSupabaseRow,
   getAuthenticatedProfile,
+  getUserClient,
   readCollection,
   supabase,
   supabaseAdmin,
+  toSupabaseRow,
   updateRow,
 } from "./utils/supabase/server";
 
@@ -119,6 +122,7 @@ interface UniverseDB {
   comments: any[];
   tasks: any[];
   retcons: any[];
+  chatMessages: any[];
 }
 
 const initialSeed: UniverseDB = {
@@ -674,6 +678,7 @@ const initialSeed: UniverseDB = {
       date: "2026-08-01",
     },
   ],
+  chatMessages: [],
 };
 
 function loadDB(): UniverseDB {
@@ -698,6 +703,7 @@ function saveDB(db: UniverseDB) {
 }
 
 let db = loadDB();
+db.chatMessages = db.chatMessages || [];
 
 async function getCurrentArchive() {
   if (!supabase) return db;
@@ -890,6 +896,115 @@ app.patch("/api/profiles/:id", async (req, res) => {
     .single();
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
+});
+
+// Directory of teammates available to chat with (excludes the caller).
+app.get("/api/chat/contacts", async (req, res) => {
+  const actor = await getAuthenticatedProfile(req.headers.authorization);
+  if (!actor) return res.status(401).json({ error: "Sign in required." });
+
+  const client = supabaseAdmin || getUserClient(req.headers.authorization);
+  if (!client) return res.json([]);
+  const { data, error } = await client
+    .from("profiles")
+    .select("id, display_name, email, role, active")
+    .neq("id", actor.user.id)
+    .eq("active", true)
+    .order("display_name", { ascending: true });
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(fromSupabaseRow(data || []));
+});
+
+// Chat messages: a public team channel plus one-to-one DMs.
+// DM privacy is enforced via the caller's own Supabase session (RLS), never the admin key.
+app.get("/api/chat/messages", async (req, res) => {
+  const actor = await getAuthenticatedProfile(req.headers.authorization);
+  if (!actor) return res.status(401).json({ error: "Sign in required." });
+
+  const channel = req.query.channel === "dm" ? "dm" : "public";
+  const otherId = String(req.query.with || "");
+  if (channel === "dm" && !otherId)
+    return res
+      .status(400)
+      .json({ error: "A conversation partner is required." });
+
+  if (supabase) {
+    const userClient = getUserClient(req.headers.authorization);
+    if (!userClient)
+      return res.status(401).json({ error: "Sign in required." });
+    let query = userClient
+      .from("chat_messages")
+      .select("*")
+      .eq("channel", channel)
+      .order("created_at", { ascending: true })
+      .limit(200);
+    if (channel === "dm")
+      query = query.or(
+        `and(sender_id.eq.${actor.user.id},recipient_id.eq.${otherId}),and(sender_id.eq.${otherId},recipient_id.eq.${actor.user.id})`,
+      );
+    const { data, error } = await query;
+    if (error) return res.status(400).json({ error: error.message });
+    return res.json(fromSupabaseRow(data || []));
+  }
+
+  // JSON fallback (local/dev mode without Supabase configured).
+  const all = db.chatMessages || [];
+  if (channel === "public")
+    return res.json(all.filter((m: any) => m.channel === "public"));
+  res.json(
+    all.filter(
+      (m: any) =>
+        m.channel === "dm" &&
+        ((m.senderId === actor.user.id && m.recipientId === otherId) ||
+          (m.senderId === otherId && m.recipientId === actor.user.id)),
+    ),
+  );
+});
+
+app.post("/api/chat/messages", async (req, res) => {
+  const actor = await getAuthenticatedProfile(req.headers.authorization);
+  if (!actor) return res.status(401).json({ error: "Sign in required." });
+
+  const text = String(req.body.text || "")
+    .trim()
+    .slice(0, 2000);
+  if (!text)
+    return res.status(400).json({ error: "Message text is required." });
+  const channel = req.body.channel === "dm" ? "dm" : "public";
+  const recipientId =
+    channel === "dm" ? String(req.body.recipientId || "") : null;
+  if (channel === "dm" && !recipientId)
+    return res.status(400).json({ error: "A DM recipient is required." });
+
+  const newMessage = {
+    id: `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    channel,
+    senderId: actor.user.id,
+    senderName: actor.profile.display_name || actor.profile.email,
+    recipientId,
+    recipientName:
+      channel === "dm" ? String(req.body.recipientName || "") : null,
+    text,
+    createdAt: new Date().toISOString(),
+  };
+
+  if (supabase) {
+    const userClient = getUserClient(req.headers.authorization);
+    if (!userClient)
+      return res.status(401).json({ error: "Sign in required." });
+    const { data, error } = await userClient
+      .from("chat_messages")
+      .insert(toSupabaseRow(newMessage))
+      .select()
+      .single();
+    if (error) return res.status(400).json({ error: error.message });
+    return res.status(201).json(fromSupabaseRow(data));
+  }
+
+  db.chatMessages = db.chatMessages || [];
+  db.chatMessages.push(newMessage);
+  saveDB(db);
+  res.status(201).json(newMessage);
 });
 
 // Get full universe DB summary / overview

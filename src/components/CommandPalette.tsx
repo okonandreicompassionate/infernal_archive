@@ -8,6 +8,7 @@ import {
   Network,
   Bot,
   FileText,
+  FileEdit,
   X,
 } from "lucide-react";
 
@@ -38,6 +39,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       icon: Globe,
       action: () => {
         setActiveTab("dashboard");
+        onClose();
+      },
+    },
+    {
+      label: "Go to Drafts",
+      icon: FileEdit,
+      action: () => {
+        setActiveTab("drafts");
         onClose();
       },
     },

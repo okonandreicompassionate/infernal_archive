@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Navbar } from "./components/Navbar";
 import { Dashboard } from "./components/Dashboard";
 import { EntityBrowser } from "./components/EntityBrowser";
+import { DraftsView } from "./components/DraftsView";
 import { EntityDetailModal } from "./components/EntityDetailModal";
 import { UniverseGraph } from "./components/UniverseGraph";
 import { VisualTimeline } from "./components/VisualTimeline";
@@ -17,6 +18,7 @@ import { InviteAdminModal } from "./components/InviteAdminModal";
 import { NicknameModal } from "./components/NicknameModal";
 import { SettingsPage } from "./components/SettingsPage";
 import { PasswordSetupScreen } from "./components/PasswordSetupScreen";
+import { TeamChatWidget } from "./components/TeamChatWidget";
 import { getProfile, supabase, type UserRole } from "./utils/supabase";
 
 export default function App() {
@@ -174,6 +176,9 @@ export default function App() {
             onOpenQuickCreate={() => setShowQuickCreate(true)}
           />
         )}
+        {activeTab === "drafts" && (
+          <DraftsView onSelectItem={handleSelectItem} />
+        )}
         {activeTab === "graph" && <UniverseGraph />}
         {activeTab === "timeline" && <VisualTimeline />}
         {activeTab === "writer" && <WriterWorkspace />}
@@ -223,6 +228,11 @@ export default function App() {
       {profileChecked && !displayName && (
         <NicknameModal userId={user.id} onSaved={setDisplayName} />
       )}
+      <TeamChatWidget
+        userId={user.id}
+        displayName={displayName}
+        email={user.email}
+      />
     </div>
   );
 }

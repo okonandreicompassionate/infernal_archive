@@ -3,7 +3,7 @@ import { X, Plus, Globe, Upload, Users } from "lucide-react";
 import confetti from "canvas-confetti";
 import { uploadArchiveImage } from "../utils/supabase";
 
-const speciesOptions = [
+export const speciesOptions = [
   "Human",
   "Enhanced Human",
   "Mutant",
@@ -262,15 +262,14 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
     );
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitRecord = async (canonStatus: "CANON" | "DRAFT") => {
     if (!name.trim()) return;
     setSaveError("");
 
     let payload: any = {
       name,
       description,
-      canonStatus: "CANON",
+      canonStatus,
     };
 
     if (entityType === "characters") {
@@ -337,6 +336,11 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
     }
   };
 
+  const handleCreate = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitRecord("CANON");
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-zinc-950 border border-white/5 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl">
@@ -376,7 +380,9 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
             </select>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div
+            className={`grid grid-cols-1 gap-4 ${entityType === "characters" ? "sm:grid-cols-2" : ""}`}
+          >
             <div className="space-y-1.5">
               <label className="text-xs text-zinc-400 font-medium">
                 Full Name / Real Name
@@ -389,18 +395,20 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
                 className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs text-zinc-200"
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-zinc-400 font-medium">
-                Code Name / Alias
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Viper"
-                value={codeName}
-                onChange={(e) => setCodeName(e.target.value)}
-                className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs text-zinc-200"
-              />
-            </div>
+            {entityType === "characters" && (
+              <div className="space-y-1.5">
+                <label className="text-xs text-zinc-400 font-medium">
+                  Code Name / Alias
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Viper"
+                  value={codeName}
+                  onChange={(e) => setCodeName(e.target.value)}
+                  className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs text-zinc-200"
+                />
+              </div>
+            )}
           </div>
 
           {entityType === "characters" && (
@@ -641,6 +649,13 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
               className="px-4 py-2 bg-zinc-900 text-zinc-300 rounded-2xl text-xs hover:bg-white/10 cursor-pointer"
             >
               Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => submitRecord("DRAFT")}
+              className="px-4 py-2 bg-zinc-900 text-zinc-200 border border-white/10 rounded-2xl text-xs hover:bg-white/10 cursor-pointer"
+            >
+              Save as Draft
             </button>
             <button
               type="submit"

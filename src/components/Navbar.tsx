@@ -20,6 +20,7 @@ import {
   Tag,
   LogOut,
   Settings,
+  FileEdit,
 } from "lucide-react";
 import type { UserRole } from "../utils/supabase";
 
@@ -68,7 +69,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   const navGroups = [
     {
       label: "Overview",
-      items: [{ id: "dashboard", label: "Dashboard", icon: Layers }],
+      items: [
+        { id: "dashboard", label: "Dashboard", icon: Layers },
+        { id: "drafts", label: "Drafts", icon: FileEdit },
+      ],
     },
     {
       label: "Archive",

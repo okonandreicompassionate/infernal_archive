@@ -1,4 +1,12 @@
-export type CanonStatus = "DRAFT" | "UNDER_REVIEW" | "APPROVED" | "CANON" | "NON_CANON" | "RETCONNED" | "DEPRECATED" | "ALTERNATE";
+export type CanonStatus =
+  | "DRAFT"
+  | "UNDER_REVIEW"
+  | "APPROVED"
+  | "CANON"
+  | "NON_CANON"
+  | "RETCONNED"
+  | "DEPRECATED"
+  | "ALTERNATE";
 
 export interface Universe {
   id: string;
@@ -270,4 +278,23 @@ export interface Retcon {
   issue: string;
   approvedBy: string;
   date: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  channel: "public" | "dm";
+  senderId: string;
+  senderName: string;
+  recipientId: string | null;
+  recipientName: string | null;
+  text: string;
+  createdAt: string;
+}
+
+export interface ChatContact {
+  id: string;
+  displayName: string;
+  email: string;
+  role: "admin" | "god";
+  active: boolean;
 }
