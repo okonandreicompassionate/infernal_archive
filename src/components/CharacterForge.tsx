@@ -84,27 +84,71 @@ export const CharacterForge: React.FC = () => {
     );
   };
 
-  const updateRelation = (draftIndex: number, relationIndex: number, patch: Partial<RelationSuggestion>) => {
-    setDrafts((current) => current.map((draft, index) => index === draftIndex
-      ? { ...draft, relationSuggestions: draft.relationSuggestions.map((relation, indexNow) => indexNow === relationIndex ? { ...relation, ...patch } : relation) }
-      : draft));
+  const updateRelation = (
+    draftIndex: number,
+    relationIndex: number,
+    patch: Partial<RelationSuggestion>,
+  ) => {
+    setDrafts((current) =>
+      current.map((draft, index) =>
+        index === draftIndex
+          ? {
+              ...draft,
+              relationSuggestions: draft.relationSuggestions.map(
+                (relation, indexNow) =>
+                  indexNow === relationIndex
+                    ? { ...relation, ...patch }
+                    : relation,
+              ),
+            }
+          : draft,
+      ),
+    );
   };
 
   const addRelation = (draftIndex: number) => {
-    setDrafts((current) => current.map((draft, index) => index === draftIndex
-      ? { ...draft, relationSuggestions: [...draft.relationSuggestions, { targetName: "", targetType: "character", relationType: "ALLY_OF", description: "", confidence: "manual", selected: true }] }
-      : draft));
+    setDrafts((current) =>
+      current.map((draft, index) =>
+        index === draftIndex
+          ? {
+              ...draft,
+              relationSuggestions: [
+                ...draft.relationSuggestions,
+                {
+                  targetName: "",
+                  targetType: "character",
+                  relationType: "ALLY_OF",
+                  description: "",
+                  confidence: "manual",
+                  selected: true,
+                },
+              ],
+            }
+          : draft,
+      ),
+    );
   };
 
   const removeSelectedRelations = (draftIndex: number) => {
-    setDrafts((current) => current.map((draft, index) => index === draftIndex
-      ? { ...draft, relationSuggestions: draft.relationSuggestions.filter((relation) => relation.selected === false) }
-      : draft));
+    setDrafts((current) =>
+      current.map((draft, index) =>
+        index === draftIndex
+          ? {
+              ...draft,
+              relationSuggestions: draft.relationSuggestions.filter(
+                (relation) => relation.selected === false,
+              ),
+            }
+          : draft,
+      ),
+    );
   };
 
   const deleteSelectedDrafts = () => {
     if (!selected.length) return;
-    setDrafts((current) => current.filter((_, index) => !selected.includes(index)));
+    setDrafts((current) =>
+      current.filter((_, index) => !selected.includes(index)),
+    );
     setSelected([]);
     setMessage(`${selected.length} draft(s) removed from review.`);
   };
@@ -177,29 +221,31 @@ export const CharacterForge: React.FC = () => {
         const relationRequests = selected.flatMap((index, selectedIndex) => {
           const source = createdCharacters[selectedIndex];
           const draft = drafts[index];
-          return (draft.relationSuggestions || []).filter((relation) => relation.selected !== false).flatMap((relation) => {
-            const targetPool =
-              relation.targetType === "team" ? existingTeams : allCharacters;
-            const target = (Array.isArray(targetPool) ? targetPool : []).find(
-              (candidate: any) =>
-                String(candidate.name || "").toLowerCase() ===
-                  relation.targetName.toLowerCase() ||
-                String(candidate.codeName || "").toLowerCase() ===
-                  relation.targetName.toLowerCase(),
-            );
-            if (!target || !source?.id) return [];
-            return [
-              {
-                source: source.id,
-                sourceName: source.name,
-                target: target.id,
-                targetName: target.name,
-                type: relation.relationType,
-                description: relation.description,
-                canonStatus: "DRAFT",
-              },
-            ];
-          });
+          return (draft.relationSuggestions || [])
+            .filter((relation) => relation.selected !== false)
+            .flatMap((relation) => {
+              const targetPool =
+                relation.targetType === "team" ? existingTeams : allCharacters;
+              const target = (Array.isArray(targetPool) ? targetPool : []).find(
+                (candidate: any) =>
+                  String(candidate.name || "").toLowerCase() ===
+                    relation.targetName.toLowerCase() ||
+                  String(candidate.codeName || "").toLowerCase() ===
+                    relation.targetName.toLowerCase(),
+              );
+              if (!target || !source?.id) return [];
+              return [
+                {
+                  source: source.id,
+                  sourceName: source.name,
+                  target: target.id,
+                  targetName: target.name,
+                  type: relation.relationType,
+                  description: relation.description,
+                  canonStatus: "DRAFT",
+                },
+              ];
+            });
         });
         await Promise.all(
           relationRequests.map((relation) =>
@@ -393,24 +439,92 @@ export const CharacterForge: React.FC = () => {
             {draft.relationSuggestions.length > 0 && (
               <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[10px] uppercase tracking-wider text-cyan-300">Relationships to review</p>
+                  <p className="text-[10px] uppercase tracking-wider text-cyan-300">
+                    Relationships to review
+                  </p>
                   <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => removeSelectedRelations(index)} disabled={!draft.relationSuggestions.some((relation) => relation.selected !== false)} className="text-[10px] text-red-200 disabled:opacity-40">Delete selected</button>
-                    <button type="button" onClick={() => addRelation(index)} className="text-[10px] text-cyan-200">+ Add relationship</button>
+                    <button
+                      type="button"
+                      onClick={() => removeSelectedRelations(index)}
+                      disabled={
+                        !draft.relationSuggestions.some(
+                          (relation) => relation.selected !== false,
+                        )
+                      }
+                      className="text-[10px] text-red-200 disabled:opacity-40"
+                    >
+                      Delete selected
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addRelation(index)}
+                      className="text-[10px] text-cyan-200"
+                    >
+                      + Add relationship
+                    </button>
                   </div>
                 </div>
                 {draft.relationSuggestions.map((relation, relationIndex) => (
-                  <div key={`${relationIndex}-${relation.targetName}`} className="mt-2 grid grid-cols-[auto_1fr_1fr] gap-2 items-center">
-                    <input type="checkbox" checked={relation.selected !== false} onChange={(event) => updateRelation(index, relationIndex, { selected: event.target.checked })} className="accent-cyan-400" />
-                    <input value={relation.targetName} onChange={(event) => updateRelation(index, relationIndex, { targetName: event.target.value })} placeholder="Character or team name" className="bg-zinc-950 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-zinc-200" />
-                    <input value={relation.relationType} onChange={(event) => updateRelation(index, relationIndex, { relationType: event.target.value })} placeholder="ALLY_OF / RIVAL_OF" className="bg-zinc-950 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-zinc-200" />
-                    <input value={relation.description} onChange={(event) => updateRelation(index, relationIndex, { description: event.target.value })} placeholder="Why they are connected" className="col-span-2 bg-zinc-950 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-zinc-300" />
-                    <span className="text-[10px] text-zinc-500">{relation.confidence}</span>
+                  <div
+                    key={`${relationIndex}-${relation.targetName}`}
+                    className="mt-2 grid grid-cols-[auto_1fr_1fr] gap-2 items-center"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={relation.selected !== false}
+                      onChange={(event) =>
+                        updateRelation(index, relationIndex, {
+                          selected: event.target.checked,
+                        })
+                      }
+                      className="accent-cyan-400"
+                    />
+                    <input
+                      value={relation.targetName}
+                      onChange={(event) =>
+                        updateRelation(index, relationIndex, {
+                          targetName: event.target.value,
+                        })
+                      }
+                      placeholder="Character or team name"
+                      className="bg-zinc-950 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-zinc-200"
+                    />
+                    <input
+                      value={relation.relationType}
+                      onChange={(event) =>
+                        updateRelation(index, relationIndex, {
+                          relationType: event.target.value,
+                        })
+                      }
+                      placeholder="ALLY_OF / RIVAL_OF"
+                      className="bg-zinc-950 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-zinc-200"
+                    />
+                    <input
+                      value={relation.description}
+                      onChange={(event) =>
+                        updateRelation(index, relationIndex, {
+                          description: event.target.value,
+                        })
+                      }
+                      placeholder="Why they are connected"
+                      className="col-span-2 bg-zinc-950 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-zinc-300"
+                    />
+                    <span className="text-[10px] text-zinc-500">
+                      {relation.confidence}
+                    </span>
                   </div>
                 ))}
               </div>
             )}
-            {draft.relationSuggestions.length === 0 && <button type="button" onClick={() => addRelation(index)} className="text-left text-xs text-cyan-300">+ Add a relationship manually</button>}
+            {draft.relationSuggestions.length === 0 && (
+              <button
+                type="button"
+                onClick={() => addRelation(index)}
+                className="text-left text-xs text-cyan-300"
+              >
+                + Add a relationship manually
+              </button>
+            )}
           </article>
         ))}
       </div>
