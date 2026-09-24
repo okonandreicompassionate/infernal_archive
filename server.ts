@@ -33,6 +33,11 @@ async function generateAIText(prompt: string) {
   if (aiProvider === "groq") {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) throw new Error("GROQ_API_KEY is not configured.");
+    const configuredGroqModel = process.env.GROQ_MODEL?.trim();
+    const groqModel =
+      configuredGroqModel === "llama-3.1-8b-instant"
+        ? "llama-3.3-70b-versatile"
+        : configuredGroqModel || "llama-3.3-70b-versatile";
     const response = await fetch(
       "https://api.groq.com/openai/v1/chat/completions",
       {
@@ -42,7 +47,7 @@ async function generateAIText(prompt: string) {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
+          model: groqModel,
           temperature: 0.2,
           messages: [{ role: "user", content: prompt }],
         }),
