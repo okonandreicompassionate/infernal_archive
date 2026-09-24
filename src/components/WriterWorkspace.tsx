@@ -12,6 +12,11 @@ import {
   Copy,
   Search,
   Maximize2,
+  ChevronDown,
+  ChevronUp,
+  ArrowUp,
+  ArrowDown,
+  Save,
 } from "lucide-react";
 
 export const WriterWorkspace: React.FC = () => {
@@ -33,7 +38,9 @@ export const WriterWorkspace: React.FC = () => {
     releaseStatus: "WRITING",
   });
   const [pageNumber, setPageNumber] = useState(1);
+  const [panelNumber, setPanelNumber] = useState(1);
   const [pageNotes, setPageNotes] = useState("");
+  const [pageStatus, setPageStatus] = useState("IN_PROGRESS");
   const [dialogueLines, setDialogueLines] = useState([
     { character: "", text: "" },
   ]);
@@ -41,9 +48,11 @@ export const WriterWorkspace: React.FC = () => {
   const [cameraAngle, setCameraAngle] = useState("Eye-level");
   const [shotNotes, setShotNotes] = useState("");
   const [caption, setCaption] = useState("");
+  const [sfx, setSfx] = useState("");
   const [panelStatus, setPanelStatus] = useState("DRAFT");
   const [lineSearch, setLineSearch] = useState("");
   const [focusMode, setFocusMode] = useState(false);
+  const [collapsedPanels, setCollapsedPanels] = useState<string[]>([]);
 
   const loadScripts = () => {
     setLoading(true);
@@ -95,6 +104,8 @@ export const WriterWorkspace: React.FC = () => {
   const pageScripts = issueScripts.filter(
     (script) => Number(script.pageNumber) === pageNumber,
   );
+  const currentPageNotes = pageScripts[0]?.pageNotes || pageNotes;
+  const currentPageStatus = pageScripts[0]?.pageStatus || pageStatus;
   const visiblePageScripts = pageScripts.filter(
     (script) =>
       !lineSearch ||
@@ -145,7 +156,26 @@ export const WriterWorkspace: React.FC = () => {
     loadIssues();
   };
 
-  const addPage = () => setPageNumber(Math.max(0, ...pages) + 1);
+  const addPage = () => {
+    const nextPage = Math.max(0, ...pages) + 1;
+    setPageNumber(nextPage);
+    setPageNotes("");
+    setPageStatus("IN_PROGRESS");
+  };
+
+  const savePageMeta = async () => {
+    if (!pageScripts.length) return;
+    await Promise.all(
+      pageScripts.map((script) =>
+        fetch(`/api/scripts/${script.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pageNotes, pageStatus }),
+        }),
+      ),
+    );
+    loadScripts();
+  };
 
   const deletePage = async () => {
     if (
@@ -175,7 +205,7 @@ export const WriterWorkspace: React.FC = () => {
         body: JSON.stringify({
           issueId: selectedIssueId,
           pageNumber,
-          panelNumber: pageScripts.length + 1,
+          panelNumber,
           setting: newSetting,
           description: newDesc,
           dialogue: dialogueLines
@@ -185,13 +215,14 @@ export const WriterWorkspace: React.FC = () => {
             ),
           narration: "",
           caption,
-          sfx: "",
+          sfx,
           artistNote: shotNotes,
           shotNotes,
           panelType,
           cameraAngle,
           panelStatus,
           pageNotes,
+          pageStatus,
           editorNote: "Pending review",
         }),
       });
@@ -201,12 +232,60 @@ export const WriterWorkspace: React.FC = () => {
       setNewChar("");
       setDialogueLines([{ character: "", text: "" }]);
       setCaption("");
+      setSfx("");
+      setPanelNumber(pageScripts.length + 2);
       setShotNotes("");
       setPageNotes("");
       loadScripts();
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const updatePanel = async (
+    scriptId: string,
+    patch: Record<string, unknown>,
+  ) => {
+    await fetch(`/api/scripts/${scriptId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    loadScripts();
+  };
+
+  const deletePanel = async (scriptId: string) => {
+    if (!confirm("Delete this panel?")) return;
+    await fetch(`/api/scripts/${scriptId}`, { method: "DELETE" });
+    loadScripts();
+  };
+
+  const duplicatePanel = async (script: any) => {
+    const duplicate = {
+      ...script,
+      id: undefined,
+      panelNumber: pageScripts.length + 1,
+    };
+    delete duplicate.id;
+    await fetch("/api/scripts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(duplicate),
+    });
+    loadScripts();
+  };
+
+  const movePanel = async (script: any, direction: -1 | 1) => {
+    const ordered = [...pageScripts].sort(
+      (left, right) => Number(left.panelNumber) - Number(right.panelNumber),
+    );
+    const currentIndex = ordered.findIndex((item) => item.id === script.id);
+    const swapIndex = currentIndex + direction;
+    if (currentIndex < 0 || !ordered[swapIndex]) return;
+    await Promise.all([
+      updatePanel(script.id, { panelNumber: ordered[swapIndex].panelNumber }),
+      updatePanel(ordered[swapIndex].id, { panelNumber: script.panelNumber }),
+    ]);
   };
 
   const handleRunCanonCheck = async () => {
@@ -445,8 +524,42 @@ export const WriterWorkspace: React.FC = () => {
               <Trash2 className="inline w-3 h-3 mr-1" /> Delete page
             </button>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-[7rem_1fr_auto] gap-2 items-end">
+            <label className="text-xs text-zinc-400">
+              Page number
+              <input
+                type="number"
+                min={1}
+                value={pageNumber}
+                onChange={(event) =>
+                  setPageNumber(Math.max(1, Number(event.target.value) || 1))
+                }
+                className="mt-1 w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs text-zinc-200"
+              />
+            </label>
+            <label className="text-xs text-zinc-400">
+              Page status
+              <select
+                value={currentPageStatus}
+                onChange={(event) => setPageStatus(event.target.value)}
+                className="mt-1 w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs text-zinc-200"
+              >
+                <option>IN_PROGRESS</option>
+                <option>DONE</option>
+                <option>NEEDS_ART</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={savePageMeta}
+              disabled={!pageScripts.length}
+              className="border border-white/10 text-zinc-200 px-3 py-2 rounded-2xl text-xs disabled:opacity-40"
+            >
+              <Save className="inline w-3.5 h-3.5 mr-1" /> Save page
+            </button>
+          </div>
           <textarea
-            value={pageNotes}
+            value={pageNotes || currentPageNotes}
             onChange={(event) => setPageNotes(event.target.value)}
             placeholder={`Page ${pageNumber} notes: pacing, splash page, visual rhythm...`}
             rows={2}
@@ -464,59 +577,140 @@ export const WriterWorkspace: React.FC = () => {
                     <span className="text-xs font-bold bg-yellow-400 text-zinc-950 px-2.5 py-0.5 rounded font-mono">
                       PAGE {script.pageNumber}
                     </span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={script.panelNumber}
+                      onChange={(event) =>
+                        setScripts((current) =>
+                          current.map((item) =>
+                            item.id === script.id
+                              ? {
+                                  ...item,
+                                  panelNumber: Number(event.target.value) || 1,
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                      onBlur={(event) =>
+                        updatePanel(script.id, {
+                          panelNumber: Number(event.target.value) || 1,
+                        })
+                      }
+                      className="w-16 bg-zinc-900 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-zinc-200 font-mono"
+                      aria-label="Panel number"
+                    />
                     <span className="text-xs font-semibold text-zinc-300 font-mono">
-                      PANEL {script.panelNumber} ·{" "}
-                      {script.panelType || "Standard"} ·{" "}
+                      · {script.panelType || "Standard"} ·{" "}
                       {script.panelStatus || "DRAFT"}
                     </span>
                   </div>
-                  <span className="text-xs text-yellow-400 font-mono">
-                    {script.setting}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => movePanel(script, -1)}
+                      title="Move panel up"
+                      className="p-1 text-zinc-500 hover:text-yellow-300"
+                    >
+                      <ArrowUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => movePanel(script, 1)}
+                      title="Move panel down"
+                      className="p-1 text-zinc-500 hover:text-yellow-300"
+                    >
+                      <ArrowDown className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => duplicatePanel(script)}
+                      title="Duplicate panel"
+                      className="p-1 text-zinc-500 hover:text-yellow-300"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deletePanel(script.id)}
+                      title="Delete panel"
+                      className="p-1 text-zinc-500 hover:text-red-300"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCollapsedPanels((current) =>
+                          current.includes(script.id)
+                            ? current.filter((id) => id !== script.id)
+                            : [...current, script.id],
+                        )
+                      }
+                      title="Collapse panel"
+                      className="p-1 text-zinc-500 hover:text-zinc-200"
+                    >
+                      {collapsedPanels.includes(script.id) ? (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <p className="text-xs text-zinc-300 font-serif leading-relaxed italic">
-                    "{script.description}"
-                  </p>
-                  {script.caption && (
-                    <p className="text-xs text-zinc-400">
-                      Caption: {script.caption}
+                {!collapsedPanels.includes(script.id) && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-yellow-400 font-mono">
+                      {script.setting}
                     </p>
-                  )}
-                  {script.shotNotes && (
-                    <p className="text-xs text-zinc-400">
-                      Shot notes: {script.shotNotes}
+                    <p className="text-xs text-zinc-300 font-serif leading-relaxed italic">
+                      "{script.description}"
                     </p>
-                  )}
-                </div>
-
-                {script.dialogue?.length > 0 && (
-                  <div className="space-y-2 bg-zinc-950/60 p-4 rounded-2xl border border-white/5">
-                    {script.dialogue.map((dlg: any, dIdx: number) => (
-                      <div key={dIdx} className="space-y-0.5">
-                        <span className="text-[10px] font-mono font-bold text-yellow-400 tracking-wider uppercase">
-                          {dlg.character}:
-                        </span>
-                        <p className="text-xs font-bold text-zinc-100">
-                          {dlg.text}
-                        </p>
-                      </div>
-                    ))}
+                    {script.caption && (
+                      <p className="text-xs text-zinc-400">
+                        Caption: {script.caption}
+                      </p>
+                    )}
+                    {script.shotNotes && (
+                      <p className="text-xs text-zinc-400">
+                        Shot notes: {script.shotNotes}
+                      </p>
+                    )}
                   </div>
                 )}
 
-                <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-2 border-t border-white/5">
-                  <span>
-                    SFX: <strong className="text-zinc-300">{script.sfx}</strong>
-                  </span>
-                  <span>
-                    Artist Note:{" "}
-                    <strong className="text-zinc-300">
-                      {script.artistNote}
-                    </strong>
-                  </span>
-                </div>
+                {!collapsedPanels.includes(script.id) &&
+                  script.dialogue?.length > 0 && (
+                    <div className="space-y-2 bg-zinc-950/60 p-4 rounded-2xl border border-white/5">
+                      {script.dialogue.map((dlg: any, dIdx: number) => (
+                        <div key={dIdx} className="space-y-0.5">
+                          <span className="text-[10px] font-mono font-bold text-yellow-400 tracking-wider uppercase">
+                            {dlg.character}:
+                          </span>
+                          <p className="text-xs font-bold text-zinc-100">
+                            {dlg.text}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                {!collapsedPanels.includes(script.id) && (
+                  <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-2 border-t border-white/5">
+                    <span>
+                      SFX:{" "}
+                      <strong className="text-zinc-300">{script.sfx}</strong>
+                    </span>
+                    <span>
+                      Artist Note:{" "}
+                      <strong className="text-zinc-300">
+                        {script.artistNote}
+                      </strong>
+                    </span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -530,6 +724,18 @@ export const WriterWorkspace: React.FC = () => {
 
           <form onSubmit={handleAddPanel} className="space-y-4">
             <div className="grid grid-cols-2 gap-2">
+              <label className="text-xs text-zinc-400">
+                Panel number
+                <input
+                  type="number"
+                  min={1}
+                  value={panelNumber}
+                  onChange={(event) =>
+                    setPanelNumber(Math.max(1, Number(event.target.value) || 1))
+                  }
+                  className="mt-1 w-full bg-zinc-900 border border-white/10 rounded-2xl px-2 py-2 text-xs text-zinc-200"
+                />
+              </label>
               <label className="text-xs text-zinc-400">
                 Panel type
                 <select
@@ -593,6 +799,16 @@ export const WriterWorkspace: React.FC = () => {
                 />
               </label>
             </div>
+
+            <label className="text-xs text-zinc-400">
+              SFX
+              <input
+                value={sfx}
+                onChange={(event) => setSfx(event.target.value)}
+                placeholder="BAM! KRAKOOM!"
+                className="mt-1 w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs text-zinc-200"
+              />
+            </label>
 
             <div className="space-y-1.5">
               <label className="text-xs text-zinc-400 font-medium">

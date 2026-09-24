@@ -121,7 +121,10 @@ export interface Organization {
 export interface Species {
   id: string;
   name: string;
+  category?: string;
+  status?: string;
   homePlanet: string;
+  primaryLocations?: string;
   lifespan: string;
   biology: string;
   abilities: string;
@@ -129,6 +132,28 @@ export interface Species {
   culture: string;
   language: string;
   population: string;
+  government?: string;
+  technologyLevel?: string;
+  overview?: string;
+  appearance?: string;
+  physiology?: string;
+  lifecycleReproduction?: string;
+  diet?: string;
+  innateAbilities?: string;
+  learnedEnhanced?: string;
+  limitationsWeaknesses?: string;
+  customsValues?: string;
+  governmentStructure?: string;
+  technology?: string;
+  notableFactions?: string;
+  origins?: string;
+  majorEvents?: string;
+  currentStatus?: string;
+  notableIndividuals?: string;
+  trivia?: string;
+  seeAlso?: string;
+  notesReferences?: string;
+  image?: string;
   canonStatus: CanonStatus;
 }
 

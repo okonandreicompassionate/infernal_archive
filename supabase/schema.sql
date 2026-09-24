@@ -104,6 +104,44 @@ create table if not exists public.planets (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.planets add column if not exists full_name text not null default '';
+alter table public.planets add column if not exists alias text not null default '';
+alter table public.planets add column if not exists category text not null default 'Planet';
+alter table public.planets add column if not exists status text not null default 'Unknown';
+alter table public.planets add column if not exists star text not null default '';
+alter table public.planets add column if not exists position text not null default '';
+alter table public.planets add column if not exists day_length text not null default '';
+alter table public.planets add column if not exists year_length text not null default '';
+alter table public.planets add column if not exists terrain text not null default '';
+alter table public.planets add column if not exists native_species text not null default '';
+alter table public.planets add column if not exists languages text not null default '';
+alter table public.planets add column if not exists government text not null default '';
+alter table public.planets add column if not exists tech_level text not null default '';
+alter table public.planets add column if not exists overview text not null default '';
+alter table public.planets add column if not exists continents_regions text not null default '';
+alter table public.planets add column if not exists oceans_waterways text not null default '';
+alter table public.planets add column if not exists natural_wonders text not null default '';
+alter table public.planets add column if not exists flora text not null default '';
+alter table public.planets add column if not exists fauna text not null default '';
+alter table public.planets add column if not exists extinct_endangered text not null default '';
+alter table public.planets add column if not exists cities_settlements text not null default '';
+alter table public.planets add column if not exists values_customs text not null default '';
+alter table public.planets add column if not exists religion_belief text not null default '';
+alter table public.planets add column if not exists economy text not null default '';
+alter table public.planets add column if not exists art_architecture text not null default '';
+alter table public.planets add column if not exists formation text not null default '';
+alter table public.planets add column if not exists ancient_era text not null default '';
+alter table public.planets add column if not exists major_events text not null default '';
+alter table public.planets add column if not exists current_status text not null default '';
+alter table public.planets add column if not exists strategic_significance text not null default '';
+alter table public.planets add column if not exists legacy text not null default '';
+alter table public.planets add column if not exists affiliation text not null default '';
+alter table public.planets add column if not exists allies text not null default '';
+alter table public.planets add column if not exists enemies text not null default '';
+alter table public.planets add column if not exists notable_locations text not null default '';
+alter table public.planets add column if not exists trivia text not null default '';
+alter table public.planets add column if not exists see_also text not null default '';
+alter table public.planets add column if not exists notes_references text not null default '';
 
 create table if not exists public.locations (
   id text primary key,
@@ -174,6 +212,7 @@ alter table public.characters add column if not exists signature_quote text not 
 alter table public.characters add column if not exists battle_philosophy text not null default '';
 alter table public.characters add column if not exists character_arc text not null default '';
 alter table public.characters add column if not exists heroic_villainous_legacy text not null default '';
+alter table public.characters add column if not exists notable_engagements text not null default '';
 
 create table if not exists public.teams (
   id text primary key,
@@ -195,6 +234,38 @@ create table if not exists public.teams (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.teams add column if not exists full_name text not null default '';
+alter table public.teams add column if not exists alias text not null default '';
+alter table public.teams add column if not exists category text not null default 'Team';
+alter table public.teams add column if not exists founded_by text not null default '';
+alter table public.teams add column if not exists territory text not null default '';
+alter table public.teams add column if not exists affiliation text not null default '';
+alter table public.teams add column if not exists size text not null default '';
+alter table public.teams add column if not exists power_source text not null default '';
+alter table public.teams add column if not exists specialties text not null default '';
+alter table public.teams add column if not exists resources text not null default '';
+alter table public.teams add column if not exists description text not null default '';
+alter table public.teams add column if not exists overview text not null default '';
+alter table public.teams add column if not exists purpose_mandate text not null default '';
+alter table public.teams add column if not exists chain_command text not null default '';
+alter table public.teams add column if not exists roles text not null default '';
+alter table public.teams add column if not exists membership_criteria text not null default '';
+alter table public.teams add column if not exists recruitment text not null default '';
+alter table public.teams add column if not exists current_members text not null default '';
+alter table public.teams add column if not exists notable_former text not null default '';
+alter table public.teams add column if not exists reservists_affiliates text not null default '';
+alter table public.teams add column if not exists team_values text not null default '';
+alter table public.teams add column if not exists internal_dynamics text not null default '';
+alter table public.teams add column if not exists symbols_insignia text not null default '';
+alter table public.teams add column if not exists reputation text not null default '';
+alter table public.teams add column if not exists founding text not null default '';
+alter table public.teams add column if not exists major_operations text not null default '';
+alter table public.teams add column if not exists schisms_reforms text not null default '';
+alter table public.teams add column if not exists current_status text not null default '';
+alter table public.teams add column if not exists legacy text not null default '';
+alter table public.teams add column if not exists trivia text not null default '';
+alter table public.teams add column if not exists see_also text not null default '';
+alter table public.teams add column if not exists notes_references text not null default '';
 
 create table if not exists public.organizations (
   id text primary key,
@@ -223,9 +294,35 @@ create table if not exists public.species (
   language text not null default '',
   population text not null default '',
   canon_status public.canon_status not null default 'DRAFT',
+  image text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.species add column if not exists image text;
+alter table public.species add column if not exists category text not null default 'Species / Race';
+alter table public.species add column if not exists status text not null default 'Unknown';
+alter table public.species add column if not exists primary_locations text not null default '';
+alter table public.species add column if not exists government text not null default '';
+alter table public.species add column if not exists technology_level text not null default '';
+alter table public.species add column if not exists overview text not null default '';
+alter table public.species add column if not exists appearance text not null default '';
+alter table public.species add column if not exists physiology text not null default '';
+alter table public.species add column if not exists lifecycle_reproduction text not null default '';
+alter table public.species add column if not exists diet text not null default '';
+alter table public.species add column if not exists innate_abilities text not null default '';
+alter table public.species add column if not exists learned_enhanced text not null default '';
+alter table public.species add column if not exists limitations_weaknesses text not null default '';
+alter table public.species add column if not exists customs_values text not null default '';
+alter table public.species add column if not exists government_structure text not null default '';
+alter table public.species add column if not exists technology text not null default '';
+alter table public.species add column if not exists notable_factions text not null default '';
+alter table public.species add column if not exists origins text not null default '';
+alter table public.species add column if not exists major_events text not null default '';
+alter table public.species add column if not exists current_status text not null default '';
+alter table public.species add column if not exists notable_individuals text not null default '';
+alter table public.species add column if not exists trivia text not null default '';
+alter table public.species add column if not exists see_also text not null default '';
+alter table public.species add column if not exists notes_references text not null default '';
 
 create table if not exists public.powers (
   id text primary key,
@@ -255,6 +352,30 @@ create table if not exists public.artifacts (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.artifacts add column if not exists full_name text not null default '';
+alter table public.artifacts add column if not exists alias text not null default '';
+alter table public.artifacts add column if not exists category text not null default 'Artifact / Weapon';
+alter table public.artifacts add column if not exists created text not null default '';
+alter table public.artifacts add column if not exists material text not null default '';
+alter table public.artifacts add column if not exists wielders text not null default '';
+alter table public.artifacts add column if not exists affiliation text not null default '';
+alter table public.artifacts add column if not exists location text not null default '';
+alter table public.artifacts add column if not exists power_source text not null default '';
+alter table public.artifacts add column if not exists destructive_power text not null default '';
+alter table public.artifacts add column if not exists description text not null default '';
+alter table public.artifacts add column if not exists overview text not null default '';
+alter table public.artifacts add column if not exists appearance_design text not null default '';
+alter table public.artifacts add column if not exists secondary_abilities text not null default '';
+alter table public.artifacts add column if not exists activation_use text not null default '';
+alter table public.artifacts add column if not exists drawbacks text not null default '';
+alter table public.artifacts add column if not exists creation text not null default '';
+alter table public.artifacts add column if not exists notable_wielders text not null default '';
+alter table public.artifacts add column if not exists major_events text not null default '';
+alter table public.artifacts add column if not exists current_status text not null default '';
+alter table public.artifacts add column if not exists significance text not null default '';
+alter table public.artifacts add column if not exists trivia text not null default '';
+alter table public.artifacts add column if not exists see_also text not null default '';
+alter table public.artifacts add column if not exists notes_references text not null default '';
 
 create table if not exists public.events (
   id text primary key,
@@ -345,6 +466,7 @@ alter table public.scripts add column if not exists camera_angle text not null d
 alter table public.scripts add column if not exists shot_notes text not null default '';
 alter table public.scripts add column if not exists caption text not null default '';
 alter table public.scripts add column if not exists panel_status text not null default 'DRAFT';
+alter table public.scripts add column if not exists page_status text not null default 'IN_PROGRESS';
 alter table public.scripts add column if not exists page_notes text not null default '';
 
 create table if not exists public.artwork (

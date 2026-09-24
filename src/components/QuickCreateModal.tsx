@@ -91,6 +91,11 @@ const characterProfileFields = [
   ["corePhilosophy", "Core Philosophy", "Fundamental worldview or creed"],
   ["signatureQuote", "Signature Quote", "A line that captures who they are"],
   [
+    "notableEngagements",
+    "Notable Engagements",
+    "Key battles, confrontations, and turning points",
+  ],
+  [
     "battlePhilosophy",
     "Battle Philosophy",
     "Combat priorities, tactics, ethics",
@@ -101,6 +106,312 @@ const characterProfileFields = [
     "Heroic / Villainous Legacy",
     "Impact and symbol they become",
   ],
+] as const;
+
+const characterBibleFields = [
+  ["gender", "Gender", "Gender identity"],
+  ["birthDate", "Birth date", "Date or era of birth"],
+  ["birthplace", "Birthplace", "Where they were born"],
+  ["currentLocation", "Current location", "Where they are now"],
+  ["build", "Build", "Physique and body type"],
+  [
+    "distinguishingFeatures",
+    "Distinguishing features",
+    "Signature visual markers",
+  ],
+  ["costume", "Costume", "Costume, armor, or everyday look"],
+  ["origin", "Origin", "How their story began"],
+  ["description", "Overview", "Who they are and why they matter"],
+] as const;
+
+const speciesProfileSections = [
+  {
+    title: "Infobox",
+    fields: [
+      ["category", "Category", "Species / Race"],
+      ["status", "Status", "Extant, extinct, endangered, unknown"],
+      ["homePlanet", "Homeworld", "Primary homeworld"],
+      [
+        "primaryLocations",
+        "Primary locations",
+        "Habitats, colonies, territories",
+      ],
+      ["lifespan", "Lifespan", "Typical lifespan"],
+      ["population", "Population", "Estimated population"],
+      ["language", "Language(s)", "Languages and dialects"],
+      ["government", "Government", "Political system"],
+      [
+        "technologyLevel",
+        "Technology level",
+        "Primitive, industrial, cosmic, etc.",
+      ],
+    ],
+  },
+  {
+    title: "Overview & Biology",
+    fields: [
+      ["overview", "Overview", "The elevator pitch readers see first"],
+      ["appearance", "Appearance", "Visual traits and variation"],
+      ["physiology", "Physiology", "Biological systems and adaptations"],
+      [
+        "lifecycleReproduction",
+        "Lifecycle & reproduction",
+        "Birth, maturity, reproduction, death",
+      ],
+      ["diet", "Diet", "Food, energy, or sustenance"],
+    ],
+  },
+  {
+    title: "Abilities & Powers",
+    fields: [
+      [
+        "innateAbilities",
+        "Innate abilities",
+        "Natural abilities shared by the species",
+      ],
+      [
+        "learnedEnhanced",
+        "Learned / enhanced",
+        "Training, mutation, technology, or augmentation",
+      ],
+      [
+        "limitationsWeaknesses",
+        "Limitations & weaknesses",
+        "Documented counters and vulnerabilities",
+      ],
+    ],
+  },
+  {
+    title: "Society, History & Reference",
+    fields: [
+      ["customsValues", "Customs & values", "Traditions, ethics, and taboos"],
+      [
+        "governmentStructure",
+        "Government & structure",
+        "Institutions and social hierarchy",
+      ],
+      ["technology", "Technology", "Signature tools and infrastructure"],
+      [
+        "notableFactions",
+        "Notable factions",
+        "Major houses, clans, or movements",
+      ],
+      ["origins", "Origins", "Earliest known history"],
+      [
+        "majorEvents",
+        "Major events",
+        "Wars, migrations, disasters, discoveries",
+      ],
+      ["currentStatus", "Current status", "Present-day condition"],
+      ["notableIndividuals", "Notable individuals", "Important members"],
+      ["trivia", "Trivia", "Optional fun facts"],
+      ["seeAlso", "See also", "Related archive records"],
+      ["notesReferences", "Notes & references", "Sources and editorial notes"],
+    ],
+  },
+] as const;
+
+const teamProfileSections = [
+  {
+    title: "Infobox",
+    fields: [
+      ["category", "Category", "Team"],
+      ["fullName", "Full name", "Formal team name"],
+      ["alias", "Alias", "Other names"],
+      ["status", "Status", "Active, disbanded, underground, unknown"],
+      ["type", "Type", "Heroic, villainous, neutral, government, corporate"],
+      ["foundedBy", "Founded by", "Founder or founding group"],
+      ["foundingDate", "Founded", "Date or era"],
+      ["headquarters", "Headquarters", "Primary base"],
+      ["territory", "Territory", "Operational territory"],
+      ["affiliation", "Affiliation", "Parent organization or faction"],
+      ["leader", "Leader", "Current leader"],
+      ["size", "Size", "Approximate roster size"],
+      ["powerSource", "Power source", "How the team is empowered"],
+      ["specialties", "Specialties", "Core capabilities"],
+      ["resources", "Resources", "Funding, equipment, and support"],
+    ],
+  },
+  {
+    title: "Purpose & Structure",
+    fields: [
+      ["overview", "Overview", "What the team is and why it exists"],
+      ["purposeMandate", "Purpose & mandate", "Stated and hidden goals"],
+      ["chainCommand", "Chain of command", "Leadership structure"],
+      ["roles", "Roles", "Specialist roles and departments"],
+      ["membershipCriteria", "Membership criteria", "Who qualifies"],
+      ["recruitment", "Recruitment", "How members are found or chosen"],
+    ],
+  },
+  {
+    title: "Roster & Culture",
+    fields: [
+      ["currentMembers", "Current members", "Roster and active units"],
+      ["notableFormer", "Notable former members", "Past members"],
+      [
+        "reservistsAffiliates",
+        "Reservists / affiliates",
+        "Allied or reserve personnel",
+      ],
+      ["teamValues", "Values", "Team ideals and rules"],
+      ["internalDynamics", "Internal dynamics", "Conflicts and relationships"],
+      [
+        "symbolsInsignia",
+        "Symbols & insignia",
+        "Logo, colors, uniforms, rituals",
+      ],
+      ["reputation", "Reputation", "How the world sees them"],
+    ],
+  },
+  {
+    title: "Relationships, History & Legacy",
+    fields: [
+      ["allies", "Allies", "Allied teams and organizations"],
+      ["enemies", "Enemies / rivals", "Opposing forces"],
+      ["founding", "Founding", "Founding story"],
+      ["majorOperations", "Major operations", "Important missions"],
+      [
+        "schismsReforms",
+        "Schisms & reforms",
+        "Splits, changes, and restructuring",
+      ],
+      ["currentStatus", "Current status", "Present condition"],
+      ["legacy", "Legacy", "What the team symbolizes"],
+      ["trivia", "Trivia", "Optional fun facts"],
+      ["seeAlso", "See also", "Related records"],
+      ["notesReferences", "Notes & references", "Sources and editorial notes"],
+    ],
+  },
+] as const;
+
+const planetProfileSections = [
+  {
+    title: "Infobox",
+    fields: [
+      ["category", "Category", "Planet"],
+      ["fullName", "Full name", "Formal planetary name"],
+      ["alias", "Alias", "Other names"],
+      ["status", "Status", "Habitable, hostile, destroyed, unknown"],
+      ["starSystem", "System", "Star system"],
+      ["star", "Star", "Primary star"],
+      ["position", "Position", "Orbital position"],
+      ["moons", "Moons", "Number and names of moons"],
+      ["dayLength", "Day length", "Rotation period"],
+      ["yearLength", "Year length", "Orbital period"],
+      ["gravity", "Gravity", "Surface gravity"],
+      ["atmosphere", "Atmosphere", "Atmospheric composition"],
+      ["climate", "Climate", "Climate classification"],
+      ["terrain", "Terrain", "Major terrain types"],
+    ],
+  },
+  {
+    title: "Ecology & Civilization",
+    fields: [
+      ["nativeSpecies", "Native species", "Species evolved here"],
+      ["dominantSpecies", "Dominant species", "Current dominant population"],
+      ["population", "Population", "Estimated population"],
+      ["languages", "Languages", "Languages and dialects"],
+      ["government", "Government", "Political system"],
+      ["techLevel", "Technology", "Technology level"],
+      ["flora", "Flora", "Plant life"],
+      ["fauna", "Fauna", "Animal life"],
+      ["extinctEndangered", "Extinct / endangered", "At-risk lifeforms"],
+      ["citiesSettlements", "Cities & settlements", "Major population centers"],
+    ],
+  },
+  {
+    title: "Overview, Geography & Culture",
+    fields: [
+      ["overview", "Overview", "What the planet is and why it matters"],
+      [
+        "continentsRegions",
+        "Continents & regions",
+        "Major landmasses and regions",
+      ],
+      ["oceansWaterways", "Oceans & waterways", "Water systems and seas"],
+      ["naturalWonders", "Natural wonders", "Notable natural features"],
+      ["valuesCustoms", "Values & customs", "Social customs and traditions"],
+      ["religionBelief", "Religion & belief", "Faiths and belief systems"],
+      ["economy", "Economy", "Trade, resources, and industries"],
+      [
+        "artArchitecture",
+        "Art & architecture",
+        "Visual culture and structures",
+      ],
+    ],
+  },
+  {
+    title: "History, Alliances & Legacy",
+    fields: [
+      ["formation", "Formation", "Planetary formation"],
+      ["ancientEra", "Ancient era", "Earliest known civilizations"],
+      ["majorEvents", "Major events", "Wars, disasters, discoveries"],
+      ["currentStatus", "Current status", "Present condition"],
+      [
+        "strategicSignificance",
+        "Strategic significance",
+        "Resources, location, symbolism",
+      ],
+      ["legacy", "Legacy", "What the planet means in-universe"],
+      ["affiliation", "Affiliation", "Political or factional affiliation"],
+      ["allies", "Allies", "Allied worlds and factions"],
+      ["enemies", "Enemies", "Opposing worlds and factions"],
+      ["notableLocations", "Notable locations", "Important sites"],
+      ["trivia", "Trivia", "Optional fun facts"],
+      ["seeAlso", "See also", "Related records"],
+      ["notesReferences", "Notes & references", "Sources and editorial notes"],
+    ],
+  },
+] as const;
+
+const artifactProfileSections = [
+  {
+    title: "Infobox",
+    fields: [
+      ["category", "Category", "Artifact / Weapon"],
+      ["fullName", "Full name", "Formal artifact name"],
+      ["alias", "Alias", "Other names"],
+      ["type", "Type", "Weapon, relic, armor, tool, vehicle"],
+      ["status", "Status", "Active, lost, destroyed, sealed"],
+      ["creator", "Creator", "Who made it"],
+      ["created", "Created", "Date or era of creation"],
+      ["origin", "Origin", "Where it came from"],
+      ["material", "Material", "Construction and composition"],
+      ["creatorOwner", "Owner", "Current owner"],
+      ["wielders", "Wielders", "Known wielders"],
+      ["affiliation", "Affiliation", "Faction or organization"],
+      ["location", "Location", "Current location"],
+      ["powerSource", "Power source", "Energy or magic source"],
+      ["destructivePower", "Destructive power", "Threat or output scale"],
+    ],
+  },
+  {
+    title: "Function & History",
+    fields: [
+      ["overview", "Overview", "What it is and why it matters"],
+      [
+        "appearanceDesign",
+        "Appearance & design",
+        "Physical description and craftsmanship",
+      ],
+      ["abilities", "Primary abilities", "Core functions"],
+      ["secondaryAbilities", "Secondary abilities", "Additional functions"],
+      ["activationUse", "Activation / use", "How it is activated or wielded"],
+      ["drawbacks", "Limitations & costs", "Drawbacks, costs, and risks"],
+      ["creation", "Creation", "Who made it and why"],
+      ["notableWielders", "Notable wielders", "Important users"],
+      ["majorEvents", "Major events", "Events involving the artifact"],
+      ["currentStatus", "Current status", "Present condition"],
+      [
+        "significance",
+        "Significance",
+        "Symbolic, strategic, or narrative weight",
+      ],
+      ["trivia", "Trivia", "Optional fun facts"],
+      ["seeAlso", "See also", "Related records"],
+      ["notesReferences", "Notes & references", "Sources and editorial notes"],
+    ],
+  },
 ] as const;
 
 interface CharacterPickerProps {
@@ -300,10 +611,69 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
             payload.image = upload.url;
         }
       } else if (entityType === "teams") {
-        payload.type = extraField || "Taskforce";
+        payload.type = profileFields.type || extraField || "Taskforce";
+        payload.fullName = profileFields.fullName || name;
+        payload.alias = profileFields.alias || "";
+        payload.category = profileFields.category || "Team";
+        payload.status = profileFields.status || "Active";
+        payload.foundingDate = profileFields.foundingDate || "";
+        payload.foundedBy = profileFields.foundedBy || "";
+        payload.territory = profileFields.territory || "";
+        payload.affiliation = profileFields.affiliation || "";
+        payload.size = profileFields.size || "";
+        payload.powerSource = profileFields.powerSource || "";
+        payload.specialties = profileFields.specialties || "";
+        payload.resources = profileFields.resources || "";
+        payload.description = profileFields.overview || description;
+        Object.assign(payload, profileFields);
+        if (imageFile) {
+          const upload = await uploadArchiveImage(imageFile, "teams");
+          if (upload.error) throw upload.error;
+          payload.logo = upload.url;
+        }
+      } else if (entityType === "planets") {
+        payload.fullName = profileFields.fullName || name;
+        payload.category = profileFields.category || "Planet";
+        payload.status = profileFields.status || "Unknown";
+        payload.starSystem = profileFields.starSystem || "";
+        payload.star = profileFields.star || "";
+        payload.position = profileFields.position || "";
+        payload.dayLength = profileFields.dayLength || "";
+        payload.yearLength = profileFields.yearLength || "";
+        payload.terrain = profileFields.terrain || "";
+        payload.nativeSpecies = profileFields.nativeSpecies || "";
+        payload.languages = profileFields.languages || "";
+        payload.government = profileFields.government || "";
+        payload.techLevel = profileFields.techLevel || "";
+        payload.overview = profileFields.overview || description;
+        payload.description = profileFields.overview || description;
+        Object.assign(payload, profileFields);
+        if (imageFile) {
+          const upload = await uploadArchiveImage(imageFile, "planets");
+          if (upload.error) throw upload.error;
+          payload.image = upload.url;
+        }
       } else if (entityType === "artifacts") {
-        payload.type = extraField || "Weapon";
-        payload.status = "Active";
+        payload.type = profileFields.type || extraField || "Weapon";
+        payload.status = profileFields.status || "Active";
+        payload.fullName = profileFields.fullName || name;
+        payload.alias = profileFields.alias || "";
+        payload.category = profileFields.category || "Artifact / Weapon";
+        payload.created = profileFields.created || "";
+        payload.material = profileFields.material || "";
+        payload.currentOwner = profileFields.creatorOwner || "";
+        payload.wielders = profileFields.wielders || "";
+        payload.affiliation = profileFields.affiliation || "";
+        payload.location = profileFields.location || "";
+        payload.powerSource = profileFields.powerSource || "";
+        payload.destructivePower = profileFields.destructivePower || "";
+        payload.description = profileFields.overview || description;
+        Object.assign(payload, profileFields);
+        if (imageFile) {
+          const upload = await uploadArchiveImage(imageFile, "artifacts");
+          if (upload.error) throw upload.error;
+          payload.image = upload.url;
+        }
       } else if (entityType === "species") {
         Object.assign(payload, {
           homePlanet: profileFields.homePlanet || "",
@@ -314,7 +684,14 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
           culture: profileFields.culture || "",
           language: profileFields.language || "",
           population: profileFields.population || "",
+          description: profileFields.overview || description,
         });
+        Object.assign(payload, profileFields);
+        if (imageFile) {
+          const upload = await uploadArchiveImage(imageFile, "species");
+          if (upload.error) throw upload.error;
+          payload.image = upload.url;
+        }
       }
 
       const res = await fetch(`/api/${entityType}`, {
@@ -531,6 +908,39 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
                 )}
               </div>
 
+              <div className="space-y-3 bg-zinc-900/40 p-4 rounded-2xl border border-white/5">
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-yellow-400 font-mono">
+                    Character Infobox & History
+                  </p>
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    Real identity, appearance, origin, and present-day context.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {characterBibleFields.map(([key, label, placeholder]) => (
+                    <label
+                      key={key}
+                      className={`space-y-1 text-[10px] text-zinc-400 uppercase font-mono ${key === "description" || key === "origin" ? "sm:col-span-2" : ""}`}
+                    >
+                      <span>{label}</span>
+                      <textarea
+                        rows={key === "description" || key === "origin" ? 3 : 2}
+                        value={profileFields[key] || ""}
+                        placeholder={placeholder}
+                        onChange={(event) =>
+                          setProfileFields((current) => ({
+                            ...current,
+                            [key]: event.target.value,
+                          }))
+                        }
+                        className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-zinc-900/40 p-4 rounded-2xl border border-white/5">
                 {characterProfileFields.map(([key, label, placeholder]) => (
                   <label
@@ -599,34 +1009,230 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
           )}
 
           {entityType === "species" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-zinc-900/40 p-4 rounded-2xl border border-white/5">
-              {[
-                ["homePlanet", "Home planet"],
-                ["lifespan", "Lifespan"],
-                ["biology", "Biology"],
-                ["abilities", "Abilities"],
-                ["weaknesses", "Weaknesses"],
-                ["culture", "Culture"],
-                ["language", "Language"],
-                ["population", "Population"],
-              ].map(([key, label]) => (
-                <label
-                  key={key}
-                  className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono"
-                >
-                  <span>{label}</span>
-                  <textarea
-                    rows={2}
-                    value={profileFields[key] || ""}
+            <div className="space-y-5 bg-zinc-900/40 p-4 rounded-2xl border border-white/5">
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div>
+                  <p className="text-xs font-semibold text-zinc-200">
+                    Species Bible
+                  </p>
+                  <p className="text-[10px] text-zinc-500">
+                    Build the full reference entry, not just a race name.
+                  </p>
+                </div>
+                <label className="inline-flex items-center gap-2 border border-white/10 bg-zinc-900 px-3 py-2 text-[10px] text-zinc-200 cursor-pointer hover:bg-white/10">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{imageFile ? "Replace image" : "Species image"}</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
                     onChange={(event) =>
-                      setProfileFields((current) => ({
-                        ...current,
-                        [key]: event.target.value,
-                      }))
+                      setImageFile(event.target.files?.[0] || null)
                     }
-                    className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                    className="sr-only"
                   />
                 </label>
+              </div>
+              {speciesProfileSections.map((section) => (
+                <section key={section.title} className="space-y-3">
+                  <h3 className="text-[10px] uppercase tracking-widest text-yellow-400 font-mono">
+                    {section.title}
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {section.fields.map(([key, label, placeholder]) => (
+                      <label
+                        key={key}
+                        className={`space-y-1 text-[10px] text-zinc-400 uppercase font-mono ${["overview", "appearance", "physiology", "lifecycleReproduction", "diet", "limitationsWeaknesses", "customsValues", "governmentStructure", "technology", "origins", "majorEvents", "currentStatus", "notableIndividuals", "trivia", "seeAlso", "notesReferences"].includes(key) ? "sm:col-span-2" : ""}`}
+                      >
+                        <span>{label}</span>
+                        <textarea
+                          rows={key === "overview" || key === "biology" ? 4 : 2}
+                          value={profileFields[key] || ""}
+                          placeholder={placeholder}
+                          onChange={(event) =>
+                            setProfileFields((current) => ({
+                              ...current,
+                              [key]: event.target.value,
+                            }))
+                          }
+                          className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+
+          {entityType === "teams" && (
+            <div className="space-y-5 bg-zinc-900/40 p-4 rounded-2xl border border-white/5">
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div>
+                  <p className="text-xs font-semibold text-zinc-200">
+                    Team Bible
+                  </p>
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    Roster, mandate, operations, culture, and legacy.
+                  </p>
+                </div>
+                <label className="inline-flex items-center gap-2 border border-white/10 bg-zinc-900 px-3 py-2 text-[10px] text-zinc-200 cursor-pointer hover:bg-white/10">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>
+                    {imageFile ? "Replace insignia" : "Team insignia"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    onChange={(event) =>
+                      setImageFile(event.target.files?.[0] || null)
+                    }
+                    className="sr-only"
+                  />
+                </label>
+              </div>
+              {teamProfileSections.map((section) => (
+                <section key={section.title} className="space-y-3">
+                  <h3 className="text-[10px] uppercase tracking-widest text-yellow-400 font-mono">
+                    {section.title}
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {section.fields.map(([key, label, placeholder]) => (
+                      <label
+                        key={key}
+                        className={`space-y-1 text-[10px] text-zinc-400 uppercase font-mono ${["overview", "purposeMandate", "chainCommand", "roles", "membershipCriteria", "recruitment", "currentMembers", "notableFormer", "reservistsAffiliates", "teamValues", "internalDynamics", "symbolsInsignia", "reputation", "allies", "enemies", "founding", "majorOperations", "schismsReforms", "currentStatus", "legacy", "trivia", "seeAlso", "notesReferences"].includes(key) ? "sm:col-span-2" : ""}`}
+                      >
+                        <span>{label}</span>
+                        <textarea
+                          rows={key === "overview" || key === "legacy" ? 4 : 2}
+                          value={profileFields[key] || ""}
+                          placeholder={placeholder}
+                          onChange={(event) =>
+                            setProfileFields((current) => ({
+                              ...current,
+                              [key]: event.target.value,
+                            }))
+                          }
+                          className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+
+          {entityType === "planets" && (
+            <div className="space-y-5 bg-zinc-900/40 p-4 rounded-2xl border border-white/5">
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div>
+                  <p className="text-xs font-semibold text-zinc-200">
+                    Planet Bible
+                  </p>
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    Astronomy, ecology, civilization, culture, and strategic
+                    value.
+                  </p>
+                </div>
+                <label className="inline-flex items-center gap-2 border border-white/10 bg-zinc-900 px-3 py-2 text-[10px] text-zinc-200 cursor-pointer hover:bg-white/10">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{imageFile ? "Replace image" : "Planet image"}</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    onChange={(event) =>
+                      setImageFile(event.target.files?.[0] || null)
+                    }
+                    className="sr-only"
+                  />
+                </label>
+              </div>
+              {planetProfileSections.map((section) => (
+                <section key={section.title} className="space-y-3">
+                  <h3 className="text-[10px] uppercase tracking-widest text-yellow-400 font-mono">
+                    {section.title}
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {section.fields.map(([key, label, placeholder]) => (
+                      <label
+                        key={key}
+                        className={`space-y-1 text-[10px] text-zinc-400 uppercase font-mono ${["overview", "continentsRegions", "oceansWaterways", "naturalWonders", "valuesCustoms", "religionBelief", "economy", "artArchitecture", "formation", "ancientEra", "majorEvents", "currentStatus", "strategicSignificance", "legacy", "affiliation", "allies", "enemies", "notableLocations", "trivia", "seeAlso", "notesReferences"].includes(key) ? "sm:col-span-2" : ""}`}
+                      >
+                        <span>{label}</span>
+                        <textarea
+                          rows={key === "overview" || key === "legacy" ? 4 : 2}
+                          value={profileFields[key] || ""}
+                          placeholder={placeholder}
+                          onChange={(event) =>
+                            setProfileFields((current) => ({
+                              ...current,
+                              [key]: event.target.value,
+                            }))
+                          }
+                          className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+
+          {entityType === "artifacts" && (
+            <div className="space-y-5 bg-zinc-900/40 p-4 rounded-2xl border border-white/5">
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div>
+                  <p className="text-xs font-semibold text-zinc-200">
+                    Artifact Bible
+                  </p>
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    Design, function, origin, wielders, and significance.
+                  </p>
+                </div>
+                <label className="inline-flex items-center gap-2 border border-white/10 bg-zinc-900 px-3 py-2 text-[10px] text-zinc-200 cursor-pointer hover:bg-white/10">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{imageFile ? "Replace image" : "Artifact image"}</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    onChange={(event) =>
+                      setImageFile(event.target.files?.[0] || null)
+                    }
+                    className="sr-only"
+                  />
+                </label>
+              </div>
+              {artifactProfileSections.map((section) => (
+                <section key={section.title} className="space-y-3">
+                  <h3 className="text-[10px] uppercase tracking-widest text-yellow-400 font-mono">
+                    {section.title}
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {section.fields.map(([key, label, placeholder]) => (
+                      <label
+                        key={key}
+                        className={`space-y-1 text-[10px] text-zinc-400 uppercase font-mono ${["overview", "appearanceDesign", "abilities", "secondaryAbilities", "activationUse", "drawbacks", "creation", "notableWielders", "majorEvents", "currentStatus", "significance", "trivia", "seeAlso", "notesReferences"].includes(key) ? "sm:col-span-2" : ""}`}
+                      >
+                        <span>{label}</span>
+                        <textarea
+                          rows={
+                            key === "overview" || key === "significance" ? 4 : 2
+                          }
+                          value={profileFields[key] || ""}
+                          placeholder={placeholder}
+                          onChange={(event) =>
+                            setProfileFields((current) => ({
+                              ...current,
+                              [key]: event.target.value,
+                            }))
+                          }
+                          className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
           )}
