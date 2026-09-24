@@ -61,7 +61,9 @@ async function resolveGroqModel(apiKey: string) {
       cachedGroqModel = availablePreferred;
       return cachedGroqModel;
     }
-    throw new Error("No supported Groq chat model is available for this API key.");
+    throw new Error(
+      "No supported Groq chat model is available for this API key.",
+    );
   } catch (error) {
     if (process.env.GROQ_MODEL?.trim()) return process.env.GROQ_MODEL.trim();
     throw error;
