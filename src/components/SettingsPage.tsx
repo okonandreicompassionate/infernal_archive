@@ -40,9 +40,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     groq: "",
     gemini: "",
   });
+  const [activeProvider, setActiveProvider] = useState<"groq" | "gemini">(
+    "groq",
+  );
   const [providerKeyStatus, setProviderKeyStatus] = useState<{
-    groq: Array<{ key: string; status: string; remainingMs: number }>;
-    gemini: Array<{ key: string; status: string; remainingMs: number }>;
+    groq: Array<{
+      key: string;
+      label: string;
+      status: string;
+      remainingMs: number;
+    }>;
+    gemini: Array<{
+      key: string;
+      label: string;
+      status: string;
+      remainingMs: number;
+    }>;
   }>({
     groq: [],
     gemini: [],
@@ -62,13 +75,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       .then(async (response) => {
         if (!response.ok) return;
         const data = await response.json();
+        setActiveProvider(data.activeProvider === "gemini" ? "gemini" : "groq");
         setProviderKeyStatus({
           groq: data.providers?.groq || [],
           gemini: data.providers?.gemini || [],
         });
         setProviderKeys({
-          groq: (data.providers?.groq || []).map((item: any) => item.key).join(", "),
-          gemini: (data.providers?.gemini || []).map((item: any) => item.key).join(", "),
+          groq: (data.providers?.groq || [])
+            .map((item: any) => `${item.label || "Key"} | ${item.key}`)
+            .join("\n"),
+          gemini: (data.providers?.gemini || [])
+            .map((item: any) => `${item.label || "Key"} | ${item.key}`)
+            .join("\n"),
         });
       })
       .catch(() => undefined);
@@ -127,10 +145,31 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   };
 
   const saveProviderKeys = async (provider: "groq" | "gemini") => {
+    const parsedEntries = providerKeys[provider]
+      .split(/\n|,/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const splitIndex = line.indexOf("|");
+        const keyPart =
+          splitIndex >= 0 ? line.slice(splitIndex + 1).trim() : line;
+        const labelPart =
+          splitIndex >= 0 ? line.slice(0, splitIndex).trim() : "Key";
+        return {
+          key: keyPart,
+          label: labelPart || "Key",
+        };
+      })
+      .filter((entry) => entry.key);
+
     const response = await fetch("/api/ai/provider-keys", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ provider, keys: providerKeys[provider] }),
+      body: JSON.stringify({
+        provider,
+        entries: parsedEntries,
+        manualProvider: activeProvider,
+      }),
     });
 
     const result = await response.json().catch(() => ({}));
@@ -144,6 +183,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       [provider]: result.keys || [],
     }));
     setKeyMessage(`${provider.toUpperCase()} keys updated.`);
+    setActiveProvider(result.activeProvider === "gemini" ? "gemini" : "groq");
   };
 
   return (
@@ -213,12 +253,28 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               <div>
                 <h2>AI key pool</h2>
                 <p>
-                  Add comma-separated keys for Groq or Gemini. Exhausted keys auto-cool
-                  down and the next valid key rotates in automatically.
+                  Add comma-separated keys for Groq or Gemini. Exhausted keys
+                  auto-cool down and the next valid key rotates in
+                  automatically.
                 </p>
               </div>
             </div>
             <div className="settings-form" style={{ gap: "1rem" }}>
+              <label>
+                Active AI provider
+                <select
+                  value={activeProvider}
+                  onChange={(event) =>
+                    setActiveProvider(
+                      event.target.value === "gemini" ? "gemini" : "groq",
+                    )
+                  }
+                >
+                  <option value="groq">Groq</option>
+                  <option value="gemini">Gemini</option>
+                </select>
+              </label>
+
               <label>
                 Groq keys
                 <textarea
@@ -229,8 +285,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       groq: event.target.value,
                     }))
                   }
-                  rows={3}
-                  placeholder="gsk_xxx, gsk_yyy"
+                  rows={4}
+                  placeholder="Main Groq | gsk_xxx
+Backup Groq | gsk_yyy"
                 />
               </label>
               <div className="settings-actions">
@@ -240,10 +297,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               </div>
               <div className="managed-users">
                 {providerKeyStatus.groq.map((item) => (
-                  <div className="managed-user" key={item.key}>
+                  <div
+                    className="managed-user"
+                    key={`${item.label}-${item.key}`}
+                  >
                     <div>
-                      <strong>{item.key.slice(0, 8)}...</strong>
-                      <span>{item.status === "ready" ? "Ready" : `Cooling down: ${Math.ceil(item.remainingMs / 1000)}s`}</span>
+                      <strong>{item.label || "Key"}</strong>
+                      <span>
+                        {item.key.slice(0, 8)}... ·{" "}
+                        {item.status === "ready"
+                          ? "Ready"
+                          : `Cooling down: ${Math.ceil(item.remainingMs / 1000)}s`}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -262,21 +327,33 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       gemini: event.target.value,
                     }))
                   }
-                  rows={3}
-                  placeholder="AIza..., AIza..."
+                  rows={4}
+                  placeholder="Work Gemini | AIza...
+Personal Gemini | AIza..."
                 />
               </label>
               <div className="settings-actions">
-                <button type="button" onClick={() => saveProviderKeys("gemini")}>
+                <button
+                  type="button"
+                  onClick={() => saveProviderKeys("gemini")}
+                >
                   Save Gemini keys
                 </button>
               </div>
               <div className="managed-users">
                 {providerKeyStatus.gemini.map((item) => (
-                  <div className="managed-user" key={item.key}>
+                  <div
+                    className="managed-user"
+                    key={`${item.label}-${item.key}`}
+                  >
                     <div>
-                      <strong>{item.key.slice(0, 8)}...</strong>
-                      <span>{item.status === "ready" ? "Ready" : `Cooling down: ${Math.ceil(item.remainingMs / 1000)}s`}</span>
+                      <strong>{item.label || "Key"}</strong>
+                      <span>
+                        {item.key.slice(0, 8)}... ·{" "}
+                        {item.status === "ready"
+                          ? "Ready"
+                          : `Cooling down: ${Math.ceil(item.remainingMs / 1000)}s`}
+                      </span>
                     </div>
                   </div>
                 ))}

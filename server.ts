@@ -25,7 +25,15 @@ import {
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 
-const aiProvider = (
+type ProviderKeyEntry = {
+  key: string;
+  label: string;
+  provider: "groq" | "gemini";
+};
+
+const keyConfigPath = path.join(process.cwd(), ".ai-key-config.json");
+
+let aiProvider = (
   process.env.AI_PROVIDER ||
   (process.env.GROQ_API_KEY || process.env.GROQ_KEYS ? "groq" : "gemini")
 ).toLowerCase();
@@ -43,6 +51,49 @@ const keyRotationState: Record<
   gemini: { index: 0, cooldowns: new Map() },
 };
 
+const defaultKeyConfig: Record<"groq" | "gemini", ProviderKeyEntry[]> = {
+  groq: [],
+  gemini: [],
+};
+
+function loadPersistedKeyConfig() {
+  try {
+    if (!fs.existsSync(keyConfigPath)) {
+      return { ...defaultKeyConfig };
+    }
+    const raw = fs.readFileSync(keyConfigPath, "utf8");
+    const parsed = JSON.parse(raw || "{}");
+    const normalized = { ...defaultKeyConfig };
+    for (const provider of ["groq", "gemini"] as const) {
+      const entries = Array.isArray(parsed?.[provider]) ? parsed[provider] : [];
+      normalized[provider] = entries
+        .filter((entry: any) => entry && typeof entry.key === "string")
+        .map((entry: any) => ({
+          key: String(entry.key).trim(),
+          label: String(entry.label || "Key").trim() || "Key",
+          provider,
+        }))
+        .filter((entry) => entry.key.length > 0);
+    }
+    return normalized;
+  } catch (error) {
+    return { ...defaultKeyConfig };
+  }
+}
+
+let persistedKeyConfig = loadPersistedKeyConfig();
+
+function savePersistedKeyConfig() {
+  try {
+    fs.writeFileSync(
+      keyConfigPath,
+      JSON.stringify(persistedKeyConfig, null, 2),
+    );
+  } catch (error) {
+    console.warn("Failed to save AI key config:", error);
+  }
+}
+
 function parseApiKeys(rawValue?: string) {
   return (rawValue || "")
     .split(",")
@@ -50,13 +101,34 @@ function parseApiKeys(rawValue?: string) {
     .filter(Boolean);
 }
 
-function getApiKeyPool(provider: "groq" | "gemini") {
+function getConfiguredEntries(provider: "groq" | "gemini") {
+  const stored = persistedKeyConfig[provider];
+  const envKeys = parseApiKeys(
+    provider === "groq" ? process.env.GROQ_KEYS : process.env.GEMINI_KEYS,
+  );
   const singleKey =
     provider === "groq" ? process.env.GROQ_API_KEY : process.env.GEMINI_API_KEY;
-  const multiKey =
-    provider === "groq" ? process.env.GROQ_KEYS : process.env.GEMINI_KEYS;
-  const merged = [...parseApiKeys(multiKey), ...(singleKey ? [singleKey] : [])];
-  return [...new Set(merged)];
+
+  const merged = [
+    ...stored.map((entry) => ({
+      key: entry.key,
+      label: entry.label || "Key",
+      provider,
+    })),
+    ...envKeys.map((key) => ({ key, label: "Env key", provider })),
+    ...(singleKey ? [{ key: singleKey, label: "Default key", provider }] : []),
+  ];
+
+  const seen = new Set<string>();
+  return merged.filter((entry) => {
+    if (!entry.key || seen.has(entry.key)) return false;
+    seen.add(entry.key);
+    return true;
+  });
+}
+
+function getApiKeyPool(provider: "groq" | "gemini") {
+  return getConfiguredEntries(provider).map((entry) => entry.key);
 }
 
 function isKeyCoolingDown(provider: "groq" | "gemini", apiKey: string) {
@@ -73,12 +145,14 @@ function markKeyCoolingDown(
 }
 
 function getProviderKeyStatus(provider: "groq" | "gemini") {
-  const pool = getApiKeyPool(provider);
-  return pool.map((apiKey) => {
-    const cooldownUntil = keyRotationState[provider].cooldowns.get(apiKey) || 0;
+  const entries = getConfiguredEntries(provider);
+  return entries.map((entry) => {
+    const cooldownUntil =
+      keyRotationState[provider].cooldowns.get(entry.key) || 0;
     const remainingMs = Math.max(0, cooldownUntil - Date.now());
     return {
-      key: apiKey,
+      key: entry.key,
+      label: entry.label || "Key",
       status: remainingMs > 0 ? "cooldown" : "ready",
       remainingMs,
     };
@@ -235,7 +309,10 @@ async function generateAIText(prompt: string) {
           cachedGroqModel = groqModel;
           return data.choices?.[0]?.message?.content || "";
         } catch (error) {
-          if (error instanceof Error && /time out|timed out/i.test(error.message)) {
+          if (
+            error instanceof Error &&
+            /time out|timed out/i.test(error.message)
+          ) {
             markKeyExhausted("groq", apiKey);
           }
           lastError =
@@ -321,28 +398,56 @@ app.get("/api/ai/provider-keys", (_req, res) => {
 });
 
 app.post("/api/ai/provider-keys", (req, res) => {
-  const { provider, keys } = req.body || {};
-  if (!provider || !["groq", "gemini"].includes(provider)) {
+  const { provider, entries, keys, manualProvider } = req.body || {};
+  const targetProvider = provider || manualProvider;
+
+  if (!targetProvider || !["groq", "gemini"].includes(targetProvider)) {
     return res.status(400).json({ error: "Provider must be groq or gemini." });
   }
 
-  const cleanedKeys = parseApiKeys(typeof keys === "string" ? keys : keys?.join(","));
-  const envKeyName = provider === "groq" ? "GROQ_KEYS" : "GEMINI_KEYS";
-  const singleKeyName = provider === "groq" ? "GROQ_API_KEY" : "GEMINI_API_KEY";
+  const normalizedEntries = Array.isArray(entries)
+    ? entries
+    : typeof keys === "string"
+      ? keys
+          .split(/\n|,/)
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .map((key) => ({ key, label: "Key" }))
+      : [];
 
-  if (cleanedKeys.length) {
-    process.env[envKeyName] = cleanedKeys.join(",");
+  const cleanedEntries = normalizedEntries
+    .map((entry: any) => ({
+      key: String(entry.key || "").trim(),
+      label: String(entry.label || "Key").trim() || "Key",
+      provider: targetProvider,
+    }))
+    .filter((entry) => entry.key);
+
+  persistedKeyConfig[targetProvider] = cleanedEntries;
+  savePersistedKeyConfig();
+
+  const envKeyName = targetProvider === "groq" ? "GROQ_KEYS" : "GEMINI_KEYS";
+  const singleKeyName =
+    targetProvider === "groq" ? "GROQ_API_KEY" : "GEMINI_API_KEY";
+  const envKeys = cleanedEntries.map((entry) => entry.key);
+  if (envKeys.length) {
+    process.env[envKeyName] = envKeys.join(",");
     if (!process.env[singleKeyName]) {
-      process.env[singleKeyName] = cleanedKeys[0];
+      process.env[singleKeyName] = envKeys[0];
     }
   } else {
     delete process.env[envKeyName];
   }
 
+  if (manualProvider && ["groq", "gemini"].includes(manualProvider)) {
+    aiProvider = manualProvider;
+    process.env.AI_PROVIDER = manualProvider;
+  }
+
   res.json({
     ok: true,
-    provider,
-    keys: getProviderKeyStatus(provider),
+    provider: targetProvider,
+    keys: getProviderKeyStatus(targetProvider),
     activeProvider: aiProvider,
   });
 });
