@@ -147,7 +147,10 @@ function hashString(str) {
 }
 function countMatches(text, keywords) {
   const lower = text.toLowerCase();
-  return keywords.reduce((count, kw) => lower.includes(kw) ? count + 1 : count, 0);
+  return keywords.reduce(
+    (count, kw) => lower.includes(kw) ? count + 1 : count,
+    0
+  );
 }
 var textBlob = (c) => [
   c.personality,
@@ -218,12 +221,36 @@ function deriveStats(c, rng) {
   };
 }
 var INTERACTIONS = [
-  { a: ["fire", "flame", "heat", "pyro", "inferno"], b: ["ice", "cold", "frost", "cryo"], label: "Thermal matchup" },
-  { a: ["light", "solar", "radiant", "photon"], b: ["void", "shadow", "dark", "umbra"], label: "Light vs. void matchup" },
-  { a: ["reality", "anchor", "stabiliz"], b: ["void", "shadow", "dark", "phase", "intangib"], label: "Reality anchoring" },
-  { a: ["electric", "lightning", "volt"], b: ["water", "aqua", "hydro"], label: "Conductive matchup" },
-  { a: ["telepath", "mind", "psychic"], b: ["mindless", "construct", "robot", "android"], label: "Psionic immunity" },
-  { a: ["sonic", "sound", "vibration"], b: ["crystal", "glass", "brittle"], label: "Resonance matchup" }
+  {
+    a: ["fire", "flame", "heat", "pyro", "inferno"],
+    b: ["ice", "cold", "frost", "cryo"],
+    label: "Thermal matchup"
+  },
+  {
+    a: ["light", "solar", "radiant", "photon"],
+    b: ["void", "shadow", "dark", "umbra"],
+    label: "Light vs. void matchup"
+  },
+  {
+    a: ["reality", "anchor", "stabiliz"],
+    b: ["void", "shadow", "dark", "phase", "intangib"],
+    label: "Reality anchoring"
+  },
+  {
+    a: ["electric", "lightning", "volt"],
+    b: ["water", "aqua", "hydro"],
+    label: "Conductive matchup"
+  },
+  {
+    a: ["telepath", "mind", "psychic"],
+    b: ["mindless", "construct", "robot", "android"],
+    label: "Psionic immunity"
+  },
+  {
+    a: ["sonic", "sound", "vibration"],
+    b: ["crystal", "glass", "brittle"],
+    label: "Resonance matchup"
+  }
 ];
 function matchupModifier(a, b) {
   const aPowers = (a.powers || []).join(" ").toLowerCase();
@@ -233,10 +260,16 @@ function matchupModifier(a, b) {
   for (const rule of INTERACTIONS) {
     const aHasA = rule.a.some((kw) => aPowers.includes(kw));
     const bHasA = rule.a.some((kw) => bPowers.includes(kw));
-    const bVulnerable = rule.b.some((kw) => bPowers.includes(kw) || bWeak.includes(kw));
-    const aVulnerable = rule.b.some((kw) => aPowers.includes(kw) || aWeak.includes(kw));
-    if (aHasA && bVulnerable) return { aMod: 1.18, bMod: 0.88, label: rule.label };
-    if (bHasA && aVulnerable) return { aMod: 0.88, bMod: 1.18, label: rule.label };
+    const bVulnerable = rule.b.some(
+      (kw) => bPowers.includes(kw) || bWeak.includes(kw)
+    );
+    const aVulnerable = rule.b.some(
+      (kw) => aPowers.includes(kw) || aWeak.includes(kw)
+    );
+    if (aHasA && bVulnerable)
+      return { aMod: 1.18, bMod: 0.88, label: rule.label };
+    if (bHasA && aVulnerable)
+      return { aMod: 0.88, bMod: 1.18, label: rule.label };
   }
   return { aMod: 1, bMod: 1, label: null };
 }
@@ -254,11 +287,19 @@ function environmentModifier(c, location, conditions) {
     mod *= 1.12;
     label = label || "Cover of darkness";
   }
-  if (location.atmosphere && countMatches(location.atmosphere.toLowerCase(), ["toxic", "radiation", "corrosive"]) > 0 && countMatches(blob, ["immun", "resistan", "adapt"]) === 0) {
+  if (location.atmosphere && countMatches(location.atmosphere.toLowerCase(), [
+    "toxic",
+    "radiation",
+    "corrosive"
+  ]) > 0 && countMatches(blob, ["immun", "resistan", "adapt"]) === 0) {
     mod *= 0.92;
     label = label || "Hostile atmosphere exposure";
   }
-  if (location.technologyLevel && countMatches(location.technologyLevel.toLowerCase(), ["high", "advanced", "futuristic"]) > 0 && countMatches(blob, ["hack", "tech", "engineer", "cyber"]) > 0) {
+  if (location.technologyLevel && countMatches(location.technologyLevel.toLowerCase(), [
+    "high",
+    "advanced",
+    "futuristic"
+  ]) > 0 && countMatches(blob, ["hack", "tech", "engineer", "cyber"]) > 0) {
     mod *= 1.1;
     label = label || "Technological exploitation";
   }
@@ -292,13 +333,19 @@ function personalityModifier(c, setup) {
   return { mod, label };
 }
 function runSimulation(combatants, location, setup, seed) {
-  const baseSeed = seed ?? hashString(`${combatants[0].id}:${combatants[1].id}:${Date.now()}:${Math.random()}`);
+  const baseSeed = seed ?? hashString(
+    `${combatants[0].id}:${combatants[1].id}:${Date.now()}:${Math.random()}`
+  );
   const rng = mulberry32(baseSeed);
   const stats = [
     deriveStats(combatants[0], rng),
     deriveStats(combatants[1], rng)
   ];
-  const { aMod, bMod, label: matchupLabel } = matchupModifier(combatants[0], combatants[1]);
+  const {
+    aMod,
+    bMod,
+    label: matchupLabel
+  } = matchupModifier(combatants[0], combatants[1]);
   const env0 = environmentModifier(combatants[0], location, setup.conditions);
   const env1 = environmentModifier(combatants[1], location, setup.conditions);
   const cond0 = conditionModifier(0, setup);
@@ -1388,7 +1435,8 @@ var publicArchiveCollections = [
   "teams",
   "organizations",
   "planets",
-  "locations"
+  "locations",
+  "issues"
 ];
 app.get("/api/public/archive/search", async (req, res) => {
   const query = String(req.query.q || "").trim().toLowerCase();
@@ -1502,8 +1550,7 @@ app.post("/api/simulate", async (req, res) => {
     };
     if (supabase) {
       const created = await createRow("simulations", record);
-      if (created.error)
-        return res.status(502).json({ error: created.error });
+      if (created.error) return res.status(502).json({ error: created.error });
       return res.status(201).json(created.data);
     }
     db.simulations.unshift(record);

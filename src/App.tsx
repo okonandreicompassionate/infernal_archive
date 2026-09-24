@@ -5,6 +5,7 @@ import { EntityBrowser } from "./components/EntityBrowser";
 import { DraftsView } from "./components/DraftsView";
 import { EntityDetailModal } from "./components/EntityDetailModal";
 import { UniverseGraph } from "./components/UniverseGraph";
+import { PublicExperience } from "./components/PublicExperience";
 import { VisualTimeline } from "./components/VisualTimeline";
 import { WriterWorkspace } from "./components/WriterWorkspace";
 import { ArtistWorkspace } from "./components/ArtistWorkspace";
@@ -52,9 +53,12 @@ export default function App() {
   const [passwordRecovery, setPasswordRecovery] = useState(
     () => window.location.pathname === "/reset-password",
   );
-  const isPublicSimulatorRoute =
-    window.location.pathname === "/simulator" ||
-    window.location.pathname.startsWith("/sim/");
+  const publicRoute = window.location.pathname.replace(/^\//, "");
+  const isPublicExperienceRoute =
+    publicRoute === "simulator" ||
+    publicRoute.startsWith("sim/") ||
+    publicRoute === "public" ||
+    publicRoute.startsWith("public/");
 
   useEffect(() => {
     const handlePopState = () =>
@@ -134,23 +138,13 @@ export default function App() {
     setRefreshKey((prev) => prev + 1);
   };
 
-  if (isPublicSimulatorRoute) {
-    return (
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-yellow-400 selection:text-zinc-950">
-        <header className="flex items-center justify-between border-b border-white/5 px-4 py-3 sm:px-8">
-          <a
-            href="/"
-            className="text-xs font-bold tracking-[0.25em] text-zinc-300 hover:text-yellow-300"
-          >
-            INFERNAL ARCHIVE
-          </a>
-          <span className="text-[10px] uppercase tracking-widest text-zinc-600">
-            Public Simulation Lab
-          </span>
-        </header>
-        <CombatSimulator />
-      </div>
-    );
+  if (isPublicExperienceRoute) {
+    const publicPath = publicRoute.startsWith("public/")
+      ? publicRoute.split("/")[1]
+      : publicRoute.startsWith("sim")
+        ? "simulator"
+        : "dashboard";
+    return <PublicExperience initialSection={publicPath || "dashboard"} />;
   }
 
   if (!authReady)

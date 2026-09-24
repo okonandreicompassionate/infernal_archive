@@ -1247,6 +1247,7 @@ const publicArchiveCollections = [
   "organizations",
   "planets",
   "locations",
+  "issues",
 ] as const;
 
 // Public simulator search. It intentionally exposes canon records only;

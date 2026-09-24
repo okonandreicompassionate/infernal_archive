@@ -540,8 +540,8 @@ create table if not exists public.simulations (
   winner_id text not null default '',
   winner_name text not null default '',
   loser_name text not null default '',
-  probability_1 integer not null default 50,
-  probability_2 integer not null default 50,
+  probability1 integer not null default 50,
+  probability2 integer not null default 50,
   turning_point text not null default '',
   primary_cause text not null default '',
   unexpected_factor text not null default '',
@@ -599,6 +599,33 @@ begin
 end;
 $$;
 
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'simulations'
+      and column_name = 'probability_1'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'simulations'
+      and column_name = 'probability1'
+  ) then
+    alter table public.simulations rename column probability_1 to probability1;
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'simulations'
+      and column_name = 'probability_2'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'simulations'
+      and column_name = 'probability2'
+  ) then
+    alter table public.simulations rename column probability_2 to probability2;
+  end if;
+end;
+$$;
+
 create index if not exists simulations_created_at_idx on public.simulations(created_at desc);
 
 alter table public.simulations enable row level security;
@@ -612,7 +639,7 @@ declare
 begin
   foreach table_name in array array[
     'characters', 'species', 'powers', 'artifacts', 'teams',
-    'organizations', 'planets', 'locations'
+    'organizations', 'planets', 'locations', 'issues'
   ] loop
     execute format('drop policy if exists public_canon_read on public.%I', table_name);
     execute format(
