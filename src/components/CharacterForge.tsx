@@ -26,6 +26,7 @@ type RelationSuggestion = {
   relationType: string;
   description: string;
   confidence: string;
+  selected: boolean;
 };
 
 const emptyDraft: DraftCharacter = {
@@ -81,6 +82,31 @@ export const CharacterForge: React.FC = () => {
         draftIndex === index ? { ...draft, [key]: value } : draft,
       ),
     );
+  };
+
+  const updateRelation = (draftIndex: number, relationIndex: number, patch: Partial<RelationSuggestion>) => {
+    setDrafts((current) => current.map((draft, index) => index === draftIndex
+      ? { ...draft, relationSuggestions: draft.relationSuggestions.map((relation, indexNow) => indexNow === relationIndex ? { ...relation, ...patch } : relation) }
+      : draft));
+  };
+
+  const addRelation = (draftIndex: number) => {
+    setDrafts((current) => current.map((draft, index) => index === draftIndex
+      ? { ...draft, relationSuggestions: [...draft.relationSuggestions, { targetName: "", targetType: "character", relationType: "ALLY_OF", description: "", confidence: "manual", selected: true }] }
+      : draft));
+  };
+
+  const removeSelectedRelations = (draftIndex: number) => {
+    setDrafts((current) => current.map((draft, index) => index === draftIndex
+      ? { ...draft, relationSuggestions: draft.relationSuggestions.filter((relation) => relation.selected === false) }
+      : draft));
+  };
+
+  const deleteSelectedDrafts = () => {
+    if (!selected.length) return;
+    setDrafts((current) => current.filter((_, index) => !selected.includes(index)));
+    setSelected([]);
+    setMessage(`${selected.length} draft(s) removed from review.`);
   };
 
   const handleFile = async (file: File | undefined) => {
@@ -151,7 +177,7 @@ export const CharacterForge: React.FC = () => {
         const relationRequests = selected.flatMap((index, selectedIndex) => {
           const source = createdCharacters[selectedIndex];
           const draft = drafts[index];
-          return (draft.relationSuggestions || []).flatMap((relation) => {
+          return (draft.relationSuggestions || []).filter((relation) => relation.selected !== false).flatMap((relation) => {
             const targetPool =
               relation.targetType === "team" ? existingTeams : allCharacters;
             const target = (Array.isArray(targetPool) ? targetPool : []).find(
@@ -256,15 +282,26 @@ export const CharacterForge: React.FC = () => {
           <span className="text-xs text-zinc-400">
             {drafts.length} draft(s) ready · {selected.length} selected
           </span>
-          <button
-            type="button"
-            onClick={approveSelected}
-            disabled={!selected.length || saving}
-            className="inline-flex items-center gap-2 bg-emerald-400 text-zinc-950 rounded-xl px-4 py-2 text-xs font-semibold disabled:opacity-50"
-          >
-            <Check className="w-3.5 h-3.5" />
-            {saving ? "Saving..." : "Approve selected as drafts"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={deleteSelectedDrafts}
+              disabled={!selected.length || saving}
+              className="inline-flex items-center gap-2 bg-red-500/80 text-white rounded-xl px-4 py-2 text-xs font-semibold disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete selected
+            </button>
+            <button
+              type="button"
+              onClick={approveSelected}
+              disabled={!selected.length || saving}
+              className="inline-flex items-center gap-2 bg-emerald-400 text-zinc-950 rounded-xl px-4 py-2 text-xs font-semibold disabled:opacity-50"
+            >
+              <Check className="w-3.5 h-3.5" />
+              {saving ? "Saving..." : "Approve selected as drafts"}
+            </button>
+          </div>
         </div>
       )}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -355,24 +392,25 @@ export const CharacterForge: React.FC = () => {
             )}
             {draft.relationSuggestions.length > 0 && (
               <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-cyan-300">
-                  Suggested relationships
-                </p>
-                {draft.relationSuggestions.map((relation) => (
-                  <p
-                    key={`${relation.targetType}-${relation.targetName}-${relation.relationType}`}
-                    className="mt-1 text-xs text-zinc-300"
-                  >
-                    <strong>{relation.relationType}</strong>{" "}
-                    {relation.targetName}{" "}
-                    <span className="text-zinc-500">
-                      ({relation.confidence})
-                    </span>
-                    {relation.description ? `: ${relation.description}` : ""}
-                  </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] uppercase tracking-wider text-cyan-300">Relationships to review</p>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => removeSelectedRelations(index)} disabled={!draft.relationSuggestions.some((relation) => relation.selected !== false)} className="text-[10px] text-red-200 disabled:opacity-40">Delete selected</button>
+                    <button type="button" onClick={() => addRelation(index)} className="text-[10px] text-cyan-200">+ Add relationship</button>
+                  </div>
+                </div>
+                {draft.relationSuggestions.map((relation, relationIndex) => (
+                  <div key={`${relationIndex}-${relation.targetName}`} className="mt-2 grid grid-cols-[auto_1fr_1fr] gap-2 items-center">
+                    <input type="checkbox" checked={relation.selected !== false} onChange={(event) => updateRelation(index, relationIndex, { selected: event.target.checked })} className="accent-cyan-400" />
+                    <input value={relation.targetName} onChange={(event) => updateRelation(index, relationIndex, { targetName: event.target.value })} placeholder="Character or team name" className="bg-zinc-950 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-zinc-200" />
+                    <input value={relation.relationType} onChange={(event) => updateRelation(index, relationIndex, { relationType: event.target.value })} placeholder="ALLY_OF / RIVAL_OF" className="bg-zinc-950 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-zinc-200" />
+                    <input value={relation.description} onChange={(event) => updateRelation(index, relationIndex, { description: event.target.value })} placeholder="Why they are connected" className="col-span-2 bg-zinc-950 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-zinc-300" />
+                    <span className="text-[10px] text-zinc-500">{relation.confidence}</span>
+                  </div>
                 ))}
               </div>
             )}
+            {draft.relationSuggestions.length === 0 && <button type="button" onClick={() => addRelation(index)} className="text-left text-xs text-cyan-300">+ Add a relationship manually</button>}
           </article>
         ))}
       </div>

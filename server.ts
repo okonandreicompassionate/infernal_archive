@@ -1615,6 +1615,7 @@ ${rawText}`;
               relationType: String(relation.relationType || "ALLY_OF"),
               description: String(relation.description || ""),
               confidence: String(relation.confidence || "medium"),
+              selected: relation.selected !== false,
             }))
           : [],
       })),
