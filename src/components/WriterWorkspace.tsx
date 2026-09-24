@@ -24,12 +24,11 @@ export const WriterWorkspace: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [newSetting, setNewSetting] = useState("");
   const [newDesc, setNewDesc] = useState("");
-  const [newDialogue, setNewDialogue] = useState("");
-  const [newChar, setNewChar] = useState("");
   const [canonCheckResult, setCanonCheckResult] = useState<any>(null);
   const [checkingCanon, setCheckingCanon] = useState(false);
   const [creatingIssue, setCreatingIssue] = useState(false);
   const [issues, setIssues] = useState<any[]>([]);
+  const [characters, setCharacters] = useState<any[]>([]);
   const [selectedIssueId, setSelectedIssueId] = useState("");
   const [issueDraft, setIssueDraft] = useState({
     issueNumber: "",
@@ -79,10 +78,23 @@ export const WriterWorkspace: React.FC = () => {
       })
       .catch(console.error);
 
+  const loadCharacters = () =>
+    fetch("/api/characters")
+      .then((res) => res.json())
+      .then((data) => setCharacters(Array.isArray(data) ? data : []))
+      .catch(console.error);
+
   useEffect(() => {
     loadScripts();
     loadIssues();
+    loadCharacters();
   }, []);
+
+  useEffect(() => {
+    setPageNumber(1);
+    setPanelNumber(1);
+    setLineSearch("");
+  }, [selectedIssueId]);
 
   useEffect(() => {
     const issue = issues.find((item) => item.id === selectedIssueId);
@@ -159,8 +171,10 @@ export const WriterWorkspace: React.FC = () => {
   const addPage = () => {
     const nextPage = Math.max(0, ...pages) + 1;
     setPageNumber(nextPage);
+    setPanelNumber(1);
     setPageNotes("");
     setPageStatus("IN_PROGRESS");
+    setDialogueLines([{ character: "", text: "" }]);
   };
 
   const savePageMeta = async () => {
@@ -170,7 +184,10 @@ export const WriterWorkspace: React.FC = () => {
         fetch(`/api/scripts/${script.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pageNotes, pageStatus }),
+          body: JSON.stringify({
+            pageNotes: pageNotes || currentPageNotes,
+            pageStatus: pageStatus || currentPageStatus,
+          }),
         }),
       ),
     );
@@ -196,7 +213,7 @@ export const WriterWorkspace: React.FC = () => {
 
   const handleAddPanel = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSetting) return;
+    if (!selectedIssueId || !newSetting.trim()) return;
 
     try {
       await fetch("/api/scripts", {
@@ -208,11 +225,9 @@ export const WriterWorkspace: React.FC = () => {
           panelNumber,
           setting: newSetting,
           description: newDesc,
-          dialogue: dialogueLines
-            .filter((line) => line.character || line.text)
-            .concat(
-              newDialogue ? [{ character: newChar, text: newDialogue }] : [],
-            ),
+          dialogue: dialogueLines.filter(
+            (line) => line.character.trim() || line.text.trim(),
+          ),
           narration: "",
           caption,
           sfx,
@@ -228,12 +243,16 @@ export const WriterWorkspace: React.FC = () => {
       });
       setNewSetting("");
       setNewDesc("");
-      setNewDialogue("");
-      setNewChar("");
       setDialogueLines([{ character: "", text: "" }]);
       setCaption("");
       setSfx("");
-      setPanelNumber(pageScripts.length + 2);
+      setPanelNumber(
+        Math.max(
+          0,
+          ...pageScripts.map((script) => Number(script.panelNumber) || 0),
+          Number(panelNumber) || 0,
+        ) + 1,
+      );
       setShotNotes("");
       setPageNotes("");
       loadScripts();
@@ -264,7 +283,11 @@ export const WriterWorkspace: React.FC = () => {
     const duplicate = {
       ...script,
       id: undefined,
-      panelNumber: pageScripts.length + 1,
+      panelNumber:
+        Math.max(
+          0,
+          ...pageScripts.map((item) => Number(item.panelNumber) || 0),
+        ) + 1,
     };
     delete duplicate.id;
     await fetch("/api/scripts", {
@@ -472,7 +495,9 @@ export const WriterWorkspace: React.FC = () => {
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-bold text-zinc-200 uppercase tracking-wider font-mono">
-              Issue #7 — Page & Panel Breakdown
+              {selectedIssueId
+                ? `Issue #${issueDraft.issueNumber || "?"} — ${issueDraft.title || "Page & Panel Breakdown"}`
+                : "Select an issue to begin"}
             </h2>
             <span className="text-xs text-zinc-400 font-mono">
               {issueScripts.length} Panels ·{" "}
@@ -837,8 +862,15 @@ export const WriterWorkspace: React.FC = () => {
             </label>
 
             <div className="space-y-2 border-t border-white/5 pt-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs text-zinc-400">Dialogue lines</label>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <label className="text-xs text-zinc-400 font-medium">
+                    Characters & dialogue
+                  </label>
+                  <p className="mt-1 text-[10px] text-zinc-500">
+                    Add one row per speaker in this panel.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() =>
@@ -847,13 +879,16 @@ export const WriterWorkspace: React.FC = () => {
                       { character: "", text: "" },
                     ])
                   }
-                  className="text-xs text-yellow-400"
+                  className="whitespace-nowrap text-xs text-yellow-400"
                 >
-                  <Plus className="inline w-3 h-3" /> Add another line
+                  <Plus className="inline w-3 h-3 mr-1" /> Add character
                 </button>
               </div>
               {dialogueLines.map((line, index) => (
-                <div className="grid grid-cols-[0.7fr_1.3fr] gap-2" key={index}>
+                <div
+                  className="grid grid-cols-[0.7fr_1.3fr_auto] gap-2"
+                  key={index}
+                >
                   <input
                     value={line.character}
                     onChange={(event) =>
@@ -882,34 +917,35 @@ export const WriterWorkspace: React.FC = () => {
                     placeholder="Dialogue line"
                     className="bg-zinc-900 border border-white/10 rounded-2xl px-2 py-2 text-xs text-zinc-200"
                   />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDialogueLines((current) =>
+                        current.length === 1
+                          ? [{ character: "", text: "" }]
+                          : current.filter(
+                              (_, itemIndex) => itemIndex !== index,
+                            ),
+                      )
+                    }
+                    className="px-2 text-zinc-500 hover:text-red-300"
+                    aria-label={`Remove character ${index + 1}`}
+                    title="Remove character"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               ))}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs text-zinc-400 font-medium">
-                Character Name (Optional)
-              </label>
-              <input
-                type="text"
-                placeholder="ARCHER"
-                value={newChar}
-                onChange={(e) => setNewChar(e.target.value)}
-                className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs text-zinc-200"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs text-zinc-400 font-medium">
-                Dialogue
-              </label>
-              <input
-                type="text"
-                placeholder="You're not supposed to be here."
-                value={newDialogue}
-                onChange={(e) => setNewDialogue(e.target.value)}
-                className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs text-zinc-200"
-              />
+              <datalist id="writer-character-options">
+                {characters.map((character) => (
+                  <option
+                    key={character.id}
+                    value={character.codeName || character.name}
+                  >
+                    {character.name}
+                  </option>
+                ))}
+              </datalist>
             </div>
 
             <button
