@@ -29,15 +29,50 @@ const aiProvider = (
   process.env.AI_PROVIDER || (process.env.GROQ_API_KEY ? "groq" : "gemini")
 ).toLowerCase();
 
+let cachedGroqModel: string | null = null;
+
+async function resolveGroqModel(apiKey: string) {
+  if (cachedGroqModel) return cachedGroqModel;
+
+  const preferredModels = [
+    process.env.GROQ_MODEL?.trim(),
+    "openai/gpt-oss-20b",
+    "openai/gpt-oss-120b",
+    "llama-4-scout-17b-16e-instruct",
+    "qwen/qwen3-32b",
+  ].filter(Boolean) as string[];
+
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    const data = (await response.json()) as {
+      data?: Array<{ id?: string; active?: boolean }>;
+    };
+    const availableModels = new Set(
+      (data.data || [])
+        .filter((model) => model.active !== false && model.id)
+        .map((model) => model.id as string),
+    );
+    const availablePreferred = preferredModels.find((model) =>
+      availableModels.has(model),
+    );
+    if (availablePreferred) {
+      cachedGroqModel = availablePreferred;
+      return cachedGroqModel;
+    }
+    throw new Error("No supported Groq chat model is available for this API key.");
+  } catch (error) {
+    if (process.env.GROQ_MODEL?.trim()) return process.env.GROQ_MODEL.trim();
+    throw error;
+  }
+}
+
 async function generateAIText(prompt: string) {
   if (aiProvider === "groq") {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) throw new Error("GROQ_API_KEY is not configured.");
-    const configuredGroqModel = process.env.GROQ_MODEL?.trim();
-    const groqModel =
-      configuredGroqModel === "llama-3.1-8b-instant"
-        ? "llama-3.3-70b-versatile"
-        : configuredGroqModel || "llama-3.3-70b-versatile";
+    const groqModel = await resolveGroqModel(apiKey);
     const response = await fetch(
       "https://api.groq.com/openai/v1/chat/completions",
       {

@@ -451,12 +451,42 @@ function fallbackNarrative(combatants, computation, setup) {
 var app = (0, import_express.default)();
 var PORT = Number(process.env.PORT || 3e3);
 var aiProvider = (process.env.AI_PROVIDER || (process.env.GROQ_API_KEY ? "groq" : "gemini")).toLowerCase();
+var cachedGroqModel = null;
+async function resolveGroqModel(apiKey) {
+  if (cachedGroqModel) return cachedGroqModel;
+  const preferredModels = [
+    process.env.GROQ_MODEL?.trim(),
+    "openai/gpt-oss-20b",
+    "openai/gpt-oss-120b",
+    "llama-4-scout-17b-16e-instruct",
+    "qwen/qwen3-32b"
+  ].filter(Boolean);
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: { Authorization: `Bearer ${apiKey}` }
+    });
+    const data = await response.json();
+    const availableModels = new Set(
+      (data.data || []).filter((model) => model.active !== false && model.id).map((model) => model.id)
+    );
+    const availablePreferred = preferredModels.find(
+      (model) => availableModels.has(model)
+    );
+    if (availablePreferred) {
+      cachedGroqModel = availablePreferred;
+      return cachedGroqModel;
+    }
+    throw new Error("No supported Groq chat model is available for this API key.");
+  } catch (error) {
+    if (process.env.GROQ_MODEL?.trim()) return process.env.GROQ_MODEL.trim();
+    throw error;
+  }
+}
 async function generateAIText(prompt) {
   if (aiProvider === "groq") {
     const apiKey2 = process.env.GROQ_API_KEY;
     if (!apiKey2) throw new Error("GROQ_API_KEY is not configured.");
-    const configuredGroqModel = process.env.GROQ_MODEL?.trim();
-    const groqModel = configuredGroqModel === "llama-3.1-8b-instant" ? "llama-3.3-70b-versatile" : configuredGroqModel || "llama-3.3-70b-versatile";
+    const groqModel = await resolveGroqModel(apiKey2);
     const response2 = await fetch(
       "https://api.groq.com/openai/v1/chat/completions",
       {
