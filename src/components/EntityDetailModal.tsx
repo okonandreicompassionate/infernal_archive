@@ -481,8 +481,20 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
   ];
 
   return (
-    <div className={entityType === "characters" ? "fixed inset-0 z-50 bg-zinc-950 overflow-y-auto" : "fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto"}>
-      <div className={entityType === "characters" ? "character-profile-page min-h-screen w-full bg-zinc-950" : "bg-zinc-950 border border-white/5 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col"}>
+    <div
+      className={
+        entityType === "characters"
+          ? "fixed inset-0 z-50 bg-zinc-950 overflow-y-auto"
+          : "fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+      }
+    >
+      <div
+        className={
+          entityType === "characters"
+            ? "character-profile-page min-h-screen w-full bg-zinc-950"
+            : "bg-zinc-950 border border-white/5 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col"
+        }
+      >
         {/* Modal Header */}
         <div className="sticky top-0 z-20 bg-zinc-950/90 backdrop-blur border-b border-white/5 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -531,9 +543,19 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
 
           <button
             onClick={onClose}
-            className={entityType === "characters" ? "flex items-center gap-2 text-xs text-zinc-300 hover:text-yellow-300 cursor-pointer" : "p-1.5 text-zinc-400 hover:text-white bg-zinc-900 hover:bg-white/10 rounded-2xl border border-white/5 transition-all cursor-pointer"}
+            className={
+              entityType === "characters"
+                ? "flex items-center gap-2 text-xs text-zinc-300 hover:text-yellow-300 cursor-pointer"
+                : "p-1.5 text-zinc-400 hover:text-white bg-zinc-900 hover:bg-white/10 rounded-2xl border border-white/5 transition-all cursor-pointer"
+            }
           >
-            {entityType === "characters" ? <><ArrowLeft className="w-4 h-4" /> Back to characters</> : <X className="w-4 h-4" />}
+            {entityType === "characters" ? (
+              <>
+                <ArrowLeft className="w-4 h-4" /> Back to characters
+              </>
+            ) : (
+              <X className="w-4 h-4" />
+            )}
           </button>
         </div>
 
@@ -555,12 +577,22 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                       <span className="mt-4 inline-flex text-[10px] bg-emerald-500/15 text-emerald-300 px-2 py-1 rounded-full font-mono border border-emerald-500/20">
                         {item.currentStatus || "UNKNOWN"}
                       </span>
-                      <h2 className="mt-3 text-xl font-bold text-zinc-100">{title}</h2>
-                      {item.codeName && <p className="text-xs text-yellow-300 font-mono mt-1">"{item.codeName}"</p>}
-                      <p className="text-xs text-zinc-500 mt-3 leading-relaxed">{item.occupation || "Archive character record"}</p>
+                      <h2 className="mt-3 text-xl font-bold text-zinc-100">
+                        {title}
+                      </h2>
+                      {item.codeName && (
+                        <p className="text-xs text-yellow-300 font-mono mt-1">
+                          "{item.codeName}"
+                        </p>
+                      )}
+                      <p className="text-xs text-zinc-500 mt-3 leading-relaxed">
+                        {item.occupation || "Archive character record"}
+                      </p>
                       <button
                         type="button"
-                        onClick={editingProfile ? saveProfileEdit : beginProfileEdit}
+                        onClick={
+                          editingProfile ? saveProfileEdit : beginProfileEdit
+                        }
                         disabled={actionPending}
                         className="mt-5 w-full border border-yellow-400/40 text-yellow-300 hover:bg-yellow-400 hover:text-zinc-950 px-3 py-2 rounded-xl text-xs font-semibold disabled:opacity-50"
                       >
@@ -570,53 +602,120 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                     <div className="p-5 sm:p-6 space-y-5">
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Character dossier</p>
-                          <h3 className="mt-1 text-2xl font-bold text-zinc-100">{item.description || item.biography || "No overview recorded yet."}</h3>
+                          <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">
+                            Character dossier
+                          </p>
+                          <h3 className="mt-1 text-2xl font-bold text-zinc-100">
+                            {item.description ||
+                              item.biography ||
+                              "No overview recorded yet."}
+                          </h3>
                         </div>
                         <label className="shrink-0 inline-flex items-center gap-2 border border-white/10 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 cursor-pointer hover:border-yellow-400/50">
                           <Upload className="w-3.5 h-3.5" /> Portrait
-                          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={handleImageUpload} disabled={uploadingImage} className="sr-only" />
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp,image/gif"
+                            onChange={handleImageUpload}
+                            disabled={uploadingImage}
+                            className="sr-only"
+                          />
                         </label>
                       </div>
                       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
                         {[
                           ["Species", item.species || "Unknown"],
-                          ["Power source", item.primaryEnergySource || "Unrecorded"],
-                          ["Abilities", String((item.powers || []).length || (item.majorAbilities ? 1 : 0))],
+                          [
+                            "Power source",
+                            item.primaryEnergySource || "Unrecorded",
+                          ],
+                          [
+                            "Abilities",
+                            String(
+                              (item.powers || []).length ||
+                                (item.majorAbilities ? 1 : 0),
+                            ),
+                          ],
                           ["Connections", String(relationships.length)],
                         ].map(([label, value]) => (
                           <div key={label} className="character-stat-card">
-                            <p>{label}</p><strong>{value}</strong>
+                            <p>{label}</p>
+                            <strong>{value}</strong>
                           </div>
                         ))}
                       </div>
                       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                         <div className="character-info-panel">
-                          <p className="character-panel-kicker">Profile snapshot</p>
+                          <p className="character-panel-kicker">
+                            Profile snapshot
+                          </p>
                           <div className="character-facts">
-                            <span>Gender <b>{item.gender || "Unknown"}</b></span>
-                            <span>Eyes <b>{item.eyes || "Unknown"}</b></span>
-                            <span>Hair <b>{item.hair || "Unknown"}</b></span>
-                            <span>Location <b>{item.currentLocation || "Unknown"}</b></span>
-                            <span>Affiliation <b>{item.affiliation || "Independent"}</b></span>
-                            <span>Canon <b className="text-emerald-300">{item.canonStatus || "DRAFT"}</b></span>
+                            <span>
+                              Gender <b>{item.gender || "Unknown"}</b>
+                            </span>
+                            <span>
+                              Eyes <b>{item.eyes || "Unknown"}</b>
+                            </span>
+                            <span>
+                              Hair <b>{item.hair || "Unknown"}</b>
+                            </span>
+                            <span>
+                              Location{" "}
+                              <b>{item.currentLocation || "Unknown"}</b>
+                            </span>
+                            <span>
+                              Affiliation{" "}
+                              <b>{item.affiliation || "Independent"}</b>
+                            </span>
+                            <span>
+                              Canon{" "}
+                              <b className="text-emerald-300">
+                                {item.canonStatus || "DRAFT"}
+                              </b>
+                            </span>
                           </div>
                         </div>
                         <div className="character-info-panel">
-                          <p className="character-panel-kicker">Ability loadout</p>
+                          <p className="character-panel-kicker">
+                            Ability loadout
+                          </p>
                           <div className="flex flex-wrap gap-2 mt-3">
-                            {[...(item.powers || []), ...(item.skills || [])].slice(0, 8).map((power: string) => <span key={power} className="character-chip">{power}</span>)}
-                            {!item.powers?.length && !item.skills?.length && <span className="text-xs text-zinc-500">No abilities recorded.</span>}
+                            {[...(item.powers || []), ...(item.skills || [])]
+                              .slice(0, 8)
+                              .map((power: string) => (
+                                <span key={power} className="character-chip">
+                                  {power}
+                                </span>
+                              ))}
+                            {!item.powers?.length && !item.skills?.length && (
+                              <span className="text-xs text-zinc-500">
+                                No abilities recorded.
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
                       <div className="character-info-panel">
-                        <p className="character-panel-kicker">Character history</p>
+                        <p className="character-panel-kicker">
+                          Character history
+                        </p>
                         <div className="character-history-grid">
-                          <span><i>Origin</i><b>{item.origin || "Not recorded"}</b></span>
-                          <span><i>First appearance</i><b>{item.firstAppearance || "Not recorded"}</b></span>
-                          <span><i>Notable engagements</i><b>{item.notableEngagements || "Not recorded"}</b></span>
-                          <span><i>Current status</i><b>{item.currentStatus || "Unknown"}</b></span>
+                          <span>
+                            <i>Origin</i>
+                            <b>{item.origin || "Not recorded"}</b>
+                          </span>
+                          <span>
+                            <i>First appearance</i>
+                            <b>{item.firstAppearance || "Not recorded"}</b>
+                          </span>
+                          <span>
+                            <i>Notable engagements</i>
+                            <b>{item.notableEngagements || "Not recorded"}</b>
+                          </span>
+                          <span>
+                            <i>Current status</i>
+                            <b>{item.currentStatus || "Unknown"}</b>
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -624,7 +723,13 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                 </section>
               )}
               {/* Top Banner / Portrait */}
-              <div className={entityType === "characters" ? "hidden" : "flex flex-col md:flex-row gap-6 items-start"}>
+              <div
+                className={
+                  entityType === "characters"
+                    ? "hidden"
+                    : "flex flex-col md:flex-row gap-6 items-start"
+                }
+              >
                 {(item.portrait || item.cover || item.image || item.logo) && (
                   <div className="w-full md:w-56 h-64 rounded-2xl overflow-hidden border border-white/5 bg-zinc-900 shrink-0 relative">
                     <img
@@ -1246,30 +1351,81 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
               <div className="character-related-section border-t border-white/5 pt-6">
                 <div className="flex items-end justify-between gap-3 mb-4">
                   <div>
-                    <p className="text-[10px] text-yellow-400 uppercase tracking-widest font-mono">Continue exploring</p>
-                    <h3 className="text-lg font-bold text-zinc-100 mt-1">Related characters</h3>
+                    <p className="text-[10px] text-yellow-400 uppercase tracking-widest font-mono">
+                      Continue exploring
+                    </p>
+                    <h3 className="text-lg font-bold text-zinc-100 mt-1">
+                      Related characters
+                    </h3>
                   </div>
-                  <span className="text-[10px] text-zinc-500 font-mono">{relationships.filter((rel) => allCharacters.some((character) => character.id === (rel.source === entityId ? rel.target : rel.source))).length} linked</span>
+                  <span className="text-[10px] text-zinc-500 font-mono">
+                    {
+                      relationships.filter((rel) =>
+                        allCharacters.some(
+                          (character) =>
+                            character.id ===
+                            (rel.source === entityId ? rel.target : rel.source),
+                        ),
+                      ).length
+                    }{" "}
+                    linked
+                  </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {relationships
-                    .map((rel) => (rel.source === entityId ? rel.target : rel.source))
-                    .map((characterId) => allCharacters.find((character) => character.id === characterId))
-                    .filter((character, index, list) => character && list.findIndex((item) => item?.id === character.id) === index)
+                    .map((rel) =>
+                      rel.source === entityId ? rel.target : rel.source,
+                    )
+                    .map((characterId) =>
+                      allCharacters.find(
+                        (character) => character.id === characterId,
+                      ),
+                    )
+                    .filter(
+                      (character, index, list) =>
+                        character &&
+                        list.findIndex((item) => item?.id === character.id) ===
+                          index,
+                    )
                     .slice(0, 4)
                     .map((character) => (
                       <button
                         key={character.id}
                         type="button"
-                        onClick={() => onSelectRelated("characters", character.id)}
+                        onClick={() =>
+                          onSelectRelated("characters", character.id)
+                        }
                         className="group flex items-center gap-3 rounded-xl border border-white/5 bg-zinc-900/70 p-3 text-left hover:border-yellow-400/40 cursor-pointer"
                       >
-                        {character.portrait ? <img src={character.portrait} alt="" className="h-10 w-10 rounded-full object-cover" /> : <span className="grid h-10 w-10 place-items-center rounded-full bg-yellow-400/15 text-xs font-bold text-yellow-300">{(character.name || "?").slice(0, 1)}</span>}
-                        <span className="min-w-0"><strong className="block truncate text-xs text-zinc-200 group-hover:text-yellow-300">{character.name}</strong><small className="block truncate text-[10px] text-zinc-500">{character.codeName || character.species || "Character"}</small></span>
+                        {character.portrait ? (
+                          <img
+                            src={character.portrait}
+                            alt=""
+                            className="h-10 w-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="grid h-10 w-10 place-items-center rounded-full bg-yellow-400/15 text-xs font-bold text-yellow-300">
+                            {(character.name || "?").slice(0, 1)}
+                          </span>
+                        )}
+                        <span className="min-w-0">
+                          <strong className="block truncate text-xs text-zinc-200 group-hover:text-yellow-300">
+                            {character.name}
+                          </strong>
+                          <small className="block truncate text-[10px] text-zinc-500">
+                            {character.codeName ||
+                              character.species ||
+                              "Character"}
+                          </small>
+                        </span>
                       </button>
                     ))}
                 </div>
-                {relationships.length === 0 && <p className="text-xs text-zinc-500">No related characters recorded yet.</p>}
+                {relationships.length === 0 && (
+                  <p className="text-xs text-zinc-500">
+                    No related characters recorded yet.
+                  </p>
+                )}
               </div>
             </>
           ) : modalTab === "moodboard" ? (
