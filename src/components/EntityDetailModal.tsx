@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReactFlow, { Background, Controls, Node, Edge } from "reactflow";
 import "reactflow/dist/style.css";
 import {
@@ -72,6 +72,7 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
   const [showSpecies, setShowSpecies] = useState(false);
   // Guards every save/add/revert action below from firing twice on a rapid double-click.
   const [actionPending, setActionPending] = useState(false);
+  const profileEditorRef = useRef<HTMLDivElement>(null);
 
   const editableCharacterFields = [
     ["codeName", "Code name / alias"],
@@ -276,6 +277,12 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
     setSpeciesQuery("");
     setShowSpecies(false);
     setEditingProfile(true);
+    window.setTimeout(() => {
+      profileEditorRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 0);
   };
 
   const saveProfileEdit = async () => {
@@ -839,7 +846,22 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                   </p>
 
                   {editingProfile && entityType === "characters" && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border border-white/10 bg-zinc-900/50 p-4 rounded-2xl">
+                    <div
+                      ref={profileEditorRef}
+                      className="scroll-mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 border border-yellow-400/30 bg-zinc-900/80 p-4 rounded-2xl"
+                    >
+                      <div className="sm:col-span-2 flex items-center justify-between border-b border-white/10 pb-3">
+                        <div>
+                          <p className="text-xs font-semibold text-zinc-100">
+                            Edit character profile
+                          </p>
+                          <p className="mt-1 text-[10px] text-zinc-500">
+                            Height / build is included below with the rest of
+                            the character fields.
+                          </p>
+                        </div>
+                        <Save className="w-4 h-4 text-yellow-300" />
+                      </div>
                       {editableCharacterFields.map(([key, label]) =>
                         key === "species" ? (
                           <label
