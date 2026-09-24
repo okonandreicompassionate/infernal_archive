@@ -1989,6 +1989,79 @@ Existing relationships: ${JSON.stringify((archive.relationships || []).slice(0, 
 
 User's raw notes:
 ${rawText}`;
+    const describeCharacterFromPrompt = (source, index) => {
+      const entry = source.replace(/\s+/g, " ").trim();
+      const directNameMatch = entry.match(
+        /(?:named|called|known as|aka|alias)\s+([A-Z][A-Za-z'\-]+(?:\s+[A-Z][A-Za-z'\-]+){0,2})/i
+      );
+      const titleNameMatch = entry.match(
+        /\b([A-Z][A-Za-z'\-]+(?:\s+[A-Z][A-Za-z'\-]+){0,2})\b/
+      );
+      const occupationMatch = entry.match(
+        /(pilot|mage|mercenary|soldier|scientist|engineer|guardian|thief|sorcerer|hunter|pilot|scholar|agent|knight|captain|ninja|healer|medic|outcast)/i
+      );
+      const speciesMatch = entry.match(
+        /(human|android|alien|cyborg|mutant|elf|droid|clone|robot|vampire|werewolf|synthetic|machine)/i
+      );
+      const affiliationMatch = entry.match(
+        /(Red Lanterns|Blue Guard|Order of|Guild|Crew|Alliance|Faction|House|Team|Squad|Clan|Coven|Temple|Republic|Empire)/i
+      );
+      const originMatch = entry.match(/from\s+([^.,;]+(?:\s+[^.,;]+){0,3})/i);
+      const abilityMatch = entry.match(
+        /(?:wields?|uses?|can|able to)\s+([^.,;]+(?:\s+[^.,;]+){0,5})/i
+      );
+      const personality = entry.match(
+        /(loyal|stoic|chaotic|brash|curious|mischievous|reckless|calm|sadistic|gentle|vicious|fearless|determined|quiet)/i
+      );
+      const weaknessMatch = entry.match(
+        /(overconfident|short-tempered|paranoid|secretive|reckless|stubborn|obsessive|insecure|vulnerable|haunted|impulsive)/i
+      );
+      const name = (directNameMatch?.[1] || titleNameMatch?.[1] || `Character ${index + 1}`).trim() || `Character ${index + 1}`;
+      const occupation = occupationMatch?.[1] || "Operative";
+      const species = speciesMatch?.[1] || "Human";
+      const origin = originMatch?.[1]?.trim() || "Unknown origin";
+      const majorAbilities = abilityMatch?.[1]?.trim() || "Adaptive improvisation and instinctive problem solving";
+      const personalityTrait = personality?.[1] || "resourceful and driven";
+      const weaknesses = weaknessMatch?.[1] || "Overconfidence under pressure";
+      const affiliation = affiliationMatch?.[0]?.trim() || "Independent";
+      return {
+        name,
+        codeName: name.split(" ").map((part) => part[0] || "").join("").toUpperCase() || `CODE-${index + 1}`,
+        species,
+        height: "",
+        occupation: occupation.charAt(0).toUpperCase() + occupation.slice(1),
+        description: `${name} is a ${species.toLowerCase()} ${occupation.toLowerCase()} whose story is shaped by ${origin}. ${entry.slice(0, 180)}${entry.length > 180 ? "..." : ""}`,
+        origin,
+        majorAbilities: majorAbilities.charAt(0).toUpperCase() + majorAbilities.slice(1),
+        secondaryAbilities: "Quick improvisation and battlefield instincts",
+        weaknesses: weaknesses.charAt(0).toUpperCase() + weaknesses.slice(1),
+        personality: personalityTrait.charAt(0).toUpperCase() + personalityTrait.slice(1),
+        appearance: "Distinctive silhouette with practical gear and a strong visual identity",
+        affiliation,
+        currentStatus: "DRAFT",
+        suggestions: [
+          "Refine the tone and history to match your canon.",
+          "Add a signature visual motif or scar."
+        ],
+        relationSuggestions: []
+      };
+    };
+    const buildLocalCharacterDrafts = (sourceText) => {
+      const chunks = sourceText.split(/\n\s*\n+|\s*\n\s*[-*•]\s*|\s*;\s*(?=[A-Z])/).map((chunk) => chunk.trim()).filter(Boolean);
+      const candidates = chunks.length ? chunks : [sourceText.trim()];
+      const selected = [...candidates].slice(0, targetCount).map((chunk, index) => describeCharacterFromPrompt(chunk, index));
+      while (selected.length < targetCount) {
+        selected.push(
+          describeCharacterFromPrompt(
+            `${sourceText} Alternate angle ${selected.length + 1}`,
+            selected.length
+          )
+        );
+      }
+      return {
+        characters: selected.length ? selected : [{ name: "Untitled character" }]
+      };
+    };
     const parseDraftJson = (value) => {
       const cleaned = value.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
       const start = cleaned.indexOf("{");
@@ -1998,31 +2071,45 @@ ${rawText}`;
       return JSON.parse(cleaned.slice(start, end + 1));
     };
     let parsed;
-    const responseText = await generateAIText(prompt);
-    try {
-      parsed = parseDraftJson(responseText);
-    } catch {
-      const repairedText = await generateAIText(
-        `Repair the following malformed character draft response. Return ONLY valid JSON matching the requested schema. Do not add commentary or markdown. If the response is truncated, complete missing closing brackets using the available content.
-
-${responseText}`
-      );
-      parsed = parseDraftJson(repairedText);
+    const hasLiveAiKeys = getApiKeyPool("groq").length > 0 || getApiKeyPool("gemini").length > 0;
+    if (!hasLiveAiKeys) {
+      parsed = buildLocalCharacterDrafts(rawText);
+    } else {
+      try {
+        const responseText = await generateAIText(prompt);
+        parsed = parseDraftJson(responseText);
+      } catch {
+        parsed = buildLocalCharacterDrafts(rawText);
+      }
     }
     let characters = Array.isArray(parsed.characters) ? parsed.characters : [];
     if (!characters.length) {
       characters = [{ name: "Untitled character" }];
     }
     if (characters.length < targetCount) {
-      const completionText = await generateAIText(
-        `The previous result only had ${characters.length} drafts, but the notes clearly describe ${targetCount} distinct characters. Return ONLY JSON with exactly ${targetCount} character entries in the characters array. Use the existing notes and preserve names faithfully. If some entries are short, keep them concise rather than inventing unrelated characters.
+      if (hasLiveAiKeys) {
+        try {
+          const completionText = await generateAIText(
+            `The previous result only had ${characters.length} drafts, but the notes clearly describe ${targetCount} distinct characters. Return ONLY JSON with exactly ${targetCount} character entries in the characters array. Use the existing notes and preserve names faithfully. If some entries are short, keep them concise rather than inventing unrelated characters.
 
 ${rawText}`
-      );
-      const completion = parseDraftJson(completionText);
-      const completionCharacters = Array.isArray(completion.characters) ? completion.characters : [];
-      if (completionCharacters.length > 0) {
-        characters = completionCharacters.slice(0, targetCount);
+          );
+          const completion = parseDraftJson(completionText);
+          const completionCharacters = Array.isArray(completion.characters) ? completion.characters : [];
+          if (completionCharacters.length > 0) {
+            characters = completionCharacters.slice(0, targetCount);
+          }
+        } catch {
+          characters = buildLocalCharacterDrafts(rawText).characters.slice(
+            0,
+            targetCount
+          );
+        }
+      } else {
+        characters = buildLocalCharacterDrafts(rawText).characters.slice(
+          0,
+          targetCount
+        );
       }
     }
     res.json({
