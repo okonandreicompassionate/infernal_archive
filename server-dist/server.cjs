@@ -450,73 +450,198 @@ function fallbackNarrative(combatants, computation, setup) {
 // server.ts
 var app = (0, import_express.default)();
 var PORT = Number(process.env.PORT || 3e3);
-var aiProvider = (process.env.AI_PROVIDER || (process.env.GROQ_API_KEY ? "groq" : "gemini")).toLowerCase();
+var aiProvider = (process.env.AI_PROVIDER || (process.env.GROQ_API_KEY || process.env.GROQ_KEYS ? "groq" : "gemini")).toLowerCase();
 var cachedGroqModel = null;
-async function resolveGroqModel(apiKey) {
-  if (cachedGroqModel) return cachedGroqModel;
+var AI_REQUEST_TIMEOUT_MS = Number(
+  process.env.AI_REQUEST_TIMEOUT_MS || 3e4
+);
+var keyRotationState = {
+  groq: { index: 0, cooldowns: /* @__PURE__ */ new Map() },
+  gemini: { index: 0, cooldowns: /* @__PURE__ */ new Map() }
+};
+function parseApiKeys(rawValue) {
+  return (rawValue || "").split(",").map((key) => key.trim()).filter(Boolean);
+}
+function getApiKeyPool(provider) {
+  const singleKey = provider === "groq" ? process.env.GROQ_API_KEY : process.env.GEMINI_API_KEY;
+  const multiKey = provider === "groq" ? process.env.GROQ_KEYS : process.env.GEMINI_KEYS;
+  const merged = [...parseApiKeys(multiKey), ...singleKey ? [singleKey] : []];
+  return [...new Set(merged)];
+}
+function isKeyCoolingDown(provider, apiKey) {
+  const cooldownUntil = keyRotationState[provider].cooldowns.get(apiKey) || 0;
+  return Date.now() < cooldownUntil;
+}
+function getProviderKeyStatus(provider) {
+  const pool = getApiKeyPool(provider);
+  return pool.map((apiKey) => {
+    const cooldownUntil = keyRotationState[provider].cooldowns.get(apiKey) || 0;
+    const remainingMs = Math.max(0, cooldownUntil - Date.now());
+    return {
+      key: apiKey,
+      status: remainingMs > 0 ? "cooldown" : "ready",
+      remainingMs
+    };
+  });
+}
+function nextAvailableKey(provider) {
+  const pool = getApiKeyPool(provider);
+  if (!pool.length) return null;
+  const state = keyRotationState[provider];
+  for (let offset = 0; offset < pool.length; offset += 1) {
+    const apiKey = pool[(state.index + offset) % pool.length];
+    if (!apiKey || isKeyCoolingDown(provider, apiKey)) continue;
+    state.index = (state.index + offset + 1) % pool.length;
+    return apiKey;
+  }
+  return null;
+}
+function markKeyExhausted(provider, apiKey) {
+  keyRotationState[provider].cooldowns.set(apiKey, Date.now() + 6e4);
+}
+function withRequestTimeout(task, label, timeoutMs = AI_REQUEST_TIMEOUT_MS) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms.`));
+    }, timeoutMs);
+    task.then((value) => {
+      clearTimeout(timer);
+      resolve(value);
+    }).catch((error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+  });
+}
+async function resolveGroqModels(apiKey) {
+  if (cachedGroqModel) return [cachedGroqModel];
   const preferredModels = [
     process.env.GROQ_MODEL?.trim(),
     "openai/gpt-oss-20b",
     "openai/gpt-oss-120b",
     "llama-4-scout-17b-16e-instruct",
-    "qwen/qwen3-32b"
-  ].filter(Boolean);
+    "qwen/qwen3-32b",
+    "llama-3.3-70b-versatile",
+    "meta-llama/llama-4-scout-17b-16e-instruct"
+  ].filter(
+    (value, index, array) => value && array.indexOf(value) === index
+  );
   try {
-    const response = await fetch("https://api.groq.com/openai/v1/models", {
-      headers: { Authorization: `Bearer ${apiKey}` }
-    });
+    const response = await withRequestTimeout(
+      fetch("https://api.groq.com/openai/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` }
+      }),
+      "Groq model lookup"
+    );
     const data = await response.json();
     const availableModels = new Set(
       (data.data || []).filter((model) => model.active !== false && model.id).map((model) => model.id)
     );
-    const availablePreferred = preferredModels.find(
+    const availablePreferred = preferredModels.filter(
       (model) => availableModels.has(model)
     );
-    if (availablePreferred) {
-      cachedGroqModel = availablePreferred;
-      return cachedGroqModel;
-    }
-    throw new Error(
-      "No supported Groq chat model is available for this API key."
-    );
+    if (availablePreferred.length) return availablePreferred;
+    return preferredModels;
   } catch (error) {
-    if (process.env.GROQ_MODEL?.trim()) return process.env.GROQ_MODEL.trim();
-    throw error;
+    if (process.env.GROQ_MODEL?.trim()) return [process.env.GROQ_MODEL.trim()];
+    return [
+      "openai/gpt-oss-20b",
+      "openai/gpt-oss-120b",
+      "llama-4-scout-17b-16e-instruct",
+      "qwen/qwen3-32b",
+      "llama-3.3-70b-versatile"
+    ];
   }
 }
 async function generateAIText(prompt) {
   if (aiProvider === "groq") {
-    const apiKey2 = process.env.GROQ_API_KEY;
-    if (!apiKey2) throw new Error("GROQ_API_KEY is not configured.");
-    const groqModel = await resolveGroqModel(apiKey2);
-    const response2 = await fetch(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey2}`
-        },
-        body: JSON.stringify({
-          model: groqModel,
-          temperature: 0.2,
-          messages: [{ role: "user", content: prompt }]
-        })
+    const providerPool2 = getApiKeyPool("groq");
+    if (!providerPool2.length) {
+      throw new Error("GROQ_API_KEY is not configured.");
+    }
+    let lastError2 = null;
+    for (let attempt = 0; attempt < providerPool2.length; attempt += 1) {
+      const apiKey = nextAvailableKey("groq");
+      if (!apiKey) {
+        throw new Error(
+          "All configured Groq keys are currently cooling down. Try again shortly."
+        );
       }
-    );
-    const data = await response2.json();
-    if (!response2.ok)
-      throw new Error(data.error?.message || "Groq request failed.");
-    return data.choices?.[0]?.message?.content || "";
+      const candidateModels = await resolveGroqModels(apiKey);
+      let oneKeyFailed = false;
+      for (const groqModel of candidateModels) {
+        try {
+          const response = await withRequestTimeout(
+            fetch("https://api.groq.com/openai/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${apiKey}`
+              },
+              body: JSON.stringify({
+                model: groqModel,
+                temperature: 0.2,
+                messages: [{ role: "user", content: prompt }]
+              })
+            }),
+            `Groq text generation (${groqModel})`
+          );
+          const data = await response.json();
+          if (!response.ok) {
+            const isRateLimited = response.status === 429 || data.error?.code === "rate_limit_exceeded" || /rate limit|too many requests/i.test(data.error?.message || "");
+            if (isRateLimited) {
+              markKeyExhausted("groq", apiKey);
+              lastError2 = new Error(
+                `Groq rate limit reached on ${groqModel}. Switching to the next available key.`
+              );
+              oneKeyFailed = true;
+              continue;
+            }
+            throw new Error(data.error?.message || "Groq request failed.");
+          }
+          cachedGroqModel = groqModel;
+          return data.choices?.[0]?.message?.content || "";
+        } catch (error) {
+          if (error instanceof Error && /time out|timed out/i.test(error.message)) {
+            markKeyExhausted("groq", apiKey);
+          }
+          lastError2 = error instanceof Error ? error : new Error("Groq request failed.");
+          oneKeyFailed = true;
+        }
+      }
+      if (oneKeyFailed) continue;
+      break;
+    }
+    throw lastError2 || new Error("Groq request failed.");
   }
-  const apiKey = aiProvider === "groq" ? process.env.GROQ_API_KEY : process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
-  const ai = new import_genai.GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
-    contents: prompt
-  });
-  return response.text || "";
+  const providerPool = getApiKeyPool("gemini");
+  if (!providerPool.length) {
+    throw new Error("GEMINI_API_KEY is not configured.");
+  }
+  let lastError = null;
+  for (let attempt = 0; attempt < providerPool.length; attempt += 1) {
+    const apiKey = nextAvailableKey("gemini");
+    if (!apiKey) {
+      throw new Error(
+        "All configured Gemini keys are currently cooling down. Try again shortly."
+      );
+    }
+    try {
+      const ai = new import_genai.GoogleGenAI({ apiKey });
+      const response = await withRequestTimeout(
+        ai.models.generateContent({
+          model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+          contents: prompt
+        }),
+        "Gemini text generation"
+      );
+      return response.text || "";
+    } catch (error) {
+      markKeyExhausted("gemini", apiKey);
+      lastError = error instanceof Error ? error : new Error("Gemini request failed.");
+    }
+  }
+  throw lastError || new Error("Gemini request failed.");
 }
 async function sendResendEmail(to, subject, html) {
   const apiKey = process.env.RESEND_API_KEY;
@@ -541,6 +666,38 @@ async function sendResendEmail(to, subject, html) {
   return data.id;
 }
 app.use(import_express.default.json());
+app.get("/api/ai/provider-keys", (_req, res) => {
+  const providers = ["groq", "gemini"];
+  res.json({
+    activeProvider: aiProvider,
+    providers: Object.fromEntries(
+      providers.map((provider) => [provider, getProviderKeyStatus(provider)])
+    )
+  });
+});
+app.post("/api/ai/provider-keys", (req, res) => {
+  const { provider, keys } = req.body || {};
+  if (!provider || !["groq", "gemini"].includes(provider)) {
+    return res.status(400).json({ error: "Provider must be groq or gemini." });
+  }
+  const cleanedKeys = parseApiKeys(typeof keys === "string" ? keys : keys?.join(","));
+  const envKeyName = provider === "groq" ? "GROQ_KEYS" : "GEMINI_KEYS";
+  const singleKeyName = provider === "groq" ? "GROQ_API_KEY" : "GEMINI_API_KEY";
+  if (cleanedKeys.length) {
+    process.env[envKeyName] = cleanedKeys.join(",");
+    if (!process.env[singleKeyName]) {
+      process.env[singleKeyName] = cleanedKeys[0];
+    }
+  } else {
+    delete process.env[envKeyName];
+  }
+  res.json({
+    ok: true,
+    provider,
+    keys: getProviderKeyStatus(provider),
+    activeProvider: aiProvider
+  });
+});
 app.use((req, res, next) => {
   const origin = process.env.CORS_ORIGIN || "*";
   res.setHeader("Access-Control-Allow-Origin", origin);

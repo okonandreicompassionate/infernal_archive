@@ -36,6 +36,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [name, setName] = useState(displayName);
   const [message, setMessage] = useState("");
   const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [providerKeys, setProviderKeys] = useState({
+    groq: "",
+    gemini: "",
+  });
+  const [providerKeyStatus, setProviderKeyStatus] = useState<{
+    groq: Array<{ key: string; status: string; remainingMs: number }>;
+    gemini: Array<{ key: string; status: string; remainingMs: number }>;
+  }>({
+    groq: [],
+    gemini: [],
+  });
+  const [keyMessage, setKeyMessage] = useState("");
 
   useEffect(() => {
     setName(displayName);
@@ -46,6 +58,20 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     authorizedFetch("/api/admin/users").then(async (response) => {
       if (response.ok) setUsers(await response.json());
     });
+    fetch("/api/ai/provider-keys")
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = await response.json();
+        setProviderKeyStatus({
+          groq: data.providers?.groq || [],
+          gemini: data.providers?.gemini || [],
+        });
+        setProviderKeys({
+          groq: (data.providers?.groq || []).map((item: any) => item.key).join(", "),
+          gemini: (data.providers?.gemini || []).map((item: any) => item.key).join(", "),
+        });
+      })
+      .catch(() => undefined);
   }, [role]);
 
   const saveName = async (event: React.FormEvent) => {
@@ -98,6 +124,26 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       const result = await response.json().catch(() => ({}));
       setMessage(result.error || "Admin could not be deleted.");
     }
+  };
+
+  const saveProviderKeys = async (provider: "groq" | "gemini") => {
+    const response = await fetch("/api/ai/provider-keys", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider, keys: providerKeys[provider] }),
+    });
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setKeyMessage(result.error || "Could not update provider keys.");
+      return;
+    }
+
+    setProviderKeyStatus((current) => ({
+      ...current,
+      [provider]: result.keys || [],
+    }));
+    setKeyMessage(`${provider.toUpperCase()} keys updated.`);
   };
 
   return (
@@ -160,50 +206,132 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         </article>
       </section>
       {role === "god" && (
-        <section className="settings-panel admin-management">
-          <div className="settings-panel-heading">
-            <UserX />
-            <div>
-              <h2>Admin access</h2>
-              <p>
-                Invite new admins from the people button. Deactivated admins
-                cannot access the workspace.
-              </p>
+        <>
+          <section className="settings-panel admin-management">
+            <div className="settings-panel-heading">
+              <LockKeyhole />
+              <div>
+                <h2>AI key pool</h2>
+                <p>
+                  Add comma-separated keys for Groq or Gemini. Exhausted keys auto-cool
+                  down and the next valid key rotates in automatically.
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="managed-users">
-            {users
-              .filter((user) => user.role === "admin")
-              .map((user) => (
-                <div className="managed-user" key={user.id}>
-                  <div>
-                    <strong>{user.display_name || user.email}</strong>
-                    <span>{user.email}</span>
+            <div className="settings-form" style={{ gap: "1rem" }}>
+              <label>
+                Groq keys
+                <textarea
+                  value={providerKeys.groq}
+                  onChange={(event) =>
+                    setProviderKeys((current) => ({
+                      ...current,
+                      groq: event.target.value,
+                    }))
+                  }
+                  rows={3}
+                  placeholder="gsk_xxx, gsk_yyy"
+                />
+              </label>
+              <div className="settings-actions">
+                <button type="button" onClick={() => saveProviderKeys("groq")}>
+                  Save Groq keys
+                </button>
+              </div>
+              <div className="managed-users">
+                {providerKeyStatus.groq.map((item) => (
+                  <div className="managed-user" key={item.key}>
+                    <div>
+                      <strong>{item.key.slice(0, 8)}...</strong>
+                      <span>{item.status === "ready" ? "Ready" : `Cooling down: ${Math.ceil(item.remainingMs / 1000)}s`}</span>
+                    </div>
                   </div>
-                  <div className="managed-user-actions">
-                    <button
-                      onClick={() => toggleUser(user)}
-                      className={
-                        user.active ? "danger-button" : "restore-button"
-                      }
-                    >
-                      {user.active ? "Deactivate" : "Reactivate"}
-                    </button>
-                    <button
-                      onClick={() => deleteUser(user)}
-                      className="delete-button"
-                      title="Delete admin account"
-                    >
-                      <Trash2 /> Delete
-                    </button>
+                ))}
+                {providerKeyStatus.groq.length === 0 && (
+                  <p className="settings-empty">No Groq keys configured.</p>
+                )}
+              </div>
+
+              <label>
+                Gemini keys
+                <textarea
+                  value={providerKeys.gemini}
+                  onChange={(event) =>
+                    setProviderKeys((current) => ({
+                      ...current,
+                      gemini: event.target.value,
+                    }))
+                  }
+                  rows={3}
+                  placeholder="AIza..., AIza..."
+                />
+              </label>
+              <div className="settings-actions">
+                <button type="button" onClick={() => saveProviderKeys("gemini")}>
+                  Save Gemini keys
+                </button>
+              </div>
+              <div className="managed-users">
+                {providerKeyStatus.gemini.map((item) => (
+                  <div className="managed-user" key={item.key}>
+                    <div>
+                      <strong>{item.key.slice(0, 8)}...</strong>
+                      <span>{item.status === "ready" ? "Ready" : `Cooling down: ${Math.ceil(item.remainingMs / 1000)}s`}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            {users.filter((user) => user.role === "admin").length === 0 && (
-              <p className="settings-empty">No invited admins yet.</p>
-            )}
-          </div>
-        </section>
+                ))}
+                {providerKeyStatus.gemini.length === 0 && (
+                  <p className="settings-empty">No Gemini keys configured.</p>
+                )}
+              </div>
+              {keyMessage && <span>{keyMessage}</span>}
+            </div>
+          </section>
+          <section className="settings-panel admin-management">
+            <div className="settings-panel-heading">
+              <UserX />
+              <div>
+                <h2>Admin access</h2>
+                <p>
+                  Invite new admins from the people button. Deactivated admins
+                  cannot access the workspace.
+                </p>
+              </div>
+            </div>
+            <div className="managed-users">
+              {users
+                .filter((user) => user.role === "admin")
+                .map((user) => (
+                  <div className="managed-user" key={user.id}>
+                    <div>
+                      <strong>{user.display_name || user.email}</strong>
+                      <span>{user.email}</span>
+                    </div>
+                    <div className="managed-user-actions">
+                      <button
+                        onClick={() => toggleUser(user)}
+                        className={
+                          user.active ? "danger-button" : "restore-button"
+                        }
+                      >
+                        {user.active ? "Deactivate" : "Reactivate"}
+                      </button>
+                      <button
+                        onClick={() => deleteUser(user)}
+                        className="delete-button"
+                        title="Delete admin account"
+                      >
+                        <Trash2 /> Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              {users.filter((user) => user.role === "admin").length === 0 && (
+                <p className="settings-empty">No invited admins yet.</p>
+              )}
+            </div>
+          </section>
+        </>
       )}
     </div>
   );
