@@ -66,6 +66,8 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
   const [profileDraft, setProfileDraft] = useState<Record<string, string>>({});
   const [speciesQuery, setSpeciesQuery] = useState("");
   const [showSpecies, setShowSpecies] = useState(false);
+  // Guards every save/add/revert action below from firing twice on a rapid double-click.
+  const [actionPending, setActionPending] = useState(false);
 
   const editableCharacterFields = [
     ["codeName", "Code name / alias"],
@@ -226,18 +228,24 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
   };
 
   const saveProfileEdit = async () => {
-    const response = await fetch(`/api/${apiPath}/${entityId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(profileDraft),
-    });
-    if (!response.ok)
-      return alert(
-        (await response.json().catch(() => ({}))).error ||
-          "Profile could not be saved.",
-      );
-    setEditingProfile(false);
-    loadData();
+    if (actionPending) return;
+    setActionPending(true);
+    try {
+      const response = await fetch(`/api/${apiPath}/${entityId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profileDraft),
+      });
+      if (!response.ok)
+        return alert(
+          (await response.json().catch(() => ({}))).error ||
+            "Profile could not be saved.",
+        );
+      setEditingProfile(false);
+      loadData();
+    } finally {
+      setActionPending(false);
+    }
   };
 
   const handleDeleteMoodItem = async (moodId: string) => {
@@ -258,12 +266,14 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
   };
 
   const handleRevertVersion = async (versionSnapshot: any) => {
+    if (actionPending) return;
     if (
       !confirm(
         `Are you sure you want to revert this record to version from ${new Date(versionSnapshot.timestamp).toLocaleString()}?`,
       )
     )
       return;
+    setActionPending(true);
     try {
       const restoredData = { ...versionSnapshot.data, id: entityId };
       const res = await fetch(`/api/${apiPath}/${entityId}`, {
@@ -277,10 +287,14 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setActionPending(false);
     }
   };
 
   const handleCreateVersionSnapshot = async () => {
+    if (actionPending) return;
+    setActionPending(true);
     try {
       const currentVersions = item.versions || [
         {
@@ -309,12 +323,15 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setActionPending(false);
     }
   };
 
   const handleAddRelationship = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newRelTarget) return;
+    if (!newRelTarget || actionPending) return;
+    setActionPending(true);
     try {
       await fetch("/api/relationships", {
         method: "POST",
@@ -336,12 +353,15 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
       loadData();
     } catch (err) {
       console.error(err);
+    } finally {
+      setActionPending(false);
     }
   };
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentText.trim()) return;
+    if (!commentText.trim() || actionPending) return;
+    setActionPending(true);
     try {
       await fetch("/api/comments", {
         method: "POST",
@@ -359,6 +379,8 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
       loadData();
     } catch (err) {
       console.error(err);
+    } finally {
+      setActionPending(false);
     }
   };
 
@@ -506,7 +528,8 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                       onClick={
                         editingProfile ? saveProfileEdit : beginProfileEdit
                       }
-                      className="inline-flex items-center gap-2 border border-white/10 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 hover:bg-white/10"
+                      disabled={actionPending}
+                      className="inline-flex items-center gap-2 border border-white/10 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {editingProfile ? (
                         <Save className="w-3.5 h-3.5" />
@@ -965,7 +988,8 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                   </div>
                   <button
                     type="submit"
-                    className="bg-yellow-400 hover:bg-yellow-300 text-zinc-950 text-xs font-semibold px-4 py-1.5 rounded-2xl transition-all cursor-pointer"
+                    disabled={actionPending}
+                    className="bg-yellow-400 hover:bg-yellow-300 text-zinc-950 text-xs font-semibold px-4 py-1.5 rounded-2xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Establish Link
                   </button>
@@ -1036,7 +1060,8 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                   />
                   <button
                     type="submit"
-                    className="bg-yellow-400 hover:bg-yellow-300 text-zinc-950 text-xs font-semibold px-4 py-2 rounded-2xl cursor-pointer"
+                    disabled={actionPending}
+                    className="bg-yellow-400 hover:bg-yellow-300 text-zinc-950 text-xs font-semibold px-4 py-2 rounded-2xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Post Note
                   </button>
@@ -1180,7 +1205,8 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                 </div>
                 <button
                   onClick={handleCreateVersionSnapshot}
-                  className="bg-yellow-400 hover:bg-yellow-300 text-zinc-950 text-xs font-semibold px-3.5 py-2 rounded-2xl transition-all cursor-pointer flex items-center space-x-1.5 shadow-sm"
+                  disabled={actionPending}
+                  className="bg-yellow-400 hover:bg-yellow-300 text-zinc-950 text-xs font-semibold px-3.5 py-2 rounded-2xl transition-all cursor-pointer flex items-center space-x-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Bot className="w-3.5 h-3.5" />
                   <span>Save Version Snapshot</span>
@@ -1208,7 +1234,8 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                         </span>
                         <button
                           onClick={() => handleRevertVersion(ver)}
-                          className="bg-white/5 hover:bg-yellow-400 text-zinc-300 hover:text-zinc-950 px-3 py-1.5 rounded-2xl text-xs font-semibold transition-all cursor-pointer inline-flex items-center space-x-1 border border-white/10"
+                          disabled={actionPending}
+                          className="bg-white/5 hover:bg-yellow-400 text-zinc-300 hover:text-zinc-950 px-3 py-1.5 rounded-2xl text-xs font-semibold transition-all cursor-pointer inline-flex items-center space-x-1 border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Revert entity to this version state"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />

@@ -11,7 +11,11 @@ import {
   Download,
   Loader2,
 } from "lucide-react";
-import { authorizedFetch, uploadArchiveImage } from "../utils/supabase";
+import {
+  authorizedFetch,
+  supabase,
+  uploadArchiveImage,
+} from "../utils/supabase";
 import type { ChatContact, ChatDmSummary, ChatMessage } from "../types";
 
 interface TeamChatWidgetProps {
@@ -20,8 +24,10 @@ interface TeamChatWidgetProps {
   email?: string;
 }
 
-const PUBLIC_POLL_MS = 6000;
-const THREAD_POLL_MS = 4000;
+// Realtime (websocket) delivers new messages instantly; these polls are just a
+// safety net in case a connection drops or Supabase isn't configured.
+const PUBLIC_POLL_MS = 20000;
+const THREAD_POLL_MS = 12000;
 const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024; // 15MB, matches other upload flows in the app
 
 type ActiveThread = { kind: "public" } | { kind: "dm"; contact: ChatContact };
@@ -62,6 +68,22 @@ const initials = (name: string) =>
     .map((part) => part[0]?.toUpperCase() || "")
     .join("") || "?";
 
+// Realtime rows come straight from Postgres (snake_case); map them to the
+// same camelCase shape the REST API returns.
+const mapRealtimeRow = (row: any): ChatMessage => ({
+  id: row.id,
+  channel: row.channel,
+  senderId: row.sender_id,
+  senderName: row.sender_name,
+  recipientId: row.recipient_id,
+  recipientName: row.recipient_name,
+  text: row.text,
+  attachmentUrl: row.attachment_url,
+  attachmentType: row.attachment_type,
+  attachmentName: row.attachment_name,
+  createdAt: row.created_at,
+});
+
 export const TeamChatWidget: React.FC<TeamChatWidgetProps> = ({
   userId,
   displayName,
@@ -84,6 +106,93 @@ export const TeamChatWidget: React.FC<TeamChatWidgetProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const senderName = displayName || email || "Teammate";
+
+  // Refs so the realtime subscription (set up once) always reads the latest
+  // view/thread without needing to resubscribe on every render.
+  const openRef = useRef(open);
+  const viewRef = useRef(view);
+  const activeThreadRef = useRef(activeThread);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+  useEffect(() => {
+    activeThreadRef.current = activeThread;
+  }, [activeThread]);
+
+  // Instant delivery over Supabase Realtime (websocket), active for the whole
+  // session so badges update even while the panel is collapsed. RLS still
+  // governs which rows a given connection is allowed to receive.
+  useEffect(() => {
+    if (!supabase) return;
+    const channel = supabase
+      .channel(`chat-widget-${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "chat_messages" },
+        (payload) => {
+          const message = mapRealtimeRow(payload.new);
+          if (message.channel === "public") {
+            setPublicLastMessage(message);
+            const viewingPublic =
+              openRef.current &&
+              viewRef.current === "thread" &&
+              activeThreadRef.current?.kind === "public";
+            if (viewingPublic) {
+              setMessages((current) =>
+                current.some((m) => m.id === message.id)
+                  ? current
+                  : [...current, message],
+              );
+              writeStoredTime(publicSeenKey(userId), Date.now());
+              setPublicUnread(0);
+            } else if (message.senderId !== userId) {
+              setPublicUnread((count) => count + 1);
+            }
+            return;
+          }
+
+          const otherId =
+            message.senderId === userId
+              ? message.recipientId
+              : message.senderId;
+          if (!otherId) return;
+          setDmSummaries((current) => [
+            {
+              contactId: otherId,
+              contactName:
+                message.senderId === userId
+                  ? message.recipientName || ""
+                  : message.senderName,
+              lastMessage: message.text,
+              lastMessageAt: message.createdAt,
+              lastSenderId: message.senderId,
+              hasAttachment: Boolean(message.attachmentUrl),
+            },
+            ...current.filter((s) => s.contactId !== otherId),
+          ]);
+          const viewingThisDm =
+            openRef.current &&
+            viewRef.current === "thread" &&
+            activeThreadRef.current?.kind === "dm" &&
+            activeThreadRef.current.contact.id === otherId;
+          if (viewingThisDm) {
+            setMessages((current) =>
+              current.some((m) => m.id === message.id)
+                ? current
+                : [...current, message],
+            );
+            writeStoredTime(dmSeenKey(userId, otherId), Date.now());
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase?.removeChannel(channel);
+    };
+  }, [userId]);
 
   // Background badge check for the public channel, independent of whether the panel is open.
   useEffect(() => {

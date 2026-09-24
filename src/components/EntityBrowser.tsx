@@ -18,6 +18,7 @@ import {
   X,
   LayoutGrid,
 } from "lucide-react";
+import { subscribeToTable } from "../utils/supabase";
 
 interface EntityBrowserProps {
   entityType: string; // 'characters', 'teams', 'planets', 'locations', 'powers', 'artifacts', 'events', 'issues'
@@ -52,9 +53,11 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
 
   const apiPath = endpointMap[entityType] || "characters";
 
-  const loadData = () => {
-    setLoading(true);
-    setSelectedIds([]);
+  const loadData = (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setSelectedIds([]);
+    }
     fetch(`/api/${apiPath}`)
       .then((res) => res.json())
       .then((data) => {
@@ -69,6 +72,9 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
 
   useEffect(() => {
     loadData();
+    // Live updates: refresh instantly when anyone creates/edits/deletes a record of this type.
+    const unsubscribe = subscribeToTable(apiPath, () => loadData(true));
+    return unsubscribe;
   }, [entityType]);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {

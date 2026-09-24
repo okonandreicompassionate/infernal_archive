@@ -58,3 +58,29 @@ export async function uploadArchiveImage(file: File, folder = "records") {
   const { data } = supabase.storage.from("archive-images").getPublicUrl(path);
   return { url: data.publicUrl, error: null };
 }
+
+// Subscribes to live Postgres changes for one or more tables and invokes
+// `onChange` whenever a row is inserted/updated/deleted, for instant refreshes
+// instead of waiting on the next poll. No-ops (and returns a no-op cleanup)
+// when Supabase isn't configured, since realtime isn't available in that mode.
+export function subscribeToTables(tables: string[], onChange: () => void) {
+  if (!supabase || tables.length === 0) return () => {};
+  const channel = supabase.channel(
+    `tables-${tables.join("-")}-${Math.random().toString(36).slice(2)}`,
+  );
+  for (const table of tables) {
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table },
+      () => onChange(),
+    );
+  }
+  channel.subscribe();
+  return () => {
+    supabase?.removeChannel(channel);
+  };
+}
+
+export function subscribeToTable(table: string, onChange: () => void) {
+  return subscribeToTables([table], onChange);
+}

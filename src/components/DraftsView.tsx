@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { FileEdit, RefreshCw } from "lucide-react";
+import { subscribeToTables } from "../utils/supabase";
 
 interface DraftsViewProps {
   onSelectItem: (type: string, id: string) => void;
@@ -58,6 +59,9 @@ export const DraftsView: React.FC<DraftsViewProps> = ({ onSelectItem }) => {
 
   useEffect(() => {
     loadDrafts();
+    // Live updates: a draft saved or promoted anywhere shows up here instantly.
+    const unsubscribe = subscribeToTables(DRAFT_CATEGORIES, loadDrafts);
+    return unsubscribe;
   }, []);
 
   const getTitle = (item: any) =>

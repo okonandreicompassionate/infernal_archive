@@ -23,6 +23,7 @@ export const WriterWorkspace: React.FC = () => {
   const [newChar, setNewChar] = useState("");
   const [canonCheckResult, setCanonCheckResult] = useState<any>(null);
   const [checkingCanon, setCheckingCanon] = useState(false);
+  const [creatingIssue, setCreatingIssue] = useState(false);
   const [issues, setIssues] = useState<any[]>([]);
   const [selectedIssueId, setSelectedIssueId] = useState("");
   const [issueDraft, setIssueDraft] = useState({
@@ -101,25 +102,31 @@ export const WriterWorkspace: React.FC = () => {
   );
 
   const handleCreateIssue = async () => {
-    const response = await fetch("/api/issues", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        issueNumber:
-          Math.max(
-            0,
-            ...issues.map((issue) => Number(issue.issueNumber) || 0),
-          ) + 1,
-        title: "Untitled issue",
-        synopsis: "",
-        releaseStatus: "WRITING",
-        canonStatus: "DRAFT",
-      }),
-    });
-    if (response.ok) {
-      const issue = await response.json();
-      setIssues((current) => [...current, issue]);
-      setSelectedIssueId(issue.id);
+    if (creatingIssue) return;
+    setCreatingIssue(true);
+    try {
+      const response = await fetch("/api/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          issueNumber:
+            Math.max(
+              0,
+              ...issues.map((issue) => Number(issue.issueNumber) || 0),
+            ) + 1,
+          title: "Untitled issue",
+          synopsis: "",
+          releaseStatus: "WRITING",
+          canonStatus: "DRAFT",
+        }),
+      });
+      if (response.ok) {
+        const issue = await response.json();
+        setIssues((current) => [...current, issue]);
+        setSelectedIssueId(issue.id);
+      }
+    } finally {
+      setCreatingIssue(false);
     }
   };
 
@@ -277,7 +284,8 @@ export const WriterWorkspace: React.FC = () => {
             <button
               type="button"
               onClick={handleCreateIssue}
-              className="bg-yellow-400 text-zinc-950 px-3 py-2 rounded-2xl text-xs font-semibold"
+              disabled={creatingIssue}
+              className="bg-yellow-400 text-zinc-950 px-3 py-2 rounded-2xl text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="inline w-3.5 h-3.5 mr-1" /> New issue
             </button>

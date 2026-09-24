@@ -524,3 +524,25 @@ drop policy if exists chat_messages_insert on public.chat_messages;
 create policy chat_messages_insert on public.chat_messages for insert to authenticated
 with check (sender_id = auth.uid());
 
+-- Broadcast row changes over Supabase Realtime (websocket) so the frontend can
+-- refresh instantly instead of waiting on the next poll. Wrapped per-table
+-- since re-adding an already-published table raises a duplicate_object error.
+do $$
+declare
+  table_name text;
+begin
+  foreach table_name in array array[
+    'universes', 'planets', 'locations', 'characters', 'teams', 'organizations',
+    'species', 'powers', 'artifacts', 'events', 'issues', 'story_arcs',
+    'relationships', 'scripts', 'artwork', 'audit_logs', 'comments', 'tasks',
+    'retcons', 'chat_messages'
+  ] loop
+    begin
+      execute format('alter publication supabase_realtime add table public.%I', table_name);
+    exception
+      when duplicate_object then null;
+    end;
+  end loop;
+end;
+$$;
+

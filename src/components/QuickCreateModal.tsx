@@ -232,6 +232,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [availableCharacters, setAvailableCharacters] = useState<any[]>([]);
   const [saveError, setSaveError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [species, setSpecies] = useState("Human");
   const [speciesQuery, setSpeciesQuery] = useState("");
   const [showSpecies, setShowSpecies] = useState(false);
@@ -263,7 +264,8 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
   };
 
   const submitRecord = async (canonStatus: "CANON" | "DRAFT") => {
-    if (!name.trim()) return;
+    if (!name.trim() || submitting) return;
+    setSubmitting(true);
     setSaveError("");
 
     let payload: any = {
@@ -272,49 +274,49 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
       canonStatus,
     };
 
-    if (entityType === "characters") {
-      payload.codeName = codeName || extraField || "Operative";
-      payload.species = "Human";
-      payload.species = species;
-      payload.currentStatus = "Active";
-      payload.hair = hairColor || "Unspecified";
-      payload.eyes = eyeColor || "Unspecified";
-      payload.height = height || "5'10\"";
-      payload.occupation = occupation || "Adventurer / Operative";
-      payload.friends = selectedFriends;
-      payload.family = selectedFamily;
-      Object.assign(payload, profileFields);
-      if (sketchUrl) {
-        payload.portrait = sketchUrl;
-      }
-      if (imageFile) {
-        const upload = await uploadArchiveImage(imageFile, entityType);
-        if (upload.error) throw upload.error;
-        if (entityType === "characters") payload.portrait = upload.url;
-        else if (entityType === "teams") payload.logo = upload.url;
-        else if (entityType === "issues") payload.cover = upload.url;
-        else if (["planets", "locations", "artifacts"].includes(entityType))
-          payload.image = upload.url;
-      }
-    } else if (entityType === "teams") {
-      payload.type = extraField || "Taskforce";
-    } else if (entityType === "artifacts") {
-      payload.type = extraField || "Weapon";
-      payload.status = "Active";
-    } else if (entityType === "species") {
-      Object.assign(payload, {
-        homePlanet: profileFields.homePlanet || "",
-        lifespan: profileFields.lifespan || "",
-        biology: profileFields.biology || "",
-        abilities: profileFields.abilities || "",
-        weaknesses: profileFields.weaknesses || "",
-        culture: profileFields.culture || "",
-        language: profileFields.language || "",
-        population: profileFields.population || "",
-      });
-    }
-
     try {
+      if (entityType === "characters") {
+        payload.codeName = codeName || extraField || "Operative";
+        payload.species = "Human";
+        payload.species = species;
+        payload.currentStatus = "Active";
+        payload.hair = hairColor || "Unspecified";
+        payload.eyes = eyeColor || "Unspecified";
+        payload.height = height || "5'10\"";
+        payload.occupation = occupation || "Adventurer / Operative";
+        payload.friends = selectedFriends;
+        payload.family = selectedFamily;
+        Object.assign(payload, profileFields);
+        if (sketchUrl) {
+          payload.portrait = sketchUrl;
+        }
+        if (imageFile) {
+          const upload = await uploadArchiveImage(imageFile, entityType);
+          if (upload.error) throw upload.error;
+          if (entityType === "characters") payload.portrait = upload.url;
+          else if (entityType === "teams") payload.logo = upload.url;
+          else if (entityType === "issues") payload.cover = upload.url;
+          else if (["planets", "locations", "artifacts"].includes(entityType))
+            payload.image = upload.url;
+        }
+      } else if (entityType === "teams") {
+        payload.type = extraField || "Taskforce";
+      } else if (entityType === "artifacts") {
+        payload.type = extraField || "Weapon";
+        payload.status = "Active";
+      } else if (entityType === "species") {
+        Object.assign(payload, {
+          homePlanet: profileFields.homePlanet || "",
+          lifespan: profileFields.lifespan || "",
+          biology: profileFields.biology || "",
+          abilities: profileFields.abilities || "",
+          weaknesses: profileFields.weaknesses || "",
+          culture: profileFields.culture || "",
+          language: profileFields.language || "",
+          population: profileFields.population || "",
+        });
+      }
+
       const res = await fetch(`/api/${entityType}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -333,6 +335,8 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
       setSaveError(
         err instanceof Error ? err.message : "The record could not be saved.",
       );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -646,22 +650,25 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-zinc-900 text-zinc-300 rounded-2xl text-xs hover:bg-white/10 cursor-pointer"
+              disabled={submitting}
+              className="px-4 py-2 bg-zinc-900 text-zinc-300 rounded-2xl text-xs hover:bg-white/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={() => submitRecord("DRAFT")}
-              className="px-4 py-2 bg-zinc-900 text-zinc-200 border border-white/10 rounded-2xl text-xs hover:bg-white/10 cursor-pointer"
+              disabled={submitting}
+              className="px-4 py-2 bg-zinc-900 text-zinc-200 border border-white/10 rounded-2xl text-xs hover:bg-white/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save as Draft
+              {submitting ? "Saving..." : "Save as Draft"}
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-yellow-400 text-zinc-950 font-semibold rounded-2xl text-xs hover:bg-yellow-400 cursor-pointer"
+              disabled={submitting}
+              className="px-4 py-2 bg-yellow-400 text-zinc-950 font-semibold rounded-2xl text-xs hover:bg-yellow-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save Precise Record
+              {submitting ? "Saving..." : "Save Precise Record"}
             </button>
           </div>
         </form>

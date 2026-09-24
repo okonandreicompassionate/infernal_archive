@@ -14,6 +14,7 @@ import {
   Bot,
   Sword,
 } from "lucide-react";
+import { subscribeToTables } from "../utils/supabase";
 
 interface DashboardProps {
   setActiveTab: (tab: string) => void;
@@ -29,7 +30,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [overview, setOverview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadOverview = () => {
     fetch("/api/overview")
       .then((res) => res.json())
       .then((data) => {
@@ -40,6 +41,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
         console.error(err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    loadOverview();
+    // Live updates: instantly reflect edits made anywhere else in the archive.
+    const unsubscribe = subscribeToTables(
+      [
+        "characters",
+        "teams",
+        "planets",
+        "artifacts",
+        "events",
+        "issues",
+        "tasks",
+        "retcons",
+        "audit_logs",
+      ],
+      loadOverview,
+    );
+    return unsubscribe;
   }, []);
 
   if (loading) {
