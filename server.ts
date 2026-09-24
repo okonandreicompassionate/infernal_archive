@@ -1571,7 +1571,8 @@ ${rawText}`;
         .trim();
       const start = cleaned.indexOf("{");
       const end = cleaned.lastIndexOf("}");
-      if (start < 0 || end <= start) throw new Error("No JSON object returned.");
+      if (start < 0 || end <= start)
+        throw new Error("No JSON object returned.");
       return JSON.parse(cleaned.slice(start, end + 1));
     };
 
@@ -1580,7 +1581,9 @@ ${rawText}`;
     try {
       parsed = parseDraftJson(responseText);
     } catch {
-      const repairedText = await generateAIText(`Repair the following malformed character draft response. Return ONLY valid JSON matching the requested schema. Do not add commentary or markdown. If the response is truncated, complete missing closing brackets using the available content.\n\n${responseText}`);
+      const repairedText = await generateAIText(
+        `Repair the following malformed character draft response. Return ONLY valid JSON matching the requested schema. Do not add commentary or markdown. If the response is truncated, complete missing closing brackets using the available content.\n\n${responseText}`,
+      );
       parsed = parseDraftJson(repairedText);
     }
     const characters = Array.isArray(parsed.characters)
