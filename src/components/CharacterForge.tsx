@@ -5,6 +5,7 @@ type DraftCharacter = {
   name: string;
   codeName: string;
   species: string;
+  height: string;
   occupation: string;
   description: string;
   origin: string;
@@ -22,6 +23,7 @@ const emptyDraft: DraftCharacter = {
   name: "",
   codeName: "",
   species: "",
+  height: "",
   occupation: "",
   description: "",
   origin: "",
@@ -39,6 +41,7 @@ const fields: Array<[keyof DraftCharacter, string]> = [
   ["name", "Name"],
   ["codeName", "Code name / alias"],
   ["species", "Species"],
+  ["height", "Height / build"],
   ["occupation", "Occupation"],
   ["affiliation", "Affiliation"],
   ["description", "Summary"],

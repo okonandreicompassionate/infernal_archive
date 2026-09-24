@@ -1656,14 +1656,15 @@ app.post("/api/ai/lorekeeper", async (req, res) => {
 });
 app.post("/api/ai/character-drafts", async (req, res) => {
   const rawText = String(req.body?.rawText || "").trim();
-  if (!rawText) return res.status(400).json({ error: "Raw character ideas are required." });
+  if (!rawText)
+    return res.status(400).json({ error: "Raw character ideas are required." });
   try {
     const archive = await getCurrentArchive();
     const prompt = `You are a character development assistant for Universe OS.
 Turn the user's raw character notes into editable draft records. Split multiple characters when the notes clearly describe multiple people.
 Do not create canon facts silently. Preserve supplied facts, label uncertain additions as suggestions in the notes, and keep names faithful to the input.
 Return ONLY valid JSON with this exact shape:
-{"characters":[{"name":"","codeName":"","species":"","occupation":"","description":"","origin":"","majorAbilities":"","secondaryAbilities":"","weaknesses":"","personality":"","appearance":"","affiliation":"","currentStatus":"DRAFT","suggestions":[""]}]}
+{"characters":[{"name":"","codeName":"","species":"","height":"","occupation":"","description":"","origin":"","majorAbilities":"","secondaryAbilities":"","weaknesses":"","personality":"","appearance":"","affiliation":"","currentStatus":"DRAFT","suggestions":[""]}]}
 Use empty strings when unknown. Never include markdown fences or commentary.
 
 Existing archive context for continuity only:
@@ -1675,25 +1676,30 @@ ${rawText}`;
     const cleaned = responseText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
     const parsed = JSON.parse(cleaned);
     const characters = Array.isArray(parsed.characters) ? parsed.characters : [];
-    res.json({ characters: characters.map((character) => ({
-      name: String(character.name || "Untitled character"),
-      codeName: String(character.codeName || ""),
-      species: String(character.species || ""),
-      occupation: String(character.occupation || ""),
-      description: String(character.description || ""),
-      origin: String(character.origin || ""),
-      majorAbilities: String(character.majorAbilities || ""),
-      secondaryAbilities: String(character.secondaryAbilities || ""),
-      weaknesses: String(character.weaknesses || ""),
-      personality: String(character.personality || ""),
-      appearance: String(character.appearance || ""),
-      affiliation: String(character.affiliation || ""),
-      currentStatus: String(character.currentStatus || "DRAFT"),
-      suggestions: Array.isArray(character.suggestions) ? character.suggestions.map(String) : []
-    })) });
+    res.json({
+      characters: characters.map((character) => ({
+        name: String(character.name || "Untitled character"),
+        codeName: String(character.codeName || ""),
+        species: String(character.species || ""),
+        height: String(character.height || ""),
+        occupation: String(character.occupation || ""),
+        description: String(character.description || ""),
+        origin: String(character.origin || ""),
+        majorAbilities: String(character.majorAbilities || ""),
+        secondaryAbilities: String(character.secondaryAbilities || ""),
+        weaknesses: String(character.weaknesses || ""),
+        personality: String(character.personality || ""),
+        appearance: String(character.appearance || ""),
+        affiliation: String(character.affiliation || ""),
+        currentStatus: String(character.currentStatus || "DRAFT"),
+        suggestions: Array.isArray(character.suggestions) ? character.suggestions.map(String) : []
+      }))
+    });
   } catch (error) {
     console.error("Character draft generation failed:", error);
-    res.status(500).json({ error: error instanceof Error ? error.message : "Character drafts could not be generated." });
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Character drafts could not be generated."
+    });
   }
 });
 app.post("/api/ai/canon-check", async (req, res) => {

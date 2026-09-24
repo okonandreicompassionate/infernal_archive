@@ -429,6 +429,12 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
                 Species <strong>{character.species || "Unknown"}</strong>
               </span>
               <span>
+                Height / build{" "}
+                <strong>
+                  {character.height || character.build || "Unknown"}
+                </strong>
+              </span>
+              <span>
                 Occupation <strong>{character.occupation || "Unknown"}</strong>
               </span>
               <span>
