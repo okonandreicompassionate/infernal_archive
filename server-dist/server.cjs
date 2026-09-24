@@ -1674,9 +1674,23 @@ Existing relationships: ${JSON.stringify((archive.relationships || []).slice(0, 
 
 User's raw notes:
 ${rawText}`;
+    const parseDraftJson = (value) => {
+      const cleaned = value.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+      const start = cleaned.indexOf("{");
+      const end = cleaned.lastIndexOf("}");
+      if (start < 0 || end <= start) throw new Error("No JSON object returned.");
+      return JSON.parse(cleaned.slice(start, end + 1));
+    };
+    let parsed;
     const responseText = await generateAIText(prompt);
-    const cleaned = responseText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-    const parsed = JSON.parse(cleaned);
+    try {
+      parsed = parseDraftJson(responseText);
+    } catch {
+      const repairedText = await generateAIText(`Repair the following malformed character draft response. Return ONLY valid JSON matching the requested schema. Do not add commentary or markdown. If the response is truncated, complete missing closing brackets using the available content.
+
+${responseText}`);
+      parsed = parseDraftJson(repairedText);
+    }
     const characters = Array.isArray(parsed.characters) ? parsed.characters : [];
     res.json({
       characters: characters.map((character) => ({
