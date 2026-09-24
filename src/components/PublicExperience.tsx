@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Activity,
+  ArrowLeft,
   BookOpen,
   CalendarDays,
   ChevronRight,
@@ -140,6 +141,106 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
   const getImage = (item: any) =>
     item.portrait || item.cover || item.image || item.logo;
 
+  const renderRecordProfile = ({ type, item }: { type: string; item: any }) => {
+    const recordTypes = Array.isArray(item.recordTypes)
+      ? item.recordTypes
+      : item.category
+        ? String(item.category).split(" / ")
+        : [];
+    const profileSections = [
+      {
+        title: "Overview",
+        fields: [
+          ["overview", item.overview || getSummary(item)],
+          ["origin", item.origin],
+          ["significance", item.significance],
+        ],
+      },
+      {
+        title: "Function",
+        fields: [
+          ["capabilities", item.capabilities || item.abilities],
+          ["secondaryAbilities", item.secondaryAbilities],
+          ["activationUse", item.activationUse],
+          ["powerSource", item.powerSource],
+        ],
+      },
+      {
+        title: "Limits & context",
+        fields: [
+          ["limitations", item.limitations || item.drawbacks],
+          ["creator", item.creator],
+          ["users", item.users || item.wielders || item.notableWielders],
+          ["currentStatus", item.currentStatus || item.status],
+        ],
+      },
+    ].map((section) => ({
+      ...section,
+      fields: section.fields.filter(([, value]) => value),
+    }));
+
+    return (
+      <div className="public-content space-y-6">
+        <button
+          onClick={() => setSelectedRecord(null)}
+          className="public-back-button"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to {TYPE_LABELS[type] || "archive"}
+        </button>
+        <section className="public-profile-hero">
+          <div className="public-profile-visual">
+            {getImage(item) ? (
+              <img src={getImage(item)} alt={getName(item)} />
+            ) : (
+              React.createElement(TYPE_ICONS[type] || BookOpen, {
+                className: "w-12 h-12 text-yellow-300",
+              })
+            )}
+          </div>
+          <div className="min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="public-eyebrow">{TYPE_LABELS[type] || type}</span>
+              <span className="public-status">CANON</span>
+              {recordTypes.map((recordType: string) => (
+                <span key={recordType} className="public-profile-tag">
+                  {recordType}
+                </span>
+              ))}
+            </div>
+            <h1>{getName(item)}</h1>
+            <p className="public-profile-summary">{getSummary(item)}</p>
+          </div>
+          <div className="public-profile-facts">
+            <span>Type <strong>{item.type || TYPE_LABELS[type] || type}</strong></span>
+            <span>Status <strong>{item.currentStatus || item.status || "Unknown"}</strong></span>
+            <span>Affiliation <strong>{item.affiliation || "Independent"}</strong></span>
+          </div>
+        </section>
+        <section className="public-profile-sections">
+          {profileSections.filter((section) => section.fields.length > 0).map((section) => (
+            <article key={section.title} className="public-panel public-profile-panel">
+              <p className="public-eyebrow">{section.title}</p>
+              <div className="public-detail-list">
+                {section.fields.map(([key, value]) => (
+                  <div key={key}>
+                    <span>{String(key).replace(/([A-Z])/g, " $1")}</span>
+                    <strong>{String(value)}</strong>
+                  </div>
+                ))}
+              </div>
+            </article>
+          ))}
+        </section>
+        {item.trivia && (
+          <section className="public-panel public-profile-panel">
+            <p className="public-eyebrow">Archive notes</p>
+            <p>{item.trivia}</p>
+          </section>
+        )}
+      </div>
+    );
+  };
+
   const renderRecordCard = ({ type, item }: { type: string; item: any }) => {
     const Icon = TYPE_ICONS[type] || BookOpen;
     return (
@@ -170,6 +271,62 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
       </button>
     );
   };
+
+  if (selectedRecord?.type === "characters") {
+    const character = selectedRecord.item;
+    const relatedCharacters = characterRecords
+      .filter((item) => item.id !== character.id)
+      .filter((item) => {
+        const relationshipText = JSON.stringify(character.relationships || []).toLowerCase();
+        return relationshipText.includes(String(item.name || "").toLowerCase()) ||
+          relationshipText.includes(String(item.codeName || "").toLowerCase()) ||
+          item.affiliation && item.affiliation === character.affiliation;
+      })
+      .slice(0, 6);
+
+    return (
+      <div className="public-character-page min-h-screen bg-[#25262b] text-zinc-100">
+        <header className="public-character-header">
+          <button onClick={() => setSelectedRecord(null)} className="public-back-button">
+            <ArrowLeft className="w-4 h-4" /> Back to characters
+          </button>
+          <span className="public-eyebrow">Character dossier · Canon</span>
+        </header>
+        <main className="public-character-content">
+          <section className="public-character-hero">
+            <div className="public-character-portrait">
+              {getImage(character) ? <img src={getImage(character)} alt={getName(character)} /> : <Users className="w-12 h-12 text-yellow-300" />}
+            </div>
+            <div className="public-character-identity">
+              <span className="public-eyebrow">{character.category || "Character"} · {character.canonStatus}</span>
+              <h1>{getName(character)}</h1>
+              {character.codeName && <p className="public-character-alias">"{character.codeName}"</p>}
+              <p>{getSummary(character)}</p>
+            </div>
+            <div className="public-character-facts">
+              <span>Status <strong>{character.currentStatus || "Unknown"}</strong></span>
+              <span>Species <strong>{character.species || "Unknown"}</strong></span>
+              <span>Occupation <strong>{character.occupation || "Unknown"}</strong></span>
+              <span>Affiliation <strong>{character.affiliation || "Independent"}</strong></span>
+            </div>
+          </section>
+          <section className="public-character-metrics">
+            {[
+              ["Powers", character.powers?.length || 0],
+              ["Skills", character.skills?.length || 0],
+              ["Allies", character.friends?.length || 0],
+              ["First appearance", character.firstAppearance || "Unknown"],
+            ].map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}
+          </section>
+          <section className="public-character-grid">
+            <article className="public-character-panel"><p className="public-eyebrow">Ability loadout</p><h2>Powers & skills</h2><div className="public-chip-list">{[...(character.powers || []), ...(character.skills || [])].map((value: string) => <span key={value}>{value}</span>)}</div></article>
+            <article className="public-character-panel"><p className="public-eyebrow">Character history</p><h2>Why they matter</h2><p>{character.origin || character.biography || "This character's history has not been published yet."}</p><div className="public-character-history"><span>First appearance <strong>{character.firstAppearance || "Unknown"}</strong></span><span>Current location <strong>{character.currentLocation || "Unknown"}</strong></span><span>Core themes <strong>{character.centralThemes || "Unrecorded"}</strong></span><span>Legacy <strong>{character.heroicVillainousLegacy || "Unrecorded"}</strong></span></div></article>
+          </section>
+          <section className="public-related-characters"><div className="public-panel-heading"><div><p className="public-eyebrow">Continue exploring</p><h2>Related characters</h2></div><button onClick={() => setSelectedRecord(null)} className="public-inline-link">All characters <ChevronRight className="w-3.5 h-3.5" /></button></div><div className="public-related-grid">{relatedCharacters.map((item) => <button key={item.id} onClick={() => setSelectedRecord({ type: "characters", item })} className="public-related-card">{getImage(item) ? <img src={getImage(item)} alt="" /> : <span>{getName(item).slice(0, 1)}</span>}<strong>{getName(item)}</strong><small>{item.codeName || item.species || "Character"}</small></button>)}</div>{relatedCharacters.length === 0 && <p className="public-empty">No related canon characters have been linked yet.</p>}</section>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="public-experience min-h-screen bg-[#25262b] text-zinc-100">
@@ -256,7 +413,9 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
           </button>
         </header>
 
-        {section === "simulator" ? (
+        {selectedRecord ? (
+          renderRecordProfile(selectedRecord)
+        ) : section === "simulator" ? (
           <CombatSimulator />
         ) : section === "dashboard" ? (
           <div className="public-content space-y-6">
@@ -387,64 +546,6 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
         )}
       </main>
 
-      {selectedRecord && (
-        <div
-          className="public-record-modal"
-          onClick={() => setSelectedRecord(null)}
-        >
-          <div
-            className="public-record-modal-inner"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              onClick={() => setSelectedRecord(null)}
-              className="absolute top-4 right-4 text-zinc-500 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            {getImage(selectedRecord.item) && (
-              <img
-                src={getImage(selectedRecord.item)}
-                alt=""
-                className="public-modal-image"
-              />
-            )}
-            <div className="p-6 space-y-4">
-              <span className="public-eyebrow">
-                {TYPE_LABELS[selectedRecord.type] || selectedRecord.type} ·
-                CANON
-              </span>
-              <h2>{getName(selectedRecord.item)}</h2>
-              <p>{getSummary(selectedRecord.item)}</p>
-              <div className="public-detail-list">
-                {Object.entries(selectedRecord.item)
-                  .filter(
-                    ([key, value]) =>
-                      ![
-                        "id",
-                        "portrait",
-                        "image",
-                        "cover",
-                        "logo",
-                        "description",
-                        "biography",
-                        "synopsis",
-                      ].includes(key) &&
-                      typeof value !== "object" &&
-                      value,
-                  )
-                  .slice(0, 8)
-                  .map(([key, value]) => (
-                    <div key={key}>
-                      <span>{key.replace(/([A-Z])/g, " $1")}</span>
-                      <strong>{String(value)}</strong>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
