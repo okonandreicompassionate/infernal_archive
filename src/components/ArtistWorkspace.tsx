@@ -8,6 +8,7 @@ export const ArtistWorkspace: React.FC = () => {
   const [issues, setIssues] = useState<any[]>([]);
   const [selectedIssueId, setSelectedIssueId] = useState("");
   const [pageNumber, setPageNumber] = useState(1);
+  const [artworkPage, setArtworkPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [savingPanelId, setSavingPanelId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -71,6 +72,15 @@ export const ArtistWorkspace: React.FC = () => {
     (script) => Number(script.pageNumber) === pageNumber,
   );
   const selectedIssue = issues.find((issue) => issue.id === selectedIssueId);
+  const artworkPageSize = 6;
+  const artworkPageCount = Math.max(
+    1,
+    Math.ceil(artwork.length / artworkPageSize),
+  );
+  const visibleArtwork = artwork.slice(
+    (artworkPage - 1) * artworkPageSize,
+    artworkPage * artworkPageSize,
+  );
 
   const updateScript = (scriptId: string, patch: Record<string, unknown>) => {
     setScripts((current) =>
@@ -332,7 +342,7 @@ export const ArtistWorkspace: React.FC = () => {
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {artwork.map((art) => (
+            {visibleArtwork.map((art) => (
               <article
                 key={art.id}
                 className="bg-zinc-900 border border-white/5 rounded-2xl overflow-hidden shadow-lg"
@@ -381,6 +391,7 @@ export const ArtistWorkspace: React.FC = () => {
                 <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
                   <a
                     href={art.url}
+                    download={art.title || "artwork"}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 text-xs text-yellow-400"
@@ -400,6 +411,37 @@ export const ArtistWorkspace: React.FC = () => {
               </article>
             ))}
           </div>
+          {artwork.length > artworkPageSize && (
+            <div className="flex items-center justify-between border-t border-white/5 pt-3">
+              <span className="text-[10px] text-zinc-500 font-mono">
+                Page {artworkPage} of {artworkPageCount}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={artworkPage === 1}
+                  onClick={() =>
+                    setArtworkPage((current) => Math.max(1, current - 1))
+                  }
+                  className="border border-white/10 rounded-lg px-3 py-1.5 text-xs text-zinc-300 disabled:opacity-40"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  disabled={artworkPage === artworkPageCount}
+                  onClick={() =>
+                    setArtworkPage((current) =>
+                      Math.min(artworkPageCount, current + 1),
+                    )
+                  }
+                  className="border border-white/10 rounded-lg px-3 py-1.5 text-xs text-zinc-300 disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         <form
           onSubmit={createArtwork}

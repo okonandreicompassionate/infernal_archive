@@ -799,6 +799,7 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                       {item.finalFileUrl && (
                         <a
                           href={item.finalFileUrl}
+                          download={item.finalFileName || "final-comic"}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-xs text-emerald-300 hover:text-emerald-200"

@@ -589,6 +589,9 @@ export const TeamChatWidget: React.FC<TeamChatWidgetProps> = ({
                             (message.attachmentType === "image" ? (
                               <a
                                 href={message.attachmentUrl}
+                                download={
+                                  message.attachmentName || "chat-image"
+                                }
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="block"
@@ -598,10 +601,15 @@ export const TeamChatWidget: React.FC<TeamChatWidgetProps> = ({
                                   alt={message.attachmentName || "Attachment"}
                                   className="max-h-48 rounded-xl object-cover"
                                 />
+                                <span className="mt-1 inline-flex items-center gap-1 text-[10px] text-white/80 hover:text-white">
+                                  <Download className="w-3 h-3" /> Download
+                                  image
+                                </span>
                               </a>
                             ) : (
                               <a
                                 href={message.attachmentUrl}
+                                download={message.attachmentName || "chat-file"}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className={`flex items-center gap-2 rounded-xl px-2.5 py-2 ${

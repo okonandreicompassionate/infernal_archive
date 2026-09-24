@@ -81,6 +81,8 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [archiveFilter, setArchiveFilter] = useState("ALL");
+  const [archivePage, setArchivePage] = useState(1);
+  const publicPageSize = 12;
 
   useEffect(() => {
     fetch("/api/public/archive/search")
@@ -99,6 +101,10 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
   useEffect(() => {
     if (initialSection !== section) setSection(initialSection);
   }, [initialSection]);
+
+  useEffect(() => {
+    setArchivePage(1);
+  }, [query, archiveFilter, section]);
 
   const allRecords = useMemo(
     () =>
@@ -145,6 +151,14 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
           if (section === "comics") return type === "issues";
           return true;
         });
+  const publicPageCount = Math.max(
+    1,
+    Math.ceil(publicSections.length / publicPageSize),
+  );
+  const visiblePublicSections = publicSections.slice(
+    (archivePage - 1) * publicPageSize,
+    archivePage * publicPageSize,
+  );
 
   const navigate = (next: string) => {
     setSection(next);
@@ -757,7 +771,38 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
               </div>
             ) : (
               <div className="public-record-grid">
-                {publicSections.map(renderRecordCard)}
+                {visiblePublicSections.map(renderRecordCard)}
+              </div>
+            )}
+            {publicSections.length > publicPageSize && (
+              <div className="flex items-center justify-between border-t border-white/5 pt-4">
+                <span className="text-[10px] text-zinc-500 font-mono">
+                  Page {archivePage} of {publicPageCount}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={archivePage === 1}
+                    onClick={() =>
+                      setArchivePage((current) => Math.max(1, current - 1))
+                    }
+                    className="border border-white/10 rounded-lg px-3 py-1.5 text-xs text-zinc-300 disabled:opacity-40"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={archivePage === publicPageCount}
+                    onClick={() =>
+                      setArchivePage((current) =>
+                        Math.min(publicPageCount, current + 1),
+                      )
+                    }
+                    className="border border-white/10 rounded-lg px-3 py-1.5 text-xs text-zinc-300 disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </div>

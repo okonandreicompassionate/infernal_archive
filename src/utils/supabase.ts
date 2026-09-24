@@ -46,14 +46,62 @@ export async function authorizedFetch(
   return fetch(input, { ...init, headers });
 }
 
+async function compressArchiveImage(file: File) {
+  if (
+    !file.type.startsWith("image/") ||
+    file.type === "image/gif" ||
+    file.type === "image/svg+xml"
+  ) {
+    return file;
+  }
+
+  try {
+    const sourceUrl = URL.createObjectURL(file);
+    const image = new Image();
+    const loaded = new Promise<HTMLImageElement>((resolve, reject) => {
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("Image could not be decoded."));
+    });
+    image.src = sourceUrl;
+    await loaded;
+
+    const maxDimension = 2400;
+    const scale = Math.min(
+      1,
+      maxDimension / Math.max(image.naturalWidth, image.naturalHeight),
+    );
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(sourceUrl);
+
+    const compressedBlob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/webp", 0.88),
+    );
+    if (!compressedBlob || compressedBlob.size >= file.size) return file;
+
+    return new File(
+      [compressedBlob],
+      `${file.name.replace(/\.[^.]+$/, "")}.webp`,
+      { type: "image/webp", lastModified: file.lastModified },
+    );
+  } catch {
+    return file;
+  }
+}
+
 export async function uploadArchiveImage(file: File, folder = "records") {
   if (!supabase)
     return { url: null, error: new Error("Supabase is not configured.") };
-  const extension = file.name.split(".").pop()?.toLowerCase() || "bin";
+  const uploadFile = await compressArchiveImage(file);
+  const extension = uploadFile.name.split(".").pop()?.toLowerCase() || "bin";
   const path = `${folder}/${crypto.randomUUID()}.${extension}`;
   const { error } = await supabase.storage
     .from("archive-images")
-    .upload(path, file, { upsert: false, contentType: file.type });
+    .upload(path, uploadFile, { upsert: false, contentType: uploadFile.type });
   if (error) return { url: null, error };
   const { data } = supabase.storage.from("archive-images").getPublicUrl(path);
   return { url: data.publicUrl, error: null };
