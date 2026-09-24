@@ -33,6 +33,7 @@ const ARCHIVE_TYPES = [
   "species",
   "powers",
   "artifacts",
+  "events",
   "teams",
   "organizations",
   "planets",
@@ -50,6 +51,7 @@ const TYPE_LABELS: Record<string, string> = {
   planets: "Planets",
   locations: "Locations",
   issues: "Comics",
+  events: "Events",
 };
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
@@ -62,6 +64,7 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   planets: Globe2,
   locations: Globe2,
   issues: FileText,
+  events: CalendarDays,
 };
 
 interface PublicExperienceProps {
@@ -77,6 +80,7 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [archiveFilter, setArchiveFilter] = useState("ALL");
 
   useEffect(() => {
     fetch("/api/public/archive/search")
@@ -103,9 +107,18 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
       ),
     [records],
   );
-  const filteredRecords = allRecords.filter(({ item }) => {
+  const filteredRecords = allRecords.filter(({ type, item }) => {
     const haystack = JSON.stringify(item).toLowerCase();
-    return !query.trim() || haystack.includes(query.trim().toLowerCase());
+    const matchesQuery = !query.trim() || haystack.includes(query.trim().toLowerCase());
+    const classifications = Array.isArray(item.recordTypes)
+      ? item.recordTypes.map((value: string) => value.toLowerCase())
+      : [String(item.category || "").toLowerCase(), String(item.type || "").toLowerCase()];
+    const matchesFilter = archiveFilter === "ALL"
+      || (archiveFilter === "POWER" && (type === "powers" || classifications.includes("power") || item.category === "Powers"))
+      || (archiveFilter === "TECHNOLOGY" && classifications.includes("technology"))
+      || (archiveFilter === "WEAPON" && (classifications.includes("weapon") || classifications.some((value: string) => value.includes("weapon"))))
+      || (archiveFilter === "EVENT" && (type === "events" || item.category === "Event"));
+    return matchesQuery && matchesFilter;
   });
   const characterRecords = records.characters || [];
   const issueRecords = records.issues || [];
@@ -699,6 +712,10 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
                 {publicSections.length} records
               </span>
             </section>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-mono">Filter archive</span>
+              {[["ALL", "All"], ["POWER", "Powers"], ["TECHNOLOGY", "Technology"], ["WEAPON", "Weapons"], ["EVENT", "Events"]].map(([value, label]) => <button type="button" key={value} onClick={() => setArchiveFilter(value)} className={archiveFilter === value ? "bg-yellow-400 text-zinc-950 px-3 py-1.5 rounded-lg text-xs" : "bg-zinc-900 text-zinc-400 px-3 py-1.5 rounded-lg text-xs"}>{label}</button>)}
+            </div>
             {loading ? (
               <div className="public-loading">Loading canon records...</div>
             ) : publicSections.length === 0 ? (

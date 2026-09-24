@@ -450,6 +450,8 @@ create table if not exists public.issues (
 alter table public.issues add column if not exists final_file_url text;
 alter table public.issues add column if not exists final_file_name text;
 alter table public.issues add column if not exists final_file_type text;
+alter table public.issues add column if not exists pages_planned integer not null default 0;
+alter table public.issues add column if not exists progress_status text not null default 'WRITING';
 
 create table if not exists public.story_arcs (
   id text primary key,
@@ -500,6 +502,9 @@ alter table public.scripts add column if not exists caption text not null defaul
 alter table public.scripts add column if not exists panel_status text not null default 'DRAFT';
 alter table public.scripts add column if not exists page_status text not null default 'IN_PROGRESS';
 alter table public.scripts add column if not exists page_notes text not null default '';
+alter table public.scripts add column if not exists page_template text not null default '';
+alter table public.scripts add column if not exists artwork_ids text[] not null default '{}';
+alter table public.scripts add column if not exists continuity_notes text not null default '';
 
 create table if not exists public.artwork (
   id text primary key,
@@ -515,6 +520,10 @@ create table if not exists public.artwork (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.artwork add column if not exists issue_id text not null default '';
+alter table public.artwork add column if not exists page_number integer;
+alter table public.artwork add column if not exists panel_number integer;
+alter table public.artwork add column if not exists approval_status text not null default 'SKETCH';
 
 create table if not exists public.audit_logs (
   id text primary key,
@@ -795,7 +804,7 @@ declare
   table_name text;
 begin
   foreach table_name in array array[
-    'characters', 'species', 'powers', 'artifacts', 'teams',
+    'characters', 'species', 'powers', 'artifacts', 'events', 'teams',
     'organizations', 'planets', 'locations', 'issues'
   ] loop
     execute format('drop policy if exists public_canon_read on public.%I', table_name);

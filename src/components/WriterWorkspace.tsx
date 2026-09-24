@@ -17,10 +17,22 @@ import {
   ArrowUp,
   ArrowDown,
   Save,
+  Download,
+  GripVertical,
+  LayoutGrid,
+  MessageSquare,
 } from "lucide-react";
+
+const PAGE_TEMPLATES: Record<string, { label: string; panels: string[] }> = {
+  action: { label: "Action page", panels: ["Establishing", "Wide", "Standard", "Close-up"] },
+  dialogue: { label: "Dialogue page", panels: ["Standard", "Close-up", "Standard", "Standard"] },
+  splash: { label: "Splash page", panels: ["Splash"] },
+  transition: { label: "Transition page", panels: ["Establishing", "Insert", "Standard"] },
+};
 
 export const WriterWorkspace: React.FC = () => {
   const [scripts, setScripts] = useState<any[]>([]);
+  const [artwork, setArtwork] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newSetting, setNewSetting] = useState("");
   const [newDesc, setNewDesc] = useState("");
@@ -53,6 +65,12 @@ export const WriterWorkspace: React.FC = () => {
   const [focusMode, setFocusMode] = useState(false);
   const [collapsedPanels, setCollapsedPanels] = useState<string[]>([]);
   const [savingPanelId, setSavingPanelId] = useState<string | null>(null);
+  const [pageTemplate, setPageTemplate] = useState("dialogue");
+  const [storyboardMode, setStoryboardMode] = useState(false);
+  const [draggedPanelId, setDraggedPanelId] = useState<string | null>(null);
+  const [draggedPageNumber, setDraggedPageNumber] = useState<number | null>(null);
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
 
   const loadScripts = () => {
     setLoading(true);
@@ -70,6 +88,12 @@ export const WriterWorkspace: React.FC = () => {
       });
   };
 
+  const loadArtwork = () =>
+    fetch("/api/artwork")
+      .then((res) => res.json())
+      .then((data) => setArtwork(Array.isArray(data) ? data : []))
+      .catch(console.error);
+
   const loadIssues = () =>
     fetch("/api/issues")
       .then((res) => res.json())
@@ -85,10 +109,18 @@ export const WriterWorkspace: React.FC = () => {
       .then((data) => setCharacters(Array.isArray(data) ? data : []))
       .catch(console.error);
 
+  const loadComments = () =>
+    fetch("/api/comments")
+      .then((res) => res.json())
+      .then((data) => setComments(Array.isArray(data) ? data : []))
+      .catch(console.error);
+
   useEffect(() => {
     loadScripts();
+    loadArtwork();
     loadIssues();
     loadCharacters();
+    loadComments();
   }, []);
 
   useEffect(() => {
@@ -124,6 +156,12 @@ export const WriterWorkspace: React.FC = () => {
       !lineSearch ||
       JSON.stringify(script).toLowerCase().includes(lineSearch.toLowerCase()),
   );
+  const completedPanels = issueScripts.filter((script) =>
+    ["LOCKED", "READY_FOR_REVIEW"].includes(script.panelStatus),
+  ).length;
+  const issueProgress = issueScripts.length
+    ? Math.round((completedPanels / issueScripts.length) * 100)
+    : 0;
 
   const handleCreateIssue = async () => {
     if (creatingIssue) return;
@@ -176,6 +214,75 @@ export const WriterWorkspace: React.FC = () => {
     setPageNotes("");
     setPageStatus("IN_PROGRESS");
     setDialogueLines([{ character: "", text: "" }]);
+  };
+
+  const applyPageTemplate = async () => {
+    const template = PAGE_TEMPLATES[pageTemplate];
+    if (!template || !selectedIssueId) return;
+    const nextPage = Math.max(0, ...pages) + 1;
+    await Promise.all(template.panels.map((templatePanel, index) => fetch("/api/scripts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        issueId: selectedIssueId,
+        pageNumber: nextPage,
+        panelNumber: index + 1,
+        setting: `${template.label.toUpperCase()} - LOCATION / TIME`,
+        description: "",
+        dialogue: [],
+        panelType: templatePanel,
+        cameraAngle: "Eye-level",
+        panelStatus: "DRAFT",
+        pageTemplate,
+        pageNotes: `${template.label}: `,
+        pageStatus: "IN_PROGRESS",
+      }),
+    })));
+    setPageNumber(nextPage);
+    setPanelNumber(1);
+    setPanelType(template.panels[0]);
+    setPageNotes(`${template.label}: `);
+    loadScripts();
+  };
+
+  const exportScript = () => {
+    const issueTitle = issueDraft.title || `Issue ${issueDraft.issueNumber || "Draft"}`;
+    const text = issueScripts
+      .slice()
+      .sort((a, b) => Number(a.pageNumber) - Number(b.pageNumber) || Number(a.panelNumber) - Number(b.panelNumber))
+      .map((script) => {
+        const dialogue = (script.dialogue || [])
+          .map((line: any) => `${line.character || "SPEAKER"}: ${line.text || ""}`)
+          .join("\n");
+        return `PAGE ${script.pageNumber} / PANEL ${script.panelNumber}\n${script.setting || ""}\n${script.description || ""}\n${script.caption || ""}\n${dialogue}`;
+      })
+      .join("\n\n");
+    const blob = new Blob([`${issueTitle}\n\n${text}`], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${issueTitle.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const continuityWarnings = issueScripts.flatMap((script) => {
+    const warnings: string[] = [];
+    if (!script.setting) warnings.push(`Panel ${script.panelNumber} has no location.`);
+    if ((script.dialogue || []).some((line: any) => !line.character && line.text)) warnings.push(`Panel ${script.panelNumber} has dialogue without a character.`);
+    return warnings;
+  });
+
+  const saveComment = async (scriptId: string) => {
+    const text = commentDrafts[scriptId]?.trim();
+    if (!text) return;
+    await fetch("/api/comments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetId: scriptId, targetType: "script", text, author: "Creative Team" }),
+    });
+    setCommentDrafts((current) => ({ ...current, [scriptId]: "" }));
+    loadComments();
   };
 
   const savePageMeta = async () => {
@@ -307,6 +414,7 @@ export const WriterWorkspace: React.FC = () => {
         }),
       });
       loadScripts();
+      loadArtwork();
     } finally {
       setSavingPanelId(null);
     }
@@ -349,6 +457,54 @@ export const WriterWorkspace: React.FC = () => {
       updatePanel(ordered[swapIndex].id, { panelNumber: script.panelNumber }),
     ]);
   };
+
+  const reorderPanel = async (targetScript: any) => {
+    if (!draggedPanelId || draggedPanelId === targetScript.id) return;
+    const ordered = [...pageScripts].sort((a, b) => Number(a.panelNumber) - Number(b.panelNumber));
+    const fromIndex = ordered.findIndex((item) => item.id === draggedPanelId);
+    const toIndex = ordered.findIndex((item) => item.id === targetScript.id);
+    if (fromIndex < 0 || toIndex < 0) return;
+    const [moved] = ordered.splice(fromIndex, 1);
+    ordered.splice(toIndex, 0, moved);
+    await Promise.all(ordered.map((item, index) => fetch(`/api/scripts/${item.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ panelNumber: index + 1 }),
+    })));
+    setDraggedPanelId(null);
+    loadScripts();
+  };
+
+  const reorderPage = async (targetPage: number) => {
+    if (draggedPageNumber === null || draggedPageNumber === targetPage) return;
+    const orderedPages = [...pages].sort((left, right) => left - right);
+    const fromIndex = orderedPages.indexOf(draggedPageNumber);
+    const toIndex = orderedPages.indexOf(targetPage);
+    if (fromIndex < 0 || toIndex < 0) return;
+    const [movedPage] = orderedPages.splice(fromIndex, 1);
+    orderedPages.splice(toIndex, 0, movedPage);
+    await Promise.all(
+      orderedPages.flatMap((page, index) =>
+        issueScripts
+          .filter((script) => Number(script.pageNumber) === page)
+          .map((script) =>
+            fetch(`/api/scripts/${script.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pageNumber: index + 1 }),
+            }),
+          ),
+      ),
+    );
+    setDraggedPageNumber(null);
+    setPageNumber(toIndex + 1);
+    loadScripts();
+  };
+
+  const linkedArtwork = (script: any) => artwork.filter((asset) =>
+    (Array.isArray(script.artworkIds) && script.artworkIds.includes(asset.id)) ||
+    (asset.issueId === selectedIssueId && Number(asset.pageNumber) === Number(script.pageNumber) && Number(asset.panelNumber) === Number(script.panelNumber)),
+  );
 
   const handleRunCanonCheck = async () => {
     setCheckingCanon(true);
@@ -487,6 +643,13 @@ export const WriterWorkspace: React.FC = () => {
             rows={2}
             className="w-full bg-zinc-900 border border-white/10 rounded-2xl p-3 text-xs text-zinc-200"
           />
+          <div className="flex flex-wrap items-center gap-2">
+            <select value={pageTemplate} onChange={(event) => setPageTemplate(event.target.value)} className="bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200">
+              {Object.entries(PAGE_TEMPLATES).map(([key, template]) => <option key={key} value={key}>{template.label}</option>)}
+            </select>
+            <button type="button" onClick={applyPageTemplate} className="border border-white/10 text-zinc-200 px-3 py-2 rounded-xl text-xs">Use page template</button>
+            <button type="button" onClick={exportScript} className="border border-white/10 text-zinc-200 px-3 py-2 rounded-xl text-xs"><Download className="inline w-3.5 h-3.5 mr-1" /> Export script</button>
+          </div>
         </section>
       )}
 
@@ -547,6 +710,16 @@ export const WriterWorkspace: React.FC = () => {
               lines
             </span>
           </div>
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/5 bg-zinc-900/50 px-3 py-2 text-[10px] font-mono text-zinc-400">
+            <span>Issue progress: <strong className="text-yellow-300">{issueProgress}%</strong></span>
+            <span>{completedPanels}/{issueScripts.length || 0} panels ready</span>
+            <button type="button" onClick={() => setStoryboardMode((current) => !current)} className="ml-auto text-yellow-300"><LayoutGrid className="inline w-3.5 h-3.5 mr-1" />{storyboardMode ? "List view" : "Storyboard"}</button>
+          </div>
+          {continuityWarnings.length > 0 && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+              <strong>Continuity checks:</strong> {continuityWarnings.join(" ")}
+            </div>
+          )}
 
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-zinc-500" />
@@ -563,6 +736,10 @@ export const WriterWorkspace: React.FC = () => {
               <button
                 type="button"
                 key={page}
+                draggable
+                onDragStart={() => setDraggedPageNumber(page)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => reorderPage(page)}
                 onClick={() => setPageNumber(page)}
                 className={
                   pageNumber === page
@@ -634,10 +811,15 @@ export const WriterWorkspace: React.FC = () => {
             {visiblePageScripts.map((script, idx) => (
               <div
                 key={script.id || idx}
-                className="bg-white/[0.03] border border-white/5 rounded-2xl p-6 space-y-4 shadow-lg"
+                draggable
+                onDragStart={() => setDraggedPanelId(script.id)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => reorderPanel(script)}
+                className={storyboardMode ? "writer-storyboard-panel bg-white/[0.03] border border-white/5 rounded-2xl p-4 space-y-3 shadow-lg" : "bg-white/[0.03] border border-white/5 rounded-2xl p-6 space-y-4 shadow-lg"}
               >
                 <div className="flex items-center justify-between border-b border-white/5 pb-3">
                   <div className="flex items-center space-x-2">
+                    <GripVertical className="w-4 h-4 text-zinc-600 cursor-grab" title="Drag to reorder panel" />
                     <span className="text-xs font-bold bg-yellow-400 text-zinc-950 px-2.5 py-0.5 rounded font-mono">
                       PAGE {script.pageNumber}
                     </span>
@@ -869,6 +1051,17 @@ export const WriterWorkspace: React.FC = () => {
                 )}
 
                 {!collapsedPanels.includes(script.id) && (
+                  <div className="space-y-2 rounded-xl border border-white/5 bg-zinc-950/50 p-3">
+                    <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-zinc-500 font-mono"><MessageSquare className="w-3 h-3" /> Writer / artist notes</div>
+                    {comments.filter((comment) => comment.targetId === script.id).map((comment) => <p key={comment.id} className="text-xs text-zinc-300"><strong className="text-yellow-200">{comment.author || "Team"}:</strong> {comment.text}</p>)}
+                    <div className="flex gap-2">
+                      <input value={commentDrafts[script.id] || ""} onChange={(event) => setCommentDrafts((current) => ({ ...current, [script.id]: event.target.value }))} placeholder="Leave a note for the other team..." className="min-w-0 flex-1 bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-zinc-200" />
+                      <button type="button" onClick={() => saveComment(script.id)} className="rounded-lg border border-white/10 px-2 text-[10px] text-yellow-200">Add</button>
+                    </div>
+                  </div>
+                )}
+
+                {!collapsedPanels.includes(script.id) && (
                   <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-2 border-t border-white/5">
                     <label className="flex items-center gap-2">
                       <span>SFX</span>
@@ -921,6 +1114,11 @@ export const WriterWorkspace: React.FC = () => {
                   onChange={(event) => setPanelType(event.target.value)}
                   className="mt-1 w-full bg-zinc-900 border border-white/10 rounded-2xl px-2 py-2 text-xs text-zinc-200"
                 >
+                {storyboardMode && (
+                  <div className="writer-panel-thumbnail">
+                    {linkedArtwork(script)[0]?.url ? <img src={linkedArtwork(script)[0].url} alt="" /> : <span>{script.setting || "Panel thumbnail"}</span>}
+                  </div>
+                )}
                   <option>Standard</option>
                   <option>Wide</option>
                   <option>Close-up</option>

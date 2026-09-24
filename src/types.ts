@@ -297,6 +297,10 @@ export interface Artwork {
   artist: string;
   version: string;
   notes: string;
+  issueId?: string;
+  pageNumber?: number;
+  panelNumber?: number;
+  approvalStatus?: "SKETCH" | "REVIEW" | "REVISION" | "APPROVED";
   canonStatus: CanonStatus;
 }
 

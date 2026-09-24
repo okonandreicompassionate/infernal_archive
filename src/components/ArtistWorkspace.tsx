@@ -19,6 +19,10 @@ export const ArtistWorkspace: React.FC = () => {
     stage: "SKETCH",
     notes: "",
     entityId: "",
+    issueId: "",
+    pageNumber: "",
+    panelNumber: "",
+    approvalStatus: "SKETCH",
     file: null as File | null,
   });
 
@@ -114,6 +118,10 @@ export const ArtistWorkspace: React.FC = () => {
           stage: artworkDraft.stage,
           notes: artworkDraft.notes,
           entityId: artworkDraft.entityId,
+          issueId: artworkDraft.issueId || selectedIssueId,
+          pageNumber: Number(artworkDraft.pageNumber) || null,
+          panelNumber: Number(artworkDraft.panelNumber) || null,
+          approvalStatus: artworkDraft.approvalStatus,
           entityType: "script-panel",
           url: upload.url,
           canonStatus: "DRAFT",
@@ -127,6 +135,10 @@ export const ArtistWorkspace: React.FC = () => {
         stage: "SKETCH",
         notes: "",
         entityId: "",
+        issueId: "",
+        pageNumber: "",
+        panelNumber: "",
+        approvalStatus: "SKETCH",
         file: null,
       });
       await loadWorkspace();
@@ -142,6 +154,15 @@ export const ArtistWorkspace: React.FC = () => {
   const deleteArtwork = async (id: string) => {
     if (!confirm("Delete this artwork record?")) return;
     await fetch(`/api/artwork/${id}`, { method: "DELETE" });
+    loadWorkspace();
+  };
+
+  const updateArtworkStatus = async (art: any, approvalStatus: string) => {
+    await fetch(`/api/artwork/${art.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...art, approvalStatus }),
+    });
     loadWorkspace();
   };
 
@@ -322,9 +343,7 @@ export const ArtistWorkspace: React.FC = () => {
                     alt={art.title}
                     className="w-full h-full object-cover"
                   />
-                  <span className="absolute top-3 right-3 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold border bg-zinc-950/80 text-yellow-200 border-yellow-400/30">
-                    {art.stage}
-                  </span>
+                  <span className="absolute top-3 right-3 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold border bg-zinc-950/80 text-yellow-200 border-yellow-400/30">{art.approvalStatus || art.stage}</span>
                 </div>
                 <div className="p-4 space-y-2">
                   <div className="flex justify-between text-[10px] text-yellow-400 font-mono">
@@ -337,6 +356,8 @@ export const ArtistWorkspace: React.FC = () => {
                   <p className="text-xs text-zinc-400 leading-relaxed">
                     {art.notes}
                   </p>
+                  <p className="text-[10px] text-zinc-500 font-mono">{art.issueId ? `Issue link: ${art.issueId}` : "Unlinked asset"}{art.pageNumber ? ` · Page ${art.pageNumber}` : ""}{art.panelNumber ? ` · Panel ${art.panelNumber}` : ""}</p>
+                  <select value={art.approvalStatus || "SKETCH"} onChange={(event) => updateArtworkStatus(art, event.target.value)} className="w-full bg-zinc-950 border border-white/10 rounded-lg px-2 py-1.5 text-[10px] text-zinc-200"><option>SKETCH</option><option>REVIEW</option><option>REVISION</option><option>APPROVED</option></select>
                 </div>
                 <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
                   <a
@@ -435,6 +456,8 @@ export const ArtistWorkspace: React.FC = () => {
             placeholder="Panel or character ID (optional)"
             className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200"
           />
+          <div className="grid grid-cols-3 gap-2"><select value={artworkDraft.issueId || selectedIssueId} onChange={(event) => setArtworkDraft((current) => ({ ...current, issueId: event.target.value }))} className="bg-zinc-950 border border-white/10 rounded-xl px-2 py-2 text-xs text-zinc-200"><option value="">Issue link</option>{issues.map((issue) => <option key={issue.id} value={issue.id}>#{issue.issueNumber || "?"}</option>)}</select><input value={artworkDraft.pageNumber} onChange={(event) => setArtworkDraft((current) => ({ ...current, pageNumber: event.target.value }))} placeholder="Page" className="bg-zinc-950 border border-white/10 rounded-xl px-2 py-2 text-xs text-zinc-200" /><input value={artworkDraft.panelNumber} onChange={(event) => setArtworkDraft((current) => ({ ...current, panelNumber: event.target.value }))} placeholder="Panel" className="bg-zinc-950 border border-white/10 rounded-xl px-2 py-2 text-xs text-zinc-200" /></div>
+          <select value={artworkDraft.approvalStatus} onChange={(event) => setArtworkDraft((current) => ({ ...current, approvalStatus: event.target.value }))} className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200"><option>SKETCH</option><option>REVIEW</option><option>REVISION</option><option>APPROVED</option></select>
           <textarea
             rows={3}
             value={artworkDraft.notes}
