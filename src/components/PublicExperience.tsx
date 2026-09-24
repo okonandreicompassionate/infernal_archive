@@ -18,6 +18,7 @@ import {
   Zap,
 } from "lucide-react";
 import { CombatSimulator } from "./CombatSimulator";
+import { BattleArena } from "./BattleArena";
 
 const PUBLIC_SECTIONS = [
   { id: "dashboard", label: "Dashboard", icon: Layers3 },
@@ -26,6 +27,7 @@ const PUBLIC_SECTIONS = [
   { id: "worlds", label: "Worlds", icon: Globe2 },
   { id: "comics", label: "Comics", icon: FileText },
   { id: "simulator", label: "Combat Lab", icon: Swords },
+  { id: "battle-arena", label: "Battle Arena", icon: Shield },
 ];
 
 const ARCHIVE_TYPES = [
@@ -630,6 +632,8 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
           renderRecordProfile(selectedRecord)
         ) : section === "simulator" ? (
           <CombatSimulator />
+        ) : section === "battle-arena" ? (
+          <BattleArena publicMode />
         ) : section === "dashboard" ? (
           <div className="public-content space-y-6">
             <section className="public-hero-band">

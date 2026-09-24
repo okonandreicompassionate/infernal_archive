@@ -155,7 +155,6 @@ export interface Species {
   trivia?: string;
   seeAlso?: string;
   notesReferences?: string;
-  image?: string;
   canonStatus: CanonStatus;
 }
 

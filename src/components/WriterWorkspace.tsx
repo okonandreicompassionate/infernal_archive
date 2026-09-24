@@ -1524,7 +1524,7 @@ export const WriterWorkspace: React.FC = () => {
                   <div className="flex items-center space-x-2">
                     <GripVertical
                       className="w-4 h-4 text-zinc-600 cursor-grab"
-                      title="Drag to reorder panel"
+                      aria-label="Drag to reorder panel"
                     />
                     <span className="text-xs font-bold bg-yellow-400 text-zinc-950 px-2.5 py-0.5 rounded font-mono">
                       PAGE {script.pageNumber}
@@ -1847,15 +1847,6 @@ export const WriterWorkspace: React.FC = () => {
                   onChange={(event) => setPanelType(event.target.value)}
                   className="mt-1 w-full bg-zinc-900 border border-white/10 rounded-2xl px-2 py-2 text-xs text-zinc-200"
                 >
-                  {storyboardMode && (
-                    <div className="writer-panel-thumbnail">
-                      {linkedArtwork(script)[0]?.url ? (
-                        <img src={linkedArtwork(script)[0].url} alt="" />
-                      ) : (
-                        <span>{script.setting || "Panel thumbnail"}</span>
-                      )}
-                    </div>
-                  )}
                   <option>Standard</option>
                   <option>Wide</option>
                   <option>Close-up</option>

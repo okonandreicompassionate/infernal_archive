@@ -23,6 +23,7 @@ import { SettingsPage } from "./components/SettingsPage";
 import { PasswordSetupScreen } from "./components/PasswordSetupScreen";
 import { TeamChatWidget } from "./components/TeamChatWidget";
 import { CombatSimulator } from "./components/CombatSimulator";
+import { BattleArena } from "./components/BattleArena";
 import { getProfile, supabase, type UserRole } from "./utils/supabase";
 
 export default function App() {
@@ -59,7 +60,9 @@ export default function App() {
     publicRoute === "simulator" ||
     publicRoute.startsWith("sim/") ||
     publicRoute === "public" ||
-    publicRoute.startsWith("public/");
+    publicRoute.startsWith("public/") ||
+    publicRoute === "battle-arena" ||
+    publicRoute.startsWith("battle-arena/");
 
   useEffect(() => {
     const handlePopState = () =>
@@ -144,7 +147,10 @@ export default function App() {
       ? publicRoute.split("/")[1]
       : publicRoute.startsWith("sim")
         ? "simulator"
-        : "dashboard";
+        : publicRoute === "battle-arena" ||
+            publicRoute.startsWith("battle-arena/")
+          ? "battle-arena"
+          : "dashboard";
     return <PublicExperience initialSection={publicPath || "dashboard"} />;
   }
 
@@ -202,6 +208,7 @@ export default function App() {
           <DraftsView onSelectItem={handleSelectItem} />
         )}
         {activeTab === "simulator" && <CombatSimulator />}
+        {activeTab === "battle-arena" && <BattleArena />}
         {activeTab === "graph" && <UniverseGraph />}
         {activeTab === "timeline" && <VisualTimeline />}
         {activeTab === "writer" && <WriterWorkspace />}

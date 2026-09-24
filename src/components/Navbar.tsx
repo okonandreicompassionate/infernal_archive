@@ -100,6 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         { id: "artist", label: "Artist Studio", icon: Layers },
         { id: "lorekeeper", label: "Lorekeeper", icon: Bot },
         { id: "simulator", label: "Combat Simulator", icon: Swords },
+        { id: "battle-arena", label: "Battle Arena", icon: Swords },
       ],
     },
     {

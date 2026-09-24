@@ -1126,7 +1126,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
                       >
                         <span>{label}</span>
                         <textarea
-                          rows={key === "overview" || key === "biology" ? 4 : 2}
+                          rows={["overview", "biology"].includes(key) ? 4 : 2}
                           value={profileFields[key] || ""}
                           placeholder={placeholder}
                           onChange={(event) =>
