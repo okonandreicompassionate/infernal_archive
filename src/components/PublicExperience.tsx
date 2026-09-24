@@ -109,15 +109,27 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
   );
   const filteredRecords = allRecords.filter(({ type, item }) => {
     const haystack = JSON.stringify(item).toLowerCase();
-    const matchesQuery = !query.trim() || haystack.includes(query.trim().toLowerCase());
+    const matchesQuery =
+      !query.trim() || haystack.includes(query.trim().toLowerCase());
     const classifications = Array.isArray(item.recordTypes)
       ? item.recordTypes.map((value: string) => value.toLowerCase())
-      : [String(item.category || "").toLowerCase(), String(item.type || "").toLowerCase()];
-    const matchesFilter = archiveFilter === "ALL"
-      || (archiveFilter === "POWER" && (type === "powers" || classifications.includes("power") || item.category === "Powers"))
-      || (archiveFilter === "TECHNOLOGY" && classifications.includes("technology"))
-      || (archiveFilter === "WEAPON" && (classifications.includes("weapon") || classifications.some((value: string) => value.includes("weapon"))))
-      || (archiveFilter === "EVENT" && (type === "events" || item.category === "Event"));
+      : [
+          String(item.category || "").toLowerCase(),
+          String(item.type || "").toLowerCase(),
+        ];
+    const matchesFilter =
+      archiveFilter === "ALL" ||
+      (archiveFilter === "POWER" &&
+        (type === "powers" ||
+          classifications.includes("power") ||
+          item.category === "Powers")) ||
+      (archiveFilter === "TECHNOLOGY" &&
+        classifications.includes("technology")) ||
+      (archiveFilter === "WEAPON" &&
+        (classifications.includes("weapon") ||
+          classifications.some((value: string) => value.includes("weapon")))) ||
+      (archiveFilter === "EVENT" &&
+        (type === "events" || item.category === "Event"));
     return matchesQuery && matchesFilter;
   });
   const characterRecords = records.characters || [];
@@ -713,8 +725,29 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
               </span>
             </section>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-mono">Filter archive</span>
-              {[["ALL", "All"], ["POWER", "Powers"], ["TECHNOLOGY", "Technology"], ["WEAPON", "Weapons"], ["EVENT", "Events"]].map(([value, label]) => <button type="button" key={value} onClick={() => setArchiveFilter(value)} className={archiveFilter === value ? "bg-yellow-400 text-zinc-950 px-3 py-1.5 rounded-lg text-xs" : "bg-zinc-900 text-zinc-400 px-3 py-1.5 rounded-lg text-xs"}>{label}</button>)}
+              <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-mono">
+                Filter archive
+              </span>
+              {[
+                ["ALL", "All"],
+                ["POWER", "Powers"],
+                ["TECHNOLOGY", "Technology"],
+                ["WEAPON", "Weapons"],
+                ["EVENT", "Events"],
+              ].map(([value, label]) => (
+                <button
+                  type="button"
+                  key={value}
+                  onClick={() => setArchiveFilter(value)}
+                  className={
+                    archiveFilter === value
+                      ? "bg-yellow-400 text-zinc-950 px-3 py-1.5 rounded-lg text-xs"
+                      : "bg-zinc-900 text-zinc-400 px-3 py-1.5 rounded-lg text-xs"
+                  }
+                >
+                  {label}
+                </button>
+              ))}
             </div>
             {loading ? (
               <div className="public-loading">Loading canon records...</div>
