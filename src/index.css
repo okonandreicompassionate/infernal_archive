@@ -498,14 +498,19 @@
 }
 .public-avatar {
   display: grid;
-  width: 2.7rem;
-  height: 2.7rem;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 3rem;
   place-items: center;
   border-radius: 50%;
   background: var(--public-yellow);
-  color: #26272b;
-  font-weight: 800;
-  font-size: 0.72rem;
+  overflow: hidden;
+}
+.public-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 0.18rem;
 }
 .public-nav {
   display: grid;

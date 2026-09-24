@@ -182,7 +182,12 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
       </button>
       <aside className={`public-sidebar ${mobileNavOpen ? "is-open" : ""}`}>
         <div className="public-profile">
-          <div className="public-avatar">IA</div>
+          <div className="public-avatar">
+            <img
+              src="https://i.imgur.com/iS5wVPz.png"
+              alt="Infernal Archive logo"
+            />
+          </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-zinc-100 truncate">
               Infernal Archive

@@ -1546,6 +1546,13 @@ app.post("/api/simulate", async (req, res) => {
       primaryCause: computation.primaryCause,
       unexpectedFactor: computation.unexpectedFactor,
       isUpset: computation.isUpset,
+      engineReport: {
+        stats: computation.stats,
+        modifiers: computation.modifiers,
+        effective: computation.effective,
+        probability: computation.probability,
+        winnerIndex: computation.winnerIndex
+      },
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     };
     if (supabase) {

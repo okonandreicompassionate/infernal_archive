@@ -36,6 +36,15 @@ const WIN_CONDITIONS = [
   "Retreat / forced withdrawal",
 ];
 
+const DEFAULT_SETUP = {
+  distance: "50m",
+  knowledge: "unknown",
+  preparation: "none",
+  morals: "canon",
+  conditions: "Day",
+  winCondition: WIN_CONDITIONS[0],
+};
+
 interface EntitySearchPickerProps {
   label: string;
   placeholder: string;
@@ -175,13 +184,13 @@ export const CombatSimulator: React.FC<CombatSimulatorProps> = () => {
   const [combatant1, setCombatant1] = useState<any | null>(null);
   const [combatant2, setCombatant2] = useState<any | null>(null);
   const [location, setLocation] = useState<any | null>(null);
-  const [distance, setDistance] = useState("50m");
-  const [knowledge, setKnowledge] = useState("unknown");
-  const [preparation, setPreparation] = useState("none");
-  const [morals, setMorals] = useState("canon");
-  const [conditions, setConditions] = useState("Day");
-  const [winCondition, setWinCondition] = useState(WIN_CONDITIONS[0]);
-  const [showSetup, setShowSetup] = useState(false);
+  const [distance, setDistance] = useState(DEFAULT_SETUP.distance);
+  const [knowledge, setKnowledge] = useState(DEFAULT_SETUP.knowledge);
+  const [preparation, setPreparation] = useState(DEFAULT_SETUP.preparation);
+  const [morals, setMorals] = useState(DEFAULT_SETUP.morals);
+  const [conditions, setConditions] = useState(DEFAULT_SETUP.conditions);
+  const [winCondition, setWinCondition] = useState(DEFAULT_SETUP.winCondition);
+  const [showSetup, setShowSetup] = useState(true);
   const [simulating, setSimulating] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<any | null>(null);
@@ -260,6 +269,31 @@ export const CombatSimulator: React.FC<CombatSimulatorProps> = () => {
     window.history.pushState({}, "", "/simulator");
   };
 
+  const handleNewSimulation = () => {
+    setCombatant1(null);
+    setCombatant2(null);
+    setLocation(null);
+    setDistance(DEFAULT_SETUP.distance);
+    setKnowledge(DEFAULT_SETUP.knowledge);
+    setPreparation(DEFAULT_SETUP.preparation);
+    setMorals(DEFAULT_SETUP.morals);
+    setConditions(DEFAULT_SETUP.conditions);
+    setWinCondition(DEFAULT_SETUP.winCondition);
+    setError("");
+    setResult(null);
+    setShowSetup(true);
+    window.history.pushState({}, "", "/simulator");
+  };
+
+  const handleResetSetup = () => {
+    setDistance(DEFAULT_SETUP.distance);
+    setKnowledge(DEFAULT_SETUP.knowledge);
+    setPreparation(DEFAULT_SETUP.preparation);
+    setMorals(DEFAULT_SETUP.morals);
+    setConditions(DEFAULT_SETUP.conditions);
+    setWinCondition(DEFAULT_SETUP.winCondition);
+  };
+
   if (result) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6 pb-28">
@@ -322,9 +356,101 @@ export const CombatSimulator: React.FC<CombatSimulatorProps> = () => {
               )}
             </div>
           </div>
+
+          {result.engineReport && (
+            <div className="border-t border-white/5 px-6 py-5 space-y-4 bg-black/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-mono uppercase tracking-widest text-yellow-400">
+                    Engine telemetry
+                  </p>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    The narrative dramatizes this model. It does not decide the
+                    winner.
+                  </p>
+                </div>
+                <span className="text-[10px] font-mono text-zinc-600">
+                  RULESET // v1
+                </span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-[10px] font-mono text-zinc-500">
+                  <span>{result.combatant1Name}</span>
+                  <span>{result.probability1}%</span>
+                </div>
+                <div className="flex h-2 overflow-hidden rounded-full bg-zinc-800">
+                  <div
+                    className="bg-yellow-300"
+                    style={{ width: `${result.probability1}%` }}
+                  />
+                  <div
+                    className="bg-pink-400"
+                    style={{ width: `${result.probability2}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] font-mono text-zinc-500">
+                  <span>{result.combatant2Name}</span>
+                  <span>{result.probability2}%</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {result.engineReport.effective?.map(
+                  (score: number, index: number) => (
+                    <div
+                      key={`effective-${index}`}
+                      className="rounded-xl border border-white/5 bg-zinc-900/70 p-3"
+                    >
+                      <p className="text-[9px] uppercase text-zinc-600">
+                        Effective score
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-zinc-200">
+                        {Math.round(score)}
+                      </p>
+                      <p className="text-[10px] text-zinc-500 truncate">
+                        {index === 0
+                          ? result.combatant1Name
+                          : result.combatant2Name}
+                      </p>
+                    </div>
+                  ),
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-2 text-[10px] font-mono text-zinc-500 sm:grid-cols-2">
+                <p>
+                  Matchup ×{" "}
+                  {result.engineReport.modifiers?.[0]?.matchup?.toFixed(2)} /{" "}
+                  {result.engineReport.modifiers?.[1]?.matchup?.toFixed(2)}
+                </p>
+                <p>
+                  Environment ×{" "}
+                  {result.engineReport.modifiers?.[0]?.environment?.toFixed(2)}{" "}
+                  /{" "}
+                  {result.engineReport.modifiers?.[1]?.environment?.toFixed(2)}
+                </p>
+                <p>
+                  Strategy ×{" "}
+                  {result.engineReport.modifiers?.[0]?.personality?.toFixed(2)}{" "}
+                  /{" "}
+                  {result.engineReport.modifiers?.[1]?.personality?.toFixed(2)}
+                </p>
+                <p>
+                  Randomness ×{" "}
+                  {result.engineReport.modifiers?.[0]?.randomness?.toFixed(2)} /{" "}
+                  {result.engineReport.modifiers?.[1]?.randomness?.toFixed(2)}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-3">
+          <button
+            onClick={handleNewSimulation}
+            className="flex items-center gap-1.5 bg-yellow-400 hover:bg-yellow-300 text-zinc-950 text-xs font-semibold px-4 py-2 rounded-2xl cursor-pointer"
+          >
+            <Swords className="w-3.5 h-3.5" />
+            New Simulation
+          </button>
           <button
             onClick={() => runSimulation()}
             disabled={simulating}
@@ -401,12 +527,29 @@ export const CombatSimulator: React.FC<CombatSimulatorProps> = () => {
         className="text-xs text-zinc-400 hover:text-zinc-200 underline cursor-pointer"
       >
         {showSetup
-          ? "Hide optional setup"
-          : "Optional setup (location, distance, knowledge...)"}
+          ? "Hide scenario controls"
+          : "Change scenario from the default setup"}
       </button>
 
       {showSetup && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-zinc-900/40 p-4 rounded-2xl border border-white/5">
+          <div className="flex items-center justify-between sm:col-span-2 border-b border-white/5 pb-3">
+            <div>
+              <p className="text-xs font-semibold text-zinc-200">
+                Scenario controls
+              </p>
+              <p className="text-[10px] text-zinc-500">
+                Start with canon defaults, then bend reality.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleResetSetup}
+              className="text-[10px] font-mono text-yellow-300 hover:text-yellow-200 cursor-pointer"
+            >
+              Reset defaults
+            </button>
+          </div>
           <EntitySearchPicker
             label="Location"
             placeholder="Search planets & locations..."

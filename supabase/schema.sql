@@ -546,8 +546,11 @@ create table if not exists public.simulations (
   primary_cause text not null default '',
   unexpected_factor text not null default '',
   is_upset boolean not null default false,
+  engine_report jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
+alter table public.simulations add column if not exists engine_report jsonb not null default '{}'::jsonb;
 
 -- Align older simulator tables with the API's camelCase-to-snake_case mapping.
 do $$
