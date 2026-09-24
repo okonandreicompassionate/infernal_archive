@@ -83,6 +83,27 @@ function loadPersistedKeyConfig() {
 
 let persistedKeyConfig = loadPersistedKeyConfig();
 
+function normalizeProviderEntries(
+  provider: "groq" | "gemini",
+  rawEntries: unknown,
+) {
+  const list = Array.isArray(rawEntries) ? rawEntries : [];
+  const normalized = list
+    .map((entry: any) => ({
+      key: String(entry?.key || "").trim(),
+      label: String(entry?.label || "Key").trim() || "Key",
+      provider,
+    }))
+    .filter((entry) => entry.key);
+
+  const seen = new Set<string>();
+  return normalized.filter((entry) => {
+    if (seen.has(entry.key)) return false;
+    seen.add(entry.key);
+    return true;
+  });
+}
+
 function savePersistedKeyConfig() {
   try {
     fs.writeFileSync(
@@ -92,6 +113,35 @@ function savePersistedKeyConfig() {
   } catch (error) {
     console.warn("Failed to save AI key config:", error);
   }
+}
+
+function applyProviderConfig(
+  provider: "groq" | "gemini",
+  rawEntries: unknown,
+  options?: { setActiveProvider?: boolean },
+) {
+  const entries = normalizeProviderEntries(provider, rawEntries);
+  persistedKeyConfig[provider] = entries;
+  savePersistedKeyConfig();
+
+  const envKeyName = provider === "groq" ? "GROQ_KEYS" : "GEMINI_KEYS";
+  const singleKeyName = provider === "groq" ? "GROQ_API_KEY" : "GEMINI_API_KEY";
+  const envKeys = entries.map((entry) => entry.key);
+
+  if (envKeys.length > 0) {
+    process.env[envKeyName] = envKeys.join(",");
+    process.env[singleKeyName] = envKeys[0];
+  } else {
+    delete process.env[envKeyName];
+    delete process.env[singleKeyName];
+  }
+
+  if (options?.setActiveProvider) {
+    aiProvider = provider;
+    process.env.AI_PROVIDER = provider;
+  }
+
+  return entries;
 }
 
 function parseApiKeys(rawValue?: string) {
@@ -388,6 +438,7 @@ async function sendResendEmail(to: string, subject: string, html: string) {
 app.use(express.json());
 
 app.get("/api/ai/provider-keys", (_req, res) => {
+  persistedKeyConfig = loadPersistedKeyConfig();
   const providers = ["groq", "gemini"] as const;
   res.json({
     activeProvider: aiProvider,
@@ -405,7 +456,7 @@ app.post("/api/ai/provider-keys", (req, res) => {
     return res.status(400).json({ error: "Provider must be groq or gemini." });
   }
 
-  const normalizedEntries = Array.isArray(entries)
+  const rawEntries = Array.isArray(entries)
     ? entries
     : typeof keys === "string"
       ? keys
@@ -415,29 +466,9 @@ app.post("/api/ai/provider-keys", (req, res) => {
           .map((key) => ({ key, label: "Key" }))
       : [];
 
-  const cleanedEntries = normalizedEntries
-    .map((entry: any) => ({
-      key: String(entry.key || "").trim(),
-      label: String(entry.label || "Key").trim() || "Key",
-      provider: targetProvider,
-    }))
-    .filter((entry) => entry.key);
-
-  persistedKeyConfig[targetProvider] = cleanedEntries;
-  savePersistedKeyConfig();
-
-  const envKeyName = targetProvider === "groq" ? "GROQ_KEYS" : "GEMINI_KEYS";
-  const singleKeyName =
-    targetProvider === "groq" ? "GROQ_API_KEY" : "GEMINI_API_KEY";
-  const envKeys = cleanedEntries.map((entry) => entry.key);
-  if (envKeys.length) {
-    process.env[envKeyName] = envKeys.join(",");
-    if (!process.env[singleKeyName]) {
-      process.env[singleKeyName] = envKeys[0];
-    }
-  } else {
-    delete process.env[envKeyName];
-  }
+  const savedEntries = applyProviderConfig(targetProvider, rawEntries, {
+    setActiveProvider: Boolean(manualProvider),
+  });
 
   if (manualProvider && ["groq", "gemini"].includes(manualProvider)) {
     aiProvider = manualProvider;
@@ -449,6 +480,7 @@ app.post("/api/ai/provider-keys", (req, res) => {
     provider: targetProvider,
     keys: getProviderKeyStatus(targetProvider),
     activeProvider: aiProvider,
+    savedEntries,
   });
 });
 app.use((req, res, next) => {
@@ -1089,6 +1121,29 @@ async function getCurrentArchive() {
   ) as unknown as UniverseDB;
 }
 
+function inferCharacterCountFromText(text: string) {
+  const normalized = String(text || "").replace(/\r/g, "");
+  const explicitMatch = normalized.match(
+    /(?:generate|create|make|list|draft)\s+(\d+)\s+characters?/i,
+  );
+  const explicitCount = explicitMatch ? Number(explicitMatch[1]) : null;
+  const bulletCount = (normalized.match(/(?:^|\n)\s*(?:[-*•]|\d+\.)\s+/g) || [])
+    .length;
+  const paragraphCount = normalized
+    .split(/\n\s*\n+/)
+    .map((part) => part.trim())
+    .filter(Boolean).length;
+
+  const candidate = [explicitCount, bulletCount, paragraphCount].find(
+    (count): count is number => typeof count === "number" && count > 0,
+  );
+  return Math.min(Math.max(candidate ?? 1, 1), 8);
+}
+
+function makeEntityId(col: string) {
+  return `${col.slice(0, 4)}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 // API Endpoints
 
 app.post("/api/admin/invite", async (req, res) => {
@@ -1520,7 +1575,7 @@ for (const col of collections) {
 
   app.post(`/api/${col}`, async (req, res) => {
     const newItem = {
-      id: `${col.slice(0, 4)}-${Date.now()}`,
+      id: makeEntityId(col),
       ...req.body,
       canonStatus: req.body.canonStatus || "CANON",
     };
@@ -1536,7 +1591,7 @@ for (const col of collections) {
 
     // Add audit log
     db.auditLogs.unshift({
-      id: `audit-${Date.now()}`,
+      id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       timestamp: new Date().toISOString(),
       user: req.body.author || "Andrei Thorne (Editor)",
       action: `CREATE_${col.toUpperCase()}`,
@@ -1565,7 +1620,7 @@ for (const col of collections) {
     (db as any)[col][index] = updated;
 
     db.auditLogs.unshift({
-      id: `audit-${Date.now()}`,
+      id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       timestamp: new Date().toISOString(),
       user: req.body.author || "Andrei Thorne (Editor)",
       action: `UPDATE_${col.toUpperCase()}`,
@@ -1861,13 +1916,21 @@ app.post("/api/ai/lorekeeper", async (req, res) => {
 
 app.post("/api/ai/character-drafts", async (req, res) => {
   const rawText = String(req.body?.rawText || "").trim();
+  const requestedCount = Number(
+    req.body?.targetCount || inferCharacterCountFromText(rawText),
+  );
   if (!rawText)
     return res.status(400).json({ error: "Raw character ideas are required." });
 
   try {
     const archive = await getCurrentArchive();
+    const targetCount = Math.min(
+      Math.max(Number.isFinite(requestedCount) ? requestedCount : 1, 1),
+      8,
+    );
     const prompt = `You are a character development assistant for Universe OS.
 Turn the user's raw character notes into editable draft records. Split multiple characters when the notes clearly describe multiple people.
+The notes clearly describe ${targetCount} distinct characters. Return exactly ${targetCount} character objects in the array, no more and no fewer. If the input includes a list or multiple entries, preserve each as a separate draft rather than collapsing them together.
 Do not create canon facts silently. Preserve supplied facts, label uncertain additions as suggestions in the notes, and keep names faithful to the input.
 Return ONLY valid JSON with this exact shape:
 {"characters":[{"name":"","codeName":"","species":"","height":"","occupation":"","description":"","origin":"","majorAbilities":"","secondaryAbilities":"","weaknesses":"","personality":"","appearance":"","affiliation":"","currentStatus":"DRAFT","suggestions":[""],"relationSuggestions":[{"targetName":"","targetType":"character","relationType":"ALLY_OF","description":"","confidence":"medium"}]}]}
@@ -1902,11 +1965,26 @@ ${rawText}`;
       );
       parsed = parseDraftJson(repairedText);
     }
-    const characters = Array.isArray(parsed.characters)
-      ? parsed.characters
-      : [];
+
+    let characters = Array.isArray(parsed.characters) ? parsed.characters : [];
+    if (!characters.length) {
+      characters = [{ name: "Untitled character" }];
+    }
+    if (characters.length < targetCount) {
+      const completionText = await generateAIText(
+        `The previous result only had ${characters.length} drafts, but the notes clearly describe ${targetCount} distinct characters. Return ONLY JSON with exactly ${targetCount} character entries in the characters array. Use the existing notes and preserve names faithfully. If some entries are short, keep them concise rather than inventing unrelated characters.\n\n${rawText}`,
+      );
+      const completion = parseDraftJson(completionText);
+      const completionCharacters = Array.isArray(completion.characters)
+        ? completion.characters
+        : [];
+      if (completionCharacters.length > 0) {
+        characters = completionCharacters.slice(0, targetCount);
+      }
+    }
+
     res.json({
-      characters: characters.map((character: any) => ({
+      characters: characters.slice(0, targetCount).map((character: any) => ({
         name: String(character.name || "Untitled character"),
         codeName: String(character.codeName || ""),
         species: String(character.species || ""),

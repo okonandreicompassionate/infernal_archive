@@ -158,22 +158,44 @@ export const CharacterForge: React.FC = () => {
     setRawText(await file.text());
   };
 
+  const inferDraftTargetCount = (text: string) => {
+    const normalized = text.replace(/\r/g, "");
+    const explicitMatch = normalized.match(
+      /(?:generate|create|make|list|draft)\s+(\d+)\s+characters?/i,
+    );
+    const explicitCount = explicitMatch ? Number(explicitMatch[1]) : null;
+    const bulletCount = (
+      normalized.match(/(?:^|\n)\s*(?:[-*•]|\d+\.)\s+/g) || []
+    ).length;
+    const paragraphCount = normalized
+      .split(/\n\s*\n+/)
+      .map((part) => part.trim())
+      .filter(Boolean).length;
+    const candidate = [explicitCount, bulletCount, paragraphCount].find(
+      (count): count is number => typeof count === "number" && count > 0,
+    );
+    const baseCount = candidate ?? 1;
+    return Math.min(Math.max(baseCount, 1), 8);
+  };
+
   const generateDrafts = async () => {
     if (!rawText.trim() || loading) return;
     setLoading(true);
     setMessage("");
     try {
+      const targetCount = inferDraftTargetCount(rawText);
       const response = await fetch("/api/ai/character-drafts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rawText }),
+        body: JSON.stringify({ rawText, targetCount }),
       });
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.error || "Draft generation failed.");
       const generated = Array.isArray(data.characters) ? data.characters : [];
-      setDrafts(generated.length ? generated : [emptyDraft]);
-      setSelected(generated.map((_: DraftCharacter, index: number) => index));
+      const safeDrafts = generated.length ? generated : [emptyDraft];
+      setDrafts(safeDrafts);
+      setSelected(safeDrafts.map((_: DraftCharacter, index: number) => index));
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Draft generation failed.",

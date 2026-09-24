@@ -50,6 +50,10 @@ export const WriterWorkspace: React.FC = () => {
   const [creatingIssue, setCreatingIssue] = useState(false);
   const [issues, setIssues] = useState<any[]>([]);
   const [characters, setCharacters] = useState<any[]>([]);
+  const [selectedCastIds, setSelectedCastIds] = useState<string[]>([]);
+  const [castSearch, setCastSearch] = useState("");
+  const [customCastNames, setCustomCastNames] = useState<string[]>([]);
+  const [customCastDraft, setCustomCastDraft] = useState("");
   const [selectedIssueId, setSelectedIssueId] = useState("");
   const [issueDraft, setIssueDraft] = useState({
     issueNumber: "",
@@ -84,6 +88,9 @@ export const WriterWorkspace: React.FC = () => {
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>(
     {},
   );
+  const [scriptImportText, setScriptImportText] = useState("");
+  const [scriptImportPreview, setScriptImportPreview] = useState<any>(null);
+  const [importingScript, setImportingScript] = useState(false);
 
   const loadScripts = () => {
     setLoading(true);
@@ -151,11 +158,49 @@ export const WriterWorkspace: React.FC = () => {
         synopsis: issue.synopsis || "",
         releaseStatus: issue.releaseStatus || "WRITING",
       });
-  }, [selectedIssueId, issues]);
+
+    if (!issue) {
+      setSelectedCastIds([]);
+      setCustomCastNames([]);
+      return;
+    }
+
+    const castIds = Array.isArray(issue.selectedCastIds)
+      ? issue.selectedCastIds
+      : Array.isArray(issue.castIds)
+        ? issue.castIds
+        : [];
+
+    const issueCustomNames = Array.isArray(issue.customCastNames)
+      ? issue.customCastNames
+      : Array.isArray(issue.castNames)
+        ? issue.castNames
+        : [];
+
+    if (castIds.length > 0 || issueCustomNames.length > 0) {
+      setSelectedCastIds(castIds);
+      setCustomCastNames(issueCustomNames);
+      return;
+    }
+
+    const defaultCast = characters.map((character) => character.id);
+    setSelectedCastIds(defaultCast);
+    setCustomCastNames(["Anonymous", "Crowd"]);
+  }, [selectedIssueId, issues, characters]);
 
   const issueScripts = scripts.filter(
     (script) => script.issueId === selectedIssueId,
   );
+  const builtInIssueNames = ["Anonymous", "Crowd"];
+  const issueCharacters = characters.filter(
+    (character) =>
+      selectedCastIds.length === 0 || selectedCastIds.includes(character.id),
+  );
+  const issueSpeakerOptions = [
+    ...issueCharacters.map((character) => buildCharacterLabel(character)),
+    ...customCastNames,
+    ...builtInIssueNames,
+  ].filter((value, index, array) => value && array.indexOf(value) === index);
   const pages = Array.from(
     new Set(issueScripts.map((script) => Number(script.pageNumber) || 1)),
   ).sort((a, b) => a - b);
@@ -207,6 +252,9 @@ export const WriterWorkspace: React.FC = () => {
 
   const saveIssue = async () => {
     if (!selectedIssueId) return;
+    const castCharacters = characters.filter((character) =>
+      selectedCastIds.includes(character.id),
+    );
     await fetch(`/api/issues/${selectedIssueId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -215,9 +263,282 @@ export const WriterWorkspace: React.FC = () => {
         title: issueDraft.title,
         synopsis: issueDraft.synopsis,
         releaseStatus: issueDraft.releaseStatus,
+        selectedCastIds,
+        castIds: selectedCastIds,
+        customCastNames,
+        castNames: customCastNames,
+        characters: castCharacters.map((character) =>
+          character.codeName
+            ? `${character.name} (${character.codeName})`
+            : character.name,
+        ),
       }),
     });
     loadIssues();
+  };
+
+  const normalizeCharacterKey = (value: string) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+
+  const parseImportedScript = (rawText: string) => {
+    const text = String(rawText || "")
+      .replace(/\r/g, "")
+      .trim();
+    if (!text) return null;
+
+    const lines = text
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const issueTitle =
+      lines.find(
+        (line) =>
+          line &&
+          !/^page\s*\d+/i.test(line) &&
+          !/^panel\s*\d+/i.test(line) &&
+          !/^(setting|location|description|summary|script|issue)\s*:/i.test(
+            line,
+          ),
+      ) || "Imported issue";
+
+    const summaryLines: string[] = [];
+    const pages: any[] = [];
+    const knownMap = new Map(
+      characters.map((character) => [
+        normalizeCharacterKey(character.codeName || character.name),
+        buildCharacterLabel(character),
+      ]),
+    );
+
+    let currentPage: any = null;
+    let currentPanel: any = null;
+    let currentPageNumber = 1;
+    let currentPanelNumber = 1;
+
+    const pushCurrentPanel = () => {
+      if (!currentPanel) return;
+      if (
+        !currentPanel.setting &&
+        !currentPanel.description &&
+        !currentPanel.dialogue.length
+      ) {
+        return;
+      }
+      pages.push({
+        ...currentPanel,
+        pageNumber: currentPageNumber,
+        panelNumber: currentPanelNumber,
+      });
+      currentPanel = null;
+      currentPanelNumber += 1;
+    };
+
+    const pushCurrentPage = () => {
+      if (currentPage) {
+        if (currentPanel) pushCurrentPanel();
+        currentPage = null;
+      }
+    };
+
+    const addDialogueLine = (speaker: string, content: string) => {
+      const candidateName = speaker.trim();
+      const resolvedName =
+        [...knownMap.entries()].find(
+          ([key]) => normalizeCharacterKey(candidateName) === key,
+        )?.[1] ?? candidateName;
+
+      if (!currentPanel) {
+        currentPanel = {
+          setting: "",
+          description: "",
+          dialogue: [],
+          panelType: "Standard",
+          panelStatus: "DRAFT",
+          caption: "",
+          shotNotes: "",
+        };
+      }
+
+      currentPanel.dialogue.push({
+        character: resolvedName,
+        text: content.trim(),
+      });
+    };
+
+    for (const line of lines) {
+      const pageMatch = line.match(/^page\s+(\d+)/i);
+      if (pageMatch) {
+        pushCurrentPanel();
+        currentPageNumber = Number(pageMatch[1]) || currentPageNumber;
+        currentPage = { pageNumber: currentPageNumber };
+        continue;
+      }
+
+      const panelMatch = line.match(/^panel\s+(\d+)/i);
+      if (panelMatch) {
+        pushCurrentPanel();
+        currentPanelNumber = Number(panelMatch[1]) || currentPanelNumber;
+        continue;
+      }
+
+      const settingMatch = line.match(/^(?:setting|location)\s*[:\-]\s*(.+)$/i);
+      if (settingMatch) {
+        if (!currentPanel) {
+          currentPanel = {
+            setting: "",
+            description: "",
+            dialogue: [],
+            panelType: "Standard",
+            panelStatus: "DRAFT",
+            caption: "",
+            shotNotes: "",
+          };
+        }
+        currentPanel.setting = settingMatch[1].trim();
+        continue;
+      }
+
+      const descriptionMatch = line.match(
+        /^(?:description|visual|summary)\s*[:\-]\s*(.+)$/i,
+      );
+      if (descriptionMatch) {
+        if (!currentPanel) {
+          currentPanel = {
+            setting: "",
+            description: "",
+            dialogue: [],
+            panelType: "Standard",
+            panelStatus: "DRAFT",
+            caption: "",
+            shotNotes: "",
+          };
+        }
+        currentPanel.description = descriptionMatch[1].trim();
+        if (!summaryLines.length) summaryLines.push(descriptionMatch[1].trim());
+        continue;
+      }
+
+      const dialogueMatch = line.match(
+        /^([A-Z][A-Z0-9 .'-]{1,40})\s*:\s*(.+)$/,
+      );
+      if (dialogueMatch) {
+        const speaker = dialogueMatch[1].trim();
+        const text = dialogueMatch[2].trim();
+        if (speaker && text) {
+          addDialogueLine(speaker, text);
+          continue;
+        }
+      }
+
+      if (!summaryLines.length && line.length > 20) {
+        summaryLines.push(line);
+      }
+
+      if (!currentPanel) {
+        currentPanel = {
+          setting: "",
+          description: "",
+          dialogue: [],
+          panelType: "Standard",
+          panelStatus: "DRAFT",
+          caption: "",
+          shotNotes: "",
+        };
+      }
+      if (!currentPanel.description) {
+        currentPanel.description = line;
+      }
+    }
+
+    pushCurrentPanel();
+    pushCurrentPage();
+
+    const recognized = new Set(
+      characters.map((character) =>
+        normalizeCharacterKey(character.codeName || character.name),
+      ),
+    );
+
+    const unresolved = new Set<string>();
+    pages.forEach((page) => {
+      (page.dialogue || []).forEach((line: any) => {
+        const normalized = normalizeCharacterKey(line.character || "");
+        if (!normalized) return;
+        if (!recognized.has(normalized)) {
+          unresolved.add(line.character.trim());
+        }
+      });
+    });
+
+    const summary =
+      summaryLines.slice(0, 3).join(" ").replace(/\s+/g, " ").trim() ||
+      `Imported issue summary for ${issueTitle}.`;
+
+    return {
+      title: String(issueTitle).trim() || "Imported issue",
+      summary,
+      pages,
+      unknownCharacters: [...unresolved].filter(Boolean),
+    };
+  };
+
+  const handlePreviewImportedScript = () => {
+    if (!selectedIssueId || !scriptImportText.trim()) return;
+    const preview = parseImportedScript(scriptImportText);
+    if (!preview) return;
+    setScriptImportPreview(preview);
+    setIssueDraft((current) => ({
+      ...current,
+      title: preview.title,
+      synopsis: preview.summary,
+    }));
+  };
+
+  const applyImportedScript = async () => {
+    if (!selectedIssueId || !scriptImportPreview) return;
+    setImportingScript(true);
+    try {
+      await Promise.all(
+        scriptImportPreview.pages.map((page: any, index: number) =>
+          fetch("/api/scripts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              issueId: selectedIssueId,
+              pageNumber: Number(page.pageNumber || index + 1),
+              panelNumber: Number(page.panelNumber || index + 1),
+              setting: page.setting || "",
+              description: page.description || "",
+              dialogue: Array.isArray(page.dialogue) ? page.dialogue : [],
+              caption: page.caption || "",
+              sfx: "",
+              artistNote: page.shotNotes || "",
+              shotNotes: page.shotNotes || "",
+              panelType: page.panelType || "Standard",
+              cameraAngle: "Eye-level",
+              panelStatus: page.panelStatus || "DRAFT",
+              pageNotes: "Imported from external script",
+              pageStatus: "IN_PROGRESS",
+            }),
+          }),
+        ),
+      );
+
+      setIssueDraft((current) => ({
+        ...current,
+        title: scriptImportPreview.title,
+        synopsis: scriptImportPreview.summary,
+      }));
+      setScriptImportText("");
+      setScriptImportPreview(null);
+      loadScripts();
+    } finally {
+      setImportingScript(false);
+    }
   };
 
   const addPage = () => {
@@ -554,6 +875,73 @@ export const WriterWorkspace: React.FC = () => {
           Number(asset.panelNumber) === Number(script.panelNumber)),
     );
 
+  const buildCharacterLabel = (character: any) =>
+    character.codeName
+      ? `${character.name} (${character.codeName})`
+      : character.name;
+
+  const CharacterPicker: React.FC<{
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    className?: string;
+  }> = ({ value, onChange, placeholder, className }) => {
+    const [query, setQuery] = useState(value || "");
+    const [open, setOpen] = useState(false);
+
+    useEffect(() => {
+      setQuery(value || "");
+    }, [value]);
+
+    const relevant = [...issueSpeakerOptions].filter((speaker) => {
+      const normalizedQuery = query.trim().toLowerCase();
+      return (
+        !normalizedQuery || speaker.toLowerCase().includes(normalizedQuery)
+      );
+    });
+
+    return (
+      <div className="relative">
+        <input
+          value={query}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 120)}
+          onChange={(event) => {
+            const next = event.target.value;
+            setQuery(next);
+            setOpen(true);
+            onChange(next);
+          }}
+          placeholder={placeholder || "Character"}
+          className={className}
+        />
+        {open && query.trim() && relevant.length > 0 && (
+          <div className="absolute z-20 mt-1 w-full rounded-xl border border-white/10 bg-zinc-950/95 p-1 shadow-2xl">
+            {relevant.slice(0, 8).map((character) => (
+              <button
+                key={character.id}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  const label = buildCharacterLabel(character);
+                  setQuery(label);
+                  setOpen(false);
+                  onChange(label);
+                }}
+                className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-[11px] text-zinc-200 transition hover:bg-white/5"
+              >
+                <span>{buildCharacterLabel(character)}</span>
+                <span className="text-[9px] uppercase tracking-wider text-zinc-500">
+                  Cast
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const handleRunCanonCheck = async () => {
     setCheckingCanon(true);
     const combinedText = scripts
@@ -691,6 +1079,237 @@ export const WriterWorkspace: React.FC = () => {
             rows={2}
             className="w-full bg-zinc-900 border border-white/10 rounded-2xl p-3 text-xs text-zinc-200"
           />
+          <div className="rounded-2xl border border-white/10 bg-zinc-950/40 p-3 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                  Comic cast
+                </p>
+                <p className="text-[11px] text-zinc-400">
+                  Choose who is in this issue and use them in panel dialogue.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedCastIds(
+                      characters.map((character) => character.id),
+                    )
+                  }
+                  className="rounded-xl border border-white/10 px-2 py-1 text-[10px] text-zinc-200"
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCastIds([])}
+                  className="rounded-xl border border-white/10 px-2 py-1 text-[10px] text-zinc-200"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {builtInIssueNames.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() =>
+                    setCustomCastNames((current) =>
+                      current.includes(name)
+                        ? current.filter((entry) => entry !== name)
+                        : [...current, name],
+                    )
+                  }
+                  className={
+                    customCastNames.includes(name)
+                      ? "rounded-full bg-amber-400 px-2 py-1 text-[10px] font-semibold text-zinc-950"
+                      : "rounded-full border border-white/10 bg-zinc-900 px-2 py-1 text-[10px] text-zinc-300"
+                  }
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={customCastDraft}
+                onChange={(event) => setCustomCastDraft(event.target.value)}
+                placeholder="Add comic-unique speaker"
+                className="min-w-0 flex-1 bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-[11px] text-zinc-200"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const nextName = customCastDraft.trim();
+                  if (!nextName) return;
+                  setCustomCastNames((current) =>
+                    current.includes(nextName)
+                      ? current
+                      : [...current, nextName],
+                  );
+                  setCustomCastDraft("");
+                }}
+                className="rounded-xl border border-white/10 px-3 py-2 text-[10px] text-zinc-200"
+              >
+                Add
+              </button>
+            </div>
+            <input
+              value={castSearch}
+              onChange={(event) => setCastSearch(event.target.value)}
+              placeholder="Search cast..."
+              className="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-[11px] text-zinc-200"
+            />
+            <div className="flex flex-wrap gap-2">
+              {characters
+                .filter((character) => {
+                  const label = buildCharacterLabel(character);
+                  const haystack = [
+                    character.name,
+                    character.codeName,
+                    ...(Array.isArray(character.aliases)
+                      ? character.aliases
+                      : []),
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
+                    .toLowerCase();
+                  return (
+                    !castSearch.trim() ||
+                    haystack.includes(castSearch.toLowerCase()) ||
+                    label.toLowerCase().includes(castSearch.toLowerCase())
+                  );
+                })
+                .map((character) => {
+                  const active = selectedCastIds.includes(character.id);
+                  return (
+                    <button
+                      key={character.id}
+                      type="button"
+                      onClick={() =>
+                        setSelectedCastIds((current) =>
+                          current.includes(character.id)
+                            ? current.filter((id) => id !== character.id)
+                            : [...current, character.id],
+                        )
+                      }
+                      className={
+                        active
+                          ? "rounded-full bg-yellow-400 px-3 py-1.5 text-[10px] font-semibold text-zinc-950"
+                          : "rounded-full border border-white/10 bg-zinc-900 px-3 py-1.5 text-[10px] text-zinc-300"
+                      }
+                    >
+                      {buildCharacterLabel(character)}
+                    </button>
+                  );
+                })}
+              {customCastNames
+                .filter(
+                  (name) =>
+                    !castSearch.trim() ||
+                    name.toLowerCase().includes(castSearch.toLowerCase()),
+                )
+                .map((customName) => (
+                  <button
+                    key={customName}
+                    type="button"
+                    onClick={() =>
+                      setCustomCastNames((current) =>
+                        current.includes(customName)
+                          ? current.filter((entry) => entry !== customName)
+                          : [...current, customName],
+                      )
+                    }
+                    className={
+                      customCastNames.includes(customName)
+                        ? "rounded-full bg-amber-400 px-3 py-1.5 text-[10px] font-semibold text-zinc-950"
+                        : "rounded-full border border-white/10 bg-zinc-900 px-3 py-1.5 text-[10px] text-zinc-300"
+                    }
+                  >
+                    {customName}
+                  </button>
+                ))}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-zinc-950/40 p-3 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                  External script import
+                </p>
+                <p className="text-[11px] text-zinc-400">
+                  Paste a script and the app will parse pages, dialogue,
+                  summary, and any new names that need review.
+                </p>
+              </div>
+            </div>
+            <textarea
+              value={scriptImportText}
+              onChange={(event) => setScriptImportText(event.target.value)}
+              placeholder="PAGE 1\nPANEL 1\nSETTING: EXT. ...\nARCHER: The city is awake.\nNOVA: Then let's move."
+              rows={5}
+              className="w-full bg-zinc-900 border border-white/10 rounded-2xl p-3 text-xs text-zinc-200"
+            />
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handlePreviewImportedScript}
+                disabled={!scriptImportText.trim() || !selectedIssueId}
+                className="rounded-xl border border-white/10 px-3 py-2 text-[10px] text-zinc-200 disabled:opacity-40"
+              >
+                Preview import
+              </button>
+              <button
+                type="button"
+                onClick={applyImportedScript}
+                disabled={!scriptImportPreview || importingScript}
+                className="rounded-xl bg-yellow-400 px-3 py-2 text-[10px] font-semibold text-zinc-950 disabled:opacity-40"
+              >
+                {importingScript ? "Importing..." : "Import script"}
+              </button>
+            </div>
+            {scriptImportPreview && (
+              <div className="rounded-xl border border-white/10 bg-zinc-900/70 p-3 space-y-2">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+                    Issue summary
+                  </p>
+                  <p className="text-xs text-zinc-200">
+                    {scriptImportPreview.summary}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+                    Detected pages
+                  </p>
+                  <p className="text-xs text-zinc-200">
+                    {scriptImportPreview.pages.length} panel blocks parsed
+                  </p>
+                </div>
+                {scriptImportPreview.unknownCharacters.length > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-amber-300">
+                      New names not in archive
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {scriptImportPreview.unknownCharacters.map(
+                        (name: string) => (
+                          <span
+                            key={name}
+                            className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-200"
+                          >
+                            {name}
+                          </span>
+                        ),
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={pageTemplate}
@@ -1079,15 +1698,14 @@ export const WriterWorkspace: React.FC = () => {
                         key={dIdx}
                         className="grid grid-cols-[0.7fr_1.3fr_auto] gap-2"
                       >
-                        <input
+                        <CharacterPicker
                           value={dlg.character || ""}
-                          list="writer-character-options"
-                          onChange={(event) =>
+                          onChange={(nextValue) =>
                             updatePanelDraft(script.id, {
                               dialogue: script.dialogue.map(
                                 (line: any, lineIndex: number) =>
                                   lineIndex === dIdx
-                                    ? { ...line, character: event.target.value }
+                                    ? { ...line, character: nextValue }
                                     : line,
                               ),
                             })
@@ -1359,13 +1977,13 @@ export const WriterWorkspace: React.FC = () => {
                   <span className="writer-dialogue-index" aria-hidden="true">
                     {String(index + 1).padStart(2, "0")}
                   </span>
-                  <input
+                  <CharacterPicker
                     value={line.character}
-                    onChange={(event) =>
+                    onChange={(nextValue) =>
                       setDialogueLines((current) =>
                         current.map((item, itemIndex) =>
                           itemIndex === index
-                            ? { ...item, character: event.target.value }
+                            ? { ...item, character: nextValue }
                             : item,
                         ),
                       )
@@ -1413,16 +2031,6 @@ export const WriterWorkspace: React.FC = () => {
                 </span>
                 <span>Saved with this panel</span>
               </div>
-              <datalist id="writer-character-options">
-                {characters.map((character) => (
-                  <option
-                    key={character.id}
-                    value={character.codeName || character.name}
-                  >
-                    {character.name}
-                  </option>
-                ))}
-              </datalist>
             </div>
 
             <button
