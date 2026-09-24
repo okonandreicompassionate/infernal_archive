@@ -292,6 +292,11 @@ create table if not exists public.issues (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+-- The finished, reader-ready comic (PDF/CBZ/image bundle), separate from the
+-- in-progress script/cover art, so completed issues can be pulled back out later.
+alter table public.issues add column if not exists final_file_url text;
+alter table public.issues add column if not exists final_file_name text;
+alter table public.issues add column if not exists final_file_type text;
 
 create table if not exists public.story_arcs (
   id text primary key,

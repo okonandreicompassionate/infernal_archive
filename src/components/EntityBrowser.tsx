@@ -415,6 +415,14 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
                       <span className="text-[10px] text-yellow-400 font-mono uppercase tracking-widest">
                         {getSubtitle(item)}
                       </span>
+                      {entityType === "issues" && item.finalFileUrl && (
+                        <span
+                          className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono border border-emerald-500/30"
+                          title="Final comic file uploaded"
+                        >
+                          📖 Final
+                        </span>
+                      )}
                     </div>
 
                     <h3 className="text-base font-bold text-zinc-100 group-hover:text-yellow-300 transition-colors">

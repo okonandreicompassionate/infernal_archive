@@ -188,6 +188,9 @@ export interface Issue {
   pages: number;
   canonStatus: CanonStatus;
   cover?: string;
+  finalFileUrl?: string | null;
+  finalFileName?: string | null;
+  finalFileType?: "image" | "pdf" | "file" | null;
 }
 
 export interface StoryArc {

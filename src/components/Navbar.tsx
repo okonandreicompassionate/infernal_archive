@@ -21,6 +21,7 @@ import {
   LogOut,
   Settings,
   FileEdit,
+  Lock,
 } from "lucide-react";
 import type { UserRole } from "../utils/supabase";
 
@@ -38,6 +39,7 @@ interface NavbarProps {
   onOpenGuide: () => void;
   onOpenInvite: () => void;
   onSignOut: () => void;
+  onOpenForbiddenArchive: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -54,6 +56,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenGuide,
   onOpenInvite,
   onSignOut,
+  onOpenForbiddenArchive,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<
@@ -396,6 +399,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="p-2 text-zinc-400 hover:text-zinc-200 bg-zinc-900 hover:bg-white/10 rounded-2xl border border-white/5 transition-all cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onOpenForbiddenArchive}
+            aria-label="???"
+            className="p-2 text-zinc-700 hover:text-red-500 opacity-30 hover:opacity-100 transition-all cursor-pointer"
+          >
+            <Lock className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

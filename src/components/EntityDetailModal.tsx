@@ -25,6 +25,7 @@ import {
   Upload,
   Pencil,
   Save,
+  Download,
 } from "lucide-react";
 import { uploadArchiveImage } from "../utils/supabase";
 import { speciesOptions } from "./QuickCreateModal";
@@ -53,6 +54,8 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
   const [retcons, setRetcons] = useState<any[]>([]);
   const [allCharacters, setAllCharacters] = useState<any[]>([]);
   const [allTeams, setAllTeams] = useState<any[]>([]);
+  const [linkedScripts, setLinkedScripts] = useState<any[]>([]);
+  const [uploadingFinalComic, setUploadingFinalComic] = useState(false);
   const [relViewMode, setRelViewMode] = useState<"list" | "map">("list");
   const [modalTab, setModalTab] = useState<"details" | "moodboard" | "history">(
     "details",
@@ -120,21 +123,39 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
       fetch(`/api/retcons`).then((res) => res.json()),
       fetch(`/api/characters`).then((res) => res.json()),
       fetch(`/api/teams`).then((res) => res.json()),
+      entityType === "issues"
+        ? fetch(`/api/scripts`).then((res) => res.json())
+        : Promise.resolve([]),
     ])
-      .then(([allItems, allRels, allComments, allRetcons, chars, teams]) => {
-        const found = allItems.find((i: any) => i.id === entityId);
-        setItem(found);
-        setRelationships(
-          allRels.filter(
-            (r: any) => r.source === entityId || r.target === entityId,
-          ),
-        );
-        setComments(allComments.filter((c: any) => c.targetId === entityId));
-        setRetcons(allRetcons.filter((rc: any) => rc.entityId === entityId));
-        setAllCharacters(chars);
-        setAllTeams(teams);
-        setLoading(false);
-      })
+      .then(
+        ([
+          allItems,
+          allRels,
+          allComments,
+          allRetcons,
+          chars,
+          teams,
+          allScripts,
+        ]) => {
+          const found = allItems.find((i: any) => i.id === entityId);
+          setItem(found);
+          setRelationships(
+            allRels.filter(
+              (r: any) => r.source === entityId || r.target === entityId,
+            ),
+          );
+          setComments(allComments.filter((c: any) => c.targetId === entityId));
+          setRetcons(allRetcons.filter((rc: any) => rc.entityId === entityId));
+          setAllCharacters(chars);
+          setAllTeams(teams);
+          setLinkedScripts(
+            (Array.isArray(allScripts) ? allScripts : []).filter(
+              (s: any) => s.issueId === entityId,
+            ),
+          );
+          setLoading(false);
+        },
+      )
       .catch((err) => {
         console.error(err);
         setLoading(false);
@@ -214,6 +235,35 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
     });
     if (response.ok) loadData();
     setUploadingImage(false);
+  };
+
+  const handleFinalComicUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file || !item) return;
+    setUploadingFinalComic(true);
+    const upload = await uploadArchiveImage(file, "final-comics");
+    if (upload.error) {
+      alert(upload.error.message);
+      setUploadingFinalComic(false);
+      return;
+    }
+    const response = await fetch(`/api/${apiPath}/${entityId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        finalFileUrl: upload.url,
+        finalFileName: file.name,
+        finalFileType: file.type.startsWith("image/")
+          ? "image"
+          : file.type === "application/pdf"
+            ? "pdf"
+            : "file",
+      }),
+    });
+    if (response.ok) loadData();
+    setUploadingFinalComic(false);
   };
 
   const beginProfileEdit = () => {
@@ -538,6 +588,48 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                       )}
                       {editingProfile ? "Save profile" : "Edit profile"}
                     </button>
+                  )}
+                  {entityType === "issues" && (
+                    <div className="space-y-2">
+                      <label className="inline-flex items-center gap-2 border border-white/10 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 cursor-pointer hover:bg-white/10">
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>
+                          {uploadingFinalComic
+                            ? "Uploading..."
+                            : item.finalFileUrl
+                              ? "Replace final comic"
+                              : "Upload final comic"}
+                        </span>
+                        <input
+                          type="file"
+                          accept="application/pdf,.cbz,.cbr,image/*"
+                          onChange={handleFinalComicUpload}
+                          disabled={uploadingFinalComic}
+                          className="sr-only"
+                        />
+                      </label>
+                      {item.finalFileUrl && (
+                        <a
+                          href={item.finalFileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-xs text-emerald-300 hover:text-emerald-200"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>
+                            Read / download:{" "}
+                            {item.finalFileName || "Final comic"}
+                          </span>
+                        </a>
+                      )}
+                      {linkedScripts.length > 0 && (
+                        <p className="text-[10px] text-zinc-500 font-mono">
+                          {linkedScripts.length} script panel
+                          {linkedScripts.length === 1 ? "" : "s"} on record for
+                          this issue.
+                        </p>
+                      )}
+                    </div>
                   )}
                   <div className="flex items-center space-x-3">
                     <h1 className="text-2xl font-bold text-zinc-100 font-sans">

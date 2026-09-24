@@ -15,6 +15,7 @@ import { QuickCreateModal } from "./components/QuickCreateModal";
 import { AuthScreen } from "./components/AuthScreen";
 import { GuideModal } from "./components/GuideModal";
 import { InviteAdminModal } from "./components/InviteAdminModal";
+import { ForbiddenArchive } from "./components/ForbiddenArchive";
 import { NicknameModal } from "./components/NicknameModal";
 import { SettingsPage } from "./components/SettingsPage";
 import { PasswordSetupScreen } from "./components/PasswordSetupScreen";
@@ -45,6 +46,7 @@ export default function App() {
   const [profileChecked, setProfileChecked] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  const [showForbiddenArchive, setShowForbiddenArchive] = useState(false);
   const [passwordRecovery, setPasswordRecovery] = useState(
     () => window.location.pathname === "/reset-password",
   );
@@ -147,6 +149,7 @@ export default function App() {
         displayName={displayName}
         onOpenGuide={() => setShowGuide(true)}
         onOpenInvite={() => setShowInvite(true)}
+        onOpenForbiddenArchive={() => setShowForbiddenArchive(true)}
         onSignOut={() => supabase?.auth.signOut()}
       />
 
@@ -225,6 +228,15 @@ export default function App() {
       )}
       {showGuide && <GuideModal onClose={() => setShowGuide(false)} />}
       {showInvite && <InviteAdminModal onClose={() => setShowInvite(false)} />}
+      {showForbiddenArchive && (
+        <ForbiddenArchive
+          onClose={() => setShowForbiddenArchive(false)}
+          onSelectItem={(type, id) => {
+            setShowForbiddenArchive(false);
+            handleSelectItem(type, id);
+          }}
+        />
+      )}
       {profileChecked && !displayName && (
         <NicknameModal userId={user.id} onSaved={setDisplayName} />
       )}
