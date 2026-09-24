@@ -1574,6 +1574,59 @@ for (const col of collections) {
   });
 
   app.post(`/api/${col}`, async (req, res) => {
+    if (col === "characters") {
+      const candidateName = String(req.body?.name || "").trim();
+      const forceCreate = String(req.body?.forceCreate ?? "false") === "true";
+      if (candidateName && !forceCreate) {
+        const remote = await readCollection("characters");
+        const existingCharacters = Array.isArray(remote.data)
+          ? remote.data
+          : (db as any).characters || [];
+        const normalizedCandidate = candidateName
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        const duplicate = existingCharacters.find((candidate: any) => {
+          const names = [
+            candidate?.name,
+            candidate?.codeName,
+            ...(Array.isArray(candidate?.aliases) ? candidate.aliases : []),
+          ].filter(
+            (value): value is string =>
+              typeof value === "string" && value.trim().length > 0,
+          );
+
+          return names.some((name) => {
+            const normalizedName = name
+              .toLowerCase()
+              .replace(/[^a-z0-9\s]/g, "")
+              .replace(/\s+/g, " ")
+              .trim();
+
+            return (
+              normalizedName === normalizedCandidate ||
+              normalizedName.includes(normalizedCandidate) ||
+              normalizedCandidate.includes(normalizedName)
+            );
+          });
+        });
+
+        if (duplicate) {
+          return res.status(409).json({
+            error: "A similar character already exists in the archive.",
+            existingCharacter: {
+              id: duplicate.id,
+              name: duplicate.name,
+              codeName: duplicate.codeName,
+            },
+            allowOverride: true,
+          });
+        }
+      }
+    }
+
     const newItem = {
       id: makeEntityId(col),
       ...req.body,

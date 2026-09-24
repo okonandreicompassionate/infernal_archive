@@ -18,6 +18,8 @@ type DraftCharacter = {
   currentStatus: string;
   suggestions: string[];
   relationSuggestions: RelationSuggestion[];
+  duplicateWarning?: string;
+  forceCreate?: boolean;
 };
 
 type RelationSuggestion = {
@@ -46,6 +48,71 @@ const emptyDraft: DraftCharacter = {
   currentStatus: "DRAFT",
   suggestions: [],
   relationSuggestions: [],
+  duplicateWarning: "",
+  forceCreate: false,
+};
+
+const normalizeCharacterName = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const isLikelyDuplicateCharacter = (left: string, right: string) => {
+  const normalizedLeft = normalizeCharacterName(left);
+  const normalizedRight = normalizeCharacterName(right);
+  if (!normalizedLeft || !normalizedRight) return false;
+  if (normalizedLeft === normalizedRight) return true;
+  if (normalizedLeft.includes(normalizedRight)) return true;
+  if (normalizedRight.includes(normalizedLeft)) return true;
+
+  const leftTokens = normalizedLeft.split(" ").filter(Boolean);
+  const rightTokens = normalizedRight.split(" ").filter(Boolean);
+
+  if (leftTokens.length >= 2 && rightTokens.length >= 2) {
+    return (
+      leftTokens[0] === rightTokens[0] &&
+      leftTokens[leftTokens.length - 1] === rightTokens[rightTokens.length - 1]
+    );
+  }
+
+  return false;
+};
+
+const findSimilarCharacterMatch = (
+  draft: DraftCharacter,
+  existingCharacters: any[],
+) => {
+  const candidateNames = [
+    draft.name,
+    draft.codeName,
+    ...(Array.isArray((draft as any).aliases) ? (draft as any).aliases : []),
+  ].filter(
+    (value): value is string =>
+      typeof value === "string" && value.trim().length > 0,
+  );
+
+  for (const existing of existingCharacters) {
+    const names = [
+      existing?.name,
+      existing?.codeName,
+      ...(Array.isArray(existing?.aliases) ? existing.aliases : []),
+    ].filter(
+      (value): value is string =>
+        typeof value === "string" && value.trim().length > 0,
+    );
+
+    for (const candidateName of candidateNames) {
+      for (const existingName of names) {
+        if (isLikelyDuplicateCharacter(candidateName, existingName)) {
+          return existing;
+        }
+      }
+    }
+  }
+
+  return null;
 };
 
 const fields: Array<[keyof DraftCharacter, string]> = [
@@ -209,7 +276,42 @@ export const CharacterForge: React.FC = () => {
     if (!selected.length || saving) return;
     setSaving(true);
     setMessage("");
+
     try {
+      const existingCharactersResponse = await fetch("/api/characters");
+      const existingCharactersData = await existingCharactersResponse.json();
+      const existingCharacters = Array.isArray(existingCharactersData)
+        ? existingCharactersData
+        : [];
+
+      const blockedIndexes = selected.filter((index) => {
+        const draft = drafts[index];
+        if (!draft || draft.forceCreate) return false;
+        const match = findSimilarCharacterMatch(draft, existingCharacters);
+        if (match) {
+          setDrafts((current) =>
+            current.map((item, itemIndex) =>
+              itemIndex === index
+                ? {
+                    ...item,
+                    duplicateWarning: `Similar character already exists: ${match.name}${match.codeName ? ` (${match.codeName})` : ""}`,
+                    forceCreate: false,
+                  }
+                : item,
+            ),
+          );
+          return true;
+        }
+        return false;
+      });
+
+      if (blockedIndexes.length) {
+        setMessage(
+          `${blockedIndexes.length} draft(s) match an existing character. Review the card and click "Make anyway" to continue.`,
+        );
+        return;
+      }
+
       const results = await Promise.all(
         selected.map((index) => {
           const draft = drafts[index];
@@ -218,6 +320,8 @@ export const CharacterForge: React.FC = () => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               ...draft,
+              duplicateWarning: undefined,
+              forceCreate: draft.forceCreate === true,
               canonStatus: "DRAFT",
               currentStatus: draft.currentStatus || "DRAFT",
               majorAbilities: draft.majorAbilities,
@@ -446,6 +550,37 @@ export const CharacterForge: React.FC = () => {
                 </label>
               ))}
             </div>
+            {draft.duplicateWarning && (
+              <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 p-3 space-y-2">
+                <p className="text-[10px] uppercase tracking-wider text-amber-200">
+                  Similar character already exists
+                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-zinc-200">
+                    {draft.duplicateWarning}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDrafts((current) =>
+                        current.map((item, itemIndex) =>
+                          itemIndex === index
+                            ? {
+                                ...item,
+                                forceCreate: true,
+                                duplicateWarning: "",
+                              }
+                            : item,
+                        ),
+                      )
+                    }
+                    className="px-2 py-1 rounded-lg border border-amber-300/50 bg-amber-300/10 text-[10px] font-semibold text-amber-100"
+                  >
+                    Make anyway
+                  </button>
+                </div>
+              </div>
+            )}
             {draft.suggestions.length > 0 && (
               <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-3">
                 <p className="text-[10px] uppercase tracking-wider text-yellow-300">
