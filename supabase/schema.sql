@@ -531,10 +531,10 @@ with check (sender_id = auth.uid());
 
 create table if not exists public.simulations (
   id text primary key,
-  combatant_1_id text not null,
-  combatant_1_name text not null default '',
-  combatant_2_id text not null,
-  combatant_2_name text not null default '',
+  combatant1_id text not null,
+  combatant1_name text not null default '',
+  combatant2_id text not null,
+  combatant2_name text not null default '',
   setup jsonb not null default '{}'::jsonb,
   rounds jsonb not null default '[]'::jsonb,
   winner_id text not null default '',
@@ -548,6 +548,56 @@ create table if not exists public.simulations (
   is_upset boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+-- Align older simulator tables with the API's camelCase-to-snake_case mapping.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'simulations'
+      and column_name = 'combatant_1_id'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'simulations'
+      and column_name = 'combatant1_id'
+  ) then
+    alter table public.simulations rename column combatant_1_id to combatant1_id;
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'simulations'
+      and column_name = 'combatant_1_name'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'simulations'
+      and column_name = 'combatant1_name'
+  ) then
+    alter table public.simulations rename column combatant_1_name to combatant1_name;
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'simulations'
+      and column_name = 'combatant_2_id'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'simulations'
+      and column_name = 'combatant2_id'
+  ) then
+    alter table public.simulations rename column combatant_2_id to combatant2_id;
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'simulations'
+      and column_name = 'combatant_2_name'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'simulations'
+      and column_name = 'combatant2_name'
+  ) then
+    alter table public.simulations rename column combatant_2_name to combatant2_name;
+  end if;
+end;
+$$;
 
 create index if not exists simulations_created_at_idx on public.simulations(created_at desc);
 
