@@ -1,15 +1,18 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  MessageSquare,
+  MessageCircle,
   X,
   Send,
-  Users,
   Hash,
   ArrowLeft,
   Search,
+  Paperclip,
+  FileText,
+  Download,
+  Loader2,
 } from "lucide-react";
-import { authorizedFetch } from "../utils/supabase";
-import type { ChatContact, ChatMessage } from "../types";
+import { authorizedFetch, uploadArchiveImage } from "../utils/supabase";
+import type { ChatContact, ChatDmSummary, ChatMessage } from "../types";
 
 interface TeamChatWidgetProps {
   userId: string;
@@ -19,8 +22,28 @@ interface TeamChatWidgetProps {
 
 const PUBLIC_POLL_MS = 6000;
 const THREAD_POLL_MS = 4000;
+const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024; // 15MB, matches other upload flows in the app
 
-const lastSeenKey = (userId: string) => `archive_chat_last_seen_${userId}`;
+type ActiveThread = { kind: "public" } | { kind: "dm"; contact: ChatContact };
+
+const publicSeenKey = (userId: string) => `archive_chat_seen_public_${userId}`;
+const dmSeenKey = (userId: string, contactId: string) =>
+  `archive_chat_seen_dm_${userId}_${contactId}`;
+
+const readStoredTime = (key: string) => {
+  try {
+    return Number(localStorage.getItem(key) || 0);
+  } catch {
+    return 0;
+  }
+};
+const writeStoredTime = (key: string, value: number) => {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {
+    /* ignore storage failures (private browsing, etc.) */
+  }
+};
 
 const formatTime = (iso: string) => {
   const date = new Date(iso);
@@ -28,9 +51,7 @@ const formatTime = (iso: string) => {
   const sameDay = date.toDateString() === now.toDateString();
   return sameDay
     ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : date.toLocaleDateString([], { month: "short", day: "numeric" }) +
-        " " +
-        date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    : date.toLocaleDateString([], { month: "short", day: "numeric" });
 };
 
 const initials = (name: string) =>
@@ -47,88 +68,107 @@ export const TeamChatWidget: React.FC<TeamChatWidgetProps> = ({
   email,
 }) => {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"public" | "dm">("public");
+  const [view, setView] = useState<"list" | "thread">("list");
+  const [activeThread, setActiveThread] = useState<ActiveThread | null>(null);
   const [contacts, setContacts] = useState<ChatContact[]>([]);
-  const [contactQuery, setContactQuery] = useState("");
-  const [activeContact, setActiveContact] = useState<ChatContact | null>(null);
+  const [dmSummaries, setDmSummaries] = useState<ChatDmSummary[]>([]);
+  const [listQuery, setListQuery] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
+  const [attachError, setAttachError] = useState("");
   const [publicUnread, setPublicUnread] = useState(0);
+  const [publicLastMessage, setPublicLastMessage] =
+    useState<ChatMessage | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const senderName = displayName || email || "Teammate";
-
-  const getLastSeen = () => {
-    try {
-      return Number(localStorage.getItem(lastSeenKey(userId)) || 0);
-    } catch {
-      return 0;
-    }
-  };
-  const markSeenNow = () => {
-    try {
-      localStorage.setItem(lastSeenKey(userId), String(Date.now()));
-    } catch {
-      /* ignore storage failures (private browsing, etc.) */
-    }
-    setPublicUnread(0);
-  };
 
   // Background badge check for the public channel, independent of whether the panel is open.
   useEffect(() => {
     let cancelled = false;
-    const checkUnread = () => {
+    const checkPublic = () => {
       authorizedFetch("/api/chat/messages?channel=public")
         .then((res) => res.json())
         .then((data: ChatMessage[]) => {
           if (cancelled || !Array.isArray(data)) return;
-          if (open && tab === "public") {
+          setPublicLastMessage(data[data.length - 1] || null);
+          const isViewingPublic =
+            open && view === "thread" && activeThread?.kind === "public";
+          if (isViewingPublic) {
             setMessages(data);
-            markSeenNow();
+            writeStoredTime(publicSeenKey(userId), Date.now());
+            setPublicUnread(0);
             return;
           }
-          const lastSeen = getLastSeen();
-          const unread = data.filter(
-            (m) =>
-              m.senderId !== userId &&
-              new Date(m.createdAt).getTime() > lastSeen,
-          ).length;
-          setPublicUnread(unread);
+          const lastSeen = readStoredTime(publicSeenKey(userId));
+          setPublicUnread(
+            data.filter(
+              (m) =>
+                m.senderId !== userId &&
+                new Date(m.createdAt).getTime() > lastSeen,
+            ).length,
+          );
         })
         .catch(() => {});
     };
-    checkUnread();
-    const interval = setInterval(checkUnread, PUBLIC_POLL_MS);
+    checkPublic();
+    const interval = setInterval(checkPublic, PUBLIC_POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, tab]);
+  }, [open, view, activeThread]);
 
-  // Load the contact directory once the Direct tab is visited.
+  // Background contact + DM preview polling, needed for the chat list and unread badges.
   useEffect(() => {
-    if (!open || tab !== "dm") return;
-    authorizedFetch("/api/chat/contacts")
-      .then((res) => res.json())
-      .then((data) => setContacts(Array.isArray(data) ? data : []))
-      .catch(() => {});
-  }, [open, tab]);
+    if (!open) return;
+    let cancelled = false;
+    const loadDirectory = () => {
+      Promise.all([
+        authorizedFetch("/api/chat/contacts").then((res) => res.json()),
+        authorizedFetch("/api/chat/dm-summary").then((res) => res.json()),
+      ])
+        .then(([contactData, summaryData]) => {
+          if (cancelled) return;
+          if (Array.isArray(contactData)) setContacts(contactData);
+          if (Array.isArray(summaryData)) setDmSummaries(summaryData);
+        })
+        .catch(() => {});
+    };
+    loadDirectory();
+    const interval = setInterval(loadDirectory, PUBLIC_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [open]);
 
   // Poll whichever thread is currently in view.
   useEffect(() => {
-    if (!open) return;
-    if (tab === "public") return; // handled by the unread-check effect above
-    if (!activeContact) return;
-
+    if (!open || view !== "thread" || !activeThread) return;
     let cancelled = false;
     const loadThread = () => {
-      authorizedFetch(
-        `/api/chat/messages?channel=dm&with=${encodeURIComponent(activeContact.id)}`,
-      )
+      const url =
+        activeThread.kind === "public"
+          ? "/api/chat/messages?channel=public"
+          : `/api/chat/messages?channel=dm&with=${encodeURIComponent(activeThread.contact.id)}`;
+      authorizedFetch(url)
         .then((res) => res.json())
         .then((data) => {
-          if (!cancelled && Array.isArray(data)) setMessages(data);
+          if (cancelled || !Array.isArray(data)) return;
+          setMessages(data);
+          if (activeThread.kind === "public") {
+            writeStoredTime(publicSeenKey(userId), Date.now());
+            setPublicUnread(0);
+          } else {
+            writeStoredTime(
+              dmSeenKey(userId, activeThread.contact.id),
+              Date.now(),
+            );
+          }
         })
         .catch(() => {});
     };
@@ -138,25 +178,72 @@ export const TeamChatWidget: React.FC<TeamChatWidgetProps> = ({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [open, tab, activeContact]);
+  }, [open, view, activeThread, userId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages]);
 
+  const openThread = (thread: ActiveThread) => {
+    setActiveThread(thread);
+    setMessages([]);
+    setDraft("");
+    setPendingFile(null);
+    setAttachError("");
+    setView("thread");
+  };
+
+  const handleFilePick = (file: File | undefined) => {
+    setAttachError("");
+    if (!file) return;
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      setAttachError("That file is larger than 15MB. Pick something smaller.");
+      return;
+    }
+    setPendingFile(file);
+  };
+
   const handleSend = async () => {
     const text = draft.trim();
-    if (!text || sending) return;
+    if ((!text && !pendingFile) || sending || !activeThread) return;
     setSending(true);
+    setAttachError("");
     try {
+      let attachmentUrl: string | null = null;
+      let attachmentType: "image" | "file" | null = null;
+      let attachmentName: string | null = null;
+
+      if (pendingFile) {
+        const upload = await uploadArchiveImage(pendingFile, "chat");
+        if (upload.error || !upload.url) {
+          setAttachError("The attachment could not be uploaded.");
+          setSending(false);
+          return;
+        }
+        attachmentUrl = upload.url;
+        attachmentType = pendingFile.type.startsWith("image/")
+          ? "image"
+          : "file";
+        attachmentName = pendingFile.name;
+      }
+
       const payload: Record<string, unknown> =
-        tab === "public"
-          ? { channel: "public", text }
+        activeThread.kind === "public"
+          ? {
+              channel: "public",
+              text,
+              attachmentUrl,
+              attachmentType,
+              attachmentName,
+            }
           : {
               channel: "dm",
-              recipientId: activeContact?.id,
-              recipientName: activeContact?.displayName,
+              recipientId: activeThread.contact.id,
+              recipientName: activeThread.contact.displayName,
               text,
+              attachmentUrl,
+              attachmentType,
+              attachmentName,
             };
       const res = await authorizedFetch("/api/chat/messages", {
         method: "POST",
@@ -167,96 +254,189 @@ export const TeamChatWidget: React.FC<TeamChatWidgetProps> = ({
         const saved = await res.json();
         setMessages((current) => [...current, saved]);
         setDraft("");
+        setPendingFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      } else {
+        const result = await res.json().catch(() => ({}));
+        setAttachError(result.error || "The message could not be sent.");
       }
     } finally {
       setSending(false);
     }
   };
 
-  const filteredContacts = contacts.filter((c) =>
-    (c.displayName || c.email || "")
-      .toLowerCase()
-      .includes(contactQuery.toLowerCase()),
-  );
+  const isDmUnread = (contactId: string, summary?: ChatDmSummary) => {
+    if (!summary || summary.lastSenderId === userId) return false;
+    const seen = readStoredTime(dmSeenKey(userId, contactId));
+    return new Date(summary.lastMessageAt).getTime() > seen;
+  };
+
+  const totalUnread =
+    publicUnread +
+    dmSummaries.filter((summary) => isDmUnread(summary.contactId, summary))
+      .length;
+
+  const listEntries = useMemo(() => {
+    const summaryByContact = new Map(dmSummaries.map((s) => [s.contactId, s]));
+    const dmEntries = contacts.map((contact) => {
+      const summary = summaryByContact.get(contact.id);
+      return {
+        contact,
+        summary,
+        unread: isDmUnread(contact.id, summary),
+        sortKey: summary ? new Date(summary.lastMessageAt).getTime() : 0,
+      };
+    });
+    dmEntries.sort((a, b) => b.sortKey - a.sortKey);
+    const query = listQuery.trim().toLowerCase();
+    return query
+      ? dmEntries.filter((entry) =>
+          (entry.contact.displayName || entry.contact.email)
+            .toLowerCase()
+            .includes(query),
+        )
+      : dmEntries;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contacts, dmSummaries, listQuery]);
+
+  const previewFor = (message: ChatMessage | null) => {
+    if (!message) return "No messages yet.";
+    if (message.attachmentUrl)
+      return message.text || `📎 ${message.attachmentName || "Attachment"}`;
+    return message.text;
+  };
 
   return (
     <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end">
       {open && (
         <div className="mb-3 w-80 sm:w-96 h-120 bg-zinc-950 border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-white/5 px-4 py-3 bg-zinc-900/70">
-            <div className="flex items-center bg-zinc-900 rounded-2xl p-1 border border-white/5">
+          <div className="flex items-center gap-2 px-4 py-3 bg-emerald-600">
+            {view === "thread" && (
               <button
                 onClick={() => {
-                  setTab("public");
-                  setActiveContact(null);
+                  setView("list");
+                  setActiveThread(null);
                 }}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-2xl text-xs font-medium transition-all cursor-pointer ${
-                  tab === "public"
-                    ? "bg-yellow-400 text-zinc-950"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
+                className="p-1 text-white/90 hover:text-white rounded-lg hover:bg-white/10 cursor-pointer"
               >
-                <Hash className="w-3.5 h-3.5" />
-                <span>Public</span>
+                <ArrowLeft className="w-4 h-4" />
               </button>
-              <button
-                onClick={() => setTab("dm")}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-2xl text-xs font-medium transition-all cursor-pointer ${
-                  tab === "dm"
-                    ? "bg-yellow-400 text-zinc-950"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                <Users className="w-3.5 h-3.5" />
-                <span>Direct</span>
-              </button>
-            </div>
+            )}
+            {view === "thread" && activeThread && (
+              <span className="w-8 h-8 rounded-full bg-white/15 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                {activeThread.kind === "public" ? (
+                  <Hash className="w-4 h-4" />
+                ) : (
+                  initials(
+                    activeThread.contact.displayName ||
+                      activeThread.contact.email,
+                  )
+                )}
+              </span>
+            )}
+            <span className="flex-1 text-sm font-semibold text-white truncate">
+              {view === "list"
+                ? "Team Chat"
+                : activeThread?.kind === "public"
+                  ? "Team Chat (Public)"
+                  : activeThread?.contact.displayName ||
+                    activeThread?.contact.email}
+            </span>
             <button
               onClick={() => setOpen(false)}
-              className="p-1.5 text-zinc-400 hover:text-white bg-zinc-900 hover:bg-white/10 rounded-2xl border border-white/5 transition-all cursor-pointer"
+              className="p-1.5 text-white/90 hover:text-white hover:bg-white/10 rounded-2xl transition-all cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          {tab === "dm" && !activeContact ? (
-            <div className="flex-1 flex flex-col overflow-hidden">
+          {view === "list" ? (
+            <div className="flex-1 flex flex-col overflow-hidden bg-zinc-950">
               <div className="p-3 border-b border-white/5">
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input
-                    value={contactQuery}
-                    onChange={(e) => setContactQuery(e.target.value)}
+                    value={listQuery}
+                    onChange={(e) => setListQuery(e.target.value)}
                     placeholder="Search teammates..."
                     className="w-full bg-zinc-900 border border-white/10 rounded-2xl pl-8 pr-3 py-1.5 text-xs text-zinc-200"
                   />
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto">
-                {filteredContacts.length === 0 ? (
+                {/* Public team channel, always pinned to the top */}
+                <button
+                  onClick={() => openThread({ kind: "public" })}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition-colors cursor-pointer text-left border-b border-white/5"
+                >
+                  <span className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center border border-emerald-500/30 shrink-0">
+                    <Hash className="w-4 h-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-zinc-100">
+                        Team Chat
+                      </span>
+                      {publicLastMessage && (
+                        <span className="text-[10px] text-zinc-500">
+                          {formatTime(publicLastMessage.createdAt)}
+                        </span>
+                      )}
+                    </span>
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="block text-[11px] text-zinc-400 truncate">
+                        {previewFor(publicLastMessage)}
+                      </span>
+                      {publicUnread > 0 && (
+                        <span className="min-w-4.5 h-4.5 px-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                          {publicUnread > 9 ? "9+" : publicUnread}
+                        </span>
+                      )}
+                    </span>
+                  </span>
+                </button>
+
+                {listEntries.length === 0 ? (
                   <p className="text-xs text-zinc-500 text-center py-8">
                     No teammates found.
                   </p>
                 ) : (
-                  filteredContacts.map((contact) => (
+                  listEntries.map(({ contact, summary, unread }) => (
                     <button
                       key={contact.id}
-                      onClick={() => {
-                        setActiveContact(contact);
-                        setMessages([]);
-                      }}
+                      onClick={() => openThread({ kind: "dm", contact })}
                       className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition-colors cursor-pointer text-left"
                     >
-                      <span className="w-8 h-8 rounded-full bg-yellow-400/20 text-yellow-300 flex items-center justify-center text-[10px] font-bold border border-yellow-400/30 shrink-0">
+                      <span className="w-10 h-10 rounded-full bg-yellow-400/20 text-yellow-300 flex items-center justify-center text-[10px] font-bold border border-yellow-400/30 shrink-0">
                         {initials(contact.displayName || contact.email)}
                       </span>
-                      <span className="min-w-0">
-                        <span className="block text-xs font-medium text-zinc-100 truncate">
-                          {contact.displayName || contact.email}
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center justify-between">
+                          <span
+                            className={`text-xs truncate ${unread ? "font-bold text-zinc-100" : "font-medium text-zinc-200"}`}
+                          >
+                            {contact.displayName || contact.email}
+                          </span>
+                          {summary && (
+                            <span className="text-[10px] text-zinc-500">
+                              {formatTime(summary.lastMessageAt)}
+                            </span>
+                          )}
                         </span>
-                        <span className="block text-[10px] text-zinc-500 uppercase font-mono">
-                          {contact.role}
+                        <span className="flex items-center justify-between gap-2">
+                          <span
+                            className={`block text-[11px] truncate ${unread ? "text-zinc-200" : "text-zinc-500"}`}
+                          >
+                            {summary
+                              ? summary.hasAttachment
+                                ? `📎 ${summary.lastMessage || "Attachment"}`
+                                : summary.lastMessage
+                              : "Start a conversation"}
+                          </span>
+                          {unread && (
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                          )}
                         </span>
                       </span>
                     </button>
@@ -266,28 +446,14 @@ export const TeamChatWidget: React.FC<TeamChatWidgetProps> = ({
             </div>
           ) : (
             <>
-              {tab === "dm" && activeContact && (
-                <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5 bg-zinc-900/40">
-                  <button
-                    onClick={() => setActiveContact(null)}
-                    className="p-1 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 cursor-pointer"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                  </button>
-                  <span className="text-xs font-medium text-zinc-200">
-                    {activeContact.displayName || activeContact.email}
-                  </span>
-                </div>
-              )}
-
               {/* Messages */}
               <div
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto px-3 py-3 space-y-3"
+                className="flex-1 overflow-y-auto px-3 py-3 space-y-3 bg-zinc-950"
               >
                 {messages.length === 0 ? (
                   <p className="text-xs text-zinc-500 text-center py-8">
-                    {tab === "public"
+                    {activeThread?.kind === "public"
                       ? "No messages yet. Say hello to the team."
                       : "No messages yet. Start the conversation."}
                   </p>
@@ -304,13 +470,43 @@ export const TeamChatWidget: React.FC<TeamChatWidgetProps> = ({
                           {formatTime(message.createdAt)}
                         </span>
                         <span
-                          className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
+                          className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed space-y-1.5 ${
                             mine
-                              ? "bg-yellow-400 text-zinc-950"
+                              ? "bg-emerald-600 text-white"
                               : "bg-zinc-900 border border-white/10 text-zinc-200"
                           }`}
                         >
-                          {message.text}
+                          {message.attachmentUrl &&
+                            (message.attachmentType === "image" ? (
+                              <a
+                                href={message.attachmentUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block"
+                              >
+                                <img
+                                  src={message.attachmentUrl}
+                                  alt={message.attachmentName || "Attachment"}
+                                  className="max-h-48 rounded-xl object-cover"
+                                />
+                              </a>
+                            ) : (
+                              <a
+                                href={message.attachmentUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`flex items-center gap-2 rounded-xl px-2.5 py-2 ${
+                                  mine ? "bg-black/15" : "bg-black/30"
+                                }`}
+                              >
+                                <FileText className="w-4 h-4 shrink-0" />
+                                <span className="truncate flex-1">
+                                  {message.attachmentName || "Attachment"}
+                                </span>
+                                <Download className="w-3.5 h-3.5 shrink-0" />
+                              </a>
+                            ))}
+                          {message.text && <span>{message.text}</span>}
                         </span>
                       </div>
                     );
@@ -319,31 +515,81 @@ export const TeamChatWidget: React.FC<TeamChatWidgetProps> = ({
               </div>
 
               {/* Composer */}
-              <div className="border-t border-white/5 p-3 flex items-end gap-2">
-                <textarea
-                  rows={1}
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
+              <div className="border-t border-white/5 bg-zinc-950">
+                {attachError && (
+                  <p className="px-3 pt-2 text-[10px] text-red-400">
+                    {attachError}
+                  </p>
+                )}
+                {pendingFile && (
+                  <div className="mx-3 mt-2 flex items-center gap-2 bg-zinc-900 border border-white/10 rounded-2xl px-3 py-1.5">
+                    {pendingFile.type.startsWith("image/") ? (
+                      <img
+                        src={URL.createObjectURL(pendingFile)}
+                        alt="Attachment preview"
+                        className="w-8 h-8 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <FileText className="w-4 h-4 text-zinc-400" />
+                    )}
+                    <span className="flex-1 text-[11px] text-zinc-300 truncate">
+                      {pendingFile.name}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setPendingFile(null);
+                        if (fileInputRef.current)
+                          fileInputRef.current.value = "";
+                      }}
+                      className="p-0.5 text-zinc-500 hover:text-white cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+                <div className="p-3 flex items-end gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => handleFilePick(e.target.files?.[0])}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2.5 text-zinc-400 hover:text-emerald-400 bg-zinc-900 border border-white/10 rounded-2xl hover:bg-white/10 cursor-pointer transition-colors"
+                    title="Attach an image or file"
+                  >
+                    <Paperclip className="w-3.5 h-3.5" />
+                  </button>
+                  <textarea
+                    rows={1}
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                    placeholder={
+                      activeThread?.kind === "public"
+                        ? "Message the whole team..."
+                        : `Message ${activeThread?.contact.displayName || "teammate"}...`
                     }
-                  }}
-                  placeholder={
-                    tab === "public"
-                      ? "Message the whole team..."
-                      : `Message ${activeContact?.displayName || "teammate"}...`
-                  }
-                  className="flex-1 bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs text-zinc-200 resize-none max-h-24"
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={!draft.trim() || sending}
-                  className="p-2.5 bg-yellow-400 text-zinc-950 rounded-2xl hover:bg-yellow-300 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                </button>
+                    className="flex-1 bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs text-zinc-200 resize-none max-h-24"
+                  />
+                  <button
+                    onClick={handleSend}
+                    disabled={(!draft.trim() && !pendingFile) || sending}
+                    className="p-2.5 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  >
+                    {sending ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Send className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -351,17 +597,14 @@ export const TeamChatWidget: React.FC<TeamChatWidgetProps> = ({
       )}
 
       <button
-        onClick={() => {
-          setOpen((prev) => !prev);
-          if (!open) markSeenNow();
-        }}
-        className="relative p-4 bg-yellow-400 hover:bg-yellow-300 text-zinc-950 rounded-full shadow-2xl transition-all cursor-pointer"
+        onClick={() => setOpen((prev) => !prev)}
+        className="relative p-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-full shadow-2xl transition-all cursor-pointer hover:scale-105"
         title={`Chatting as ${senderName}`}
       >
-        <MessageSquare className="w-5 h-5" />
-        {!open && publicUnread > 0 && (
+        <MessageCircle className="w-6 h-6" fill="currentColor" />
+        {!open && totalUnread > 0 && (
           <span className="absolute -top-1 -right-1 min-w-4.5 h-4.5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-zinc-950">
-            {publicUnread > 9 ? "9+" : publicUnread}
+            {totalUnread > 9 ? "9+" : totalUnread}
           </span>
         )}
       </button>

@@ -915,6 +915,58 @@ app.get("/api/chat/contacts", async (req, res) => {
   res.json(fromSupabaseRow(data || []));
 });
 
+// One row per DM conversation (latest message only), used to render a
+// WhatsApp-style chat list with previews and per-conversation unread badges.
+app.get("/api/chat/dm-summary", async (req, res) => {
+  const actor = await getAuthenticatedProfile(req.headers.authorization);
+  if (!actor) return res.status(401).json({ error: "Sign in required." });
+  const meId = actor.user.id;
+
+  let rows: any[] = [];
+  if (supabase) {
+    const userClient = getUserClient(req.headers.authorization);
+    if (!userClient)
+      return res.status(401).json({ error: "Sign in required." });
+    const { data, error } = await userClient
+      .from("chat_messages")
+      .select("*")
+      .eq("channel", "dm")
+      .or(`sender_id.eq.${meId},recipient_id.eq.${meId}`)
+      .order("created_at", { ascending: false })
+      .limit(300);
+    if (error) return res.status(400).json({ error: error.message });
+    rows = fromSupabaseRow<any[]>(data || []);
+  } else {
+    rows = (db.chatMessages || [])
+      .filter(
+        (m: any) =>
+          m.channel === "dm" && (m.senderId === meId || m.recipientId === meId),
+      )
+      .sort(
+        (a: any, b: any) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+  }
+
+  const latestByContact = new Map<string, any>();
+  for (const row of rows) {
+    const otherId = row.senderId === meId ? row.recipientId : row.senderId;
+    if (!otherId || latestByContact.has(otherId)) continue;
+    latestByContact.set(otherId, row);
+  }
+
+  res.json(
+    Array.from(latestByContact.entries()).map(([contactId, row]) => ({
+      contactId,
+      contactName: row.senderId === meId ? row.recipientName : row.senderName,
+      lastMessage: row.text,
+      lastMessageAt: row.createdAt,
+      lastSenderId: row.senderId,
+      hasAttachment: Boolean(row.attachmentUrl),
+    })),
+  );
+});
+
 // Chat messages: a public team channel plus one-to-one DMs.
 // DM privacy is enforced via the caller's own Supabase session (RLS), never the admin key.
 app.get("/api/chat/messages", async (req, res) => {
@@ -968,8 +1020,21 @@ app.post("/api/chat/messages", async (req, res) => {
   const text = String(req.body.text || "")
     .trim()
     .slice(0, 2000);
-  if (!text)
-    return res.status(400).json({ error: "Message text is required." });
+  const attachmentUrl = req.body.attachmentUrl
+    ? String(req.body.attachmentUrl)
+    : null;
+  const attachmentType = attachmentUrl
+    ? req.body.attachmentType === "image"
+      ? "image"
+      : "file"
+    : null;
+  const attachmentName = attachmentUrl
+    ? String(req.body.attachmentName || "Attachment").slice(0, 200)
+    : null;
+  if (!text && !attachmentUrl)
+    return res
+      .status(400)
+      .json({ error: "A message or attachment is required." });
   const channel = req.body.channel === "dm" ? "dm" : "public";
   const recipientId =
     channel === "dm" ? String(req.body.recipientId || "") : null;
@@ -982,9 +1047,14 @@ app.post("/api/chat/messages", async (req, res) => {
     senderId: actor.user.id,
     senderName: actor.profile.display_name || actor.profile.email,
     recipientId,
-    recipientName:
-      channel === "dm" ? String(req.body.recipientName || "") : null,
+    // Never send a bare `null` here: the column is NOT NULL, so an explicit
+    // null (rather than an omitted key) fails the insert instead of falling
+    // back to its default.
+    recipientName: channel === "dm" ? String(req.body.recipientName || "") : "",
     text,
+    attachmentUrl,
+    attachmentType,
+    attachmentName,
     createdAt: new Date().toISOString(),
   };
 

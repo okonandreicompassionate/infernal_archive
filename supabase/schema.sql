@@ -497,9 +497,16 @@ create table if not exists public.chat_messages (
   sender_name text not null default '',
   recipient_id uuid references public.profiles(id) on delete cascade,
   recipient_name text not null default '',
-  text text not null,
+  text text not null default '',
+  attachment_url text,
+  attachment_type text check (attachment_type in ('image', 'file')),
+  attachment_name text,
   created_at timestamptz not null default now()
 );
+alter table public.chat_messages add column if not exists attachment_url text;
+alter table public.chat_messages add column if not exists attachment_type text;
+alter table public.chat_messages add column if not exists attachment_name text;
+alter table public.chat_messages alter column text set default '';
 
 create index if not exists chat_messages_channel_idx on public.chat_messages(channel, created_at);
 create index if not exists chat_messages_sender_idx on public.chat_messages(sender_id);

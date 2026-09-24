@@ -288,6 +288,9 @@ export interface ChatMessage {
   recipientId: string | null;
   recipientName: string | null;
   text: string;
+  attachmentUrl?: string | null;
+  attachmentType?: "image" | "file" | null;
+  attachmentName?: string | null;
   createdAt: string;
 }
 
@@ -297,4 +300,13 @@ export interface ChatContact {
   email: string;
   role: "admin" | "god";
   active: boolean;
+}
+
+export interface ChatDmSummary {
+  contactId: string;
+  contactName: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  lastSenderId: string;
+  hasAttachment: boolean;
 }
