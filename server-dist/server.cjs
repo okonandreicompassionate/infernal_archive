@@ -760,6 +760,17 @@ async function sendResendEmail(to, subject, html) {
 }
 app.use(import_express.default.json({ limit: "1mb" }));
 app.use(import_express.default.urlencoded({ extended: true }));
+app.use((req, res, next) => {
+  const origin = process.env.CORS_ORIGIN || "*";
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+  );
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
 app.get("/api/ai/provider-keys", (_req, res) => {
   persistedKeyConfig = loadPersistedKeyConfig();
   const providers = ["groq", "gemini"];
@@ -798,17 +809,6 @@ app.post("/api/ai/provider-keys", (req, res) => {
     activeProvider: aiProvider,
     savedEntries
   });
-});
-app.use((req, res, next) => {
-  const origin = process.env.CORS_ORIGIN || "*";
-  res.setHeader("Access-Control-Allow-Origin", origin);
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-  );
-  if (req.method === "OPTIONS") return res.sendStatus(204);
-  next();
 });
 var DB_FILE = import_path.default.join(process.cwd(), "universe_db.json");
 var initialSeed = {
