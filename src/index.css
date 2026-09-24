@@ -2246,7 +2246,9 @@ body {
 
 .writer-dialogue-index {
   color: #777980;
-  font: 0.58rem "DM Mono", monospace;
+  font:
+    0.58rem "DM Mono",
+    monospace;
   text-align: center;
 }
 
@@ -2302,7 +2304,9 @@ body {
   gap: 0.75rem;
   padding: 0.15rem 0.2rem 0;
   color: #676970;
-  font: 0.56rem "DM Mono", monospace;
+  font:
+    0.56rem "DM Mono",
+    monospace;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }

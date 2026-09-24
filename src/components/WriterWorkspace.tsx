@@ -738,7 +738,9 @@ export const WriterWorkspace: React.FC = () => {
                     <input
                       value={script.setting || ""}
                       onChange={(event) =>
-                        updatePanelDraft(script.id, { setting: event.target.value })
+                        updatePanelDraft(script.id, {
+                          setting: event.target.value,
+                        })
                       }
                       placeholder="EXT. LOCATION - TIME"
                       className="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-yellow-300 font-mono"
@@ -747,7 +749,9 @@ export const WriterWorkspace: React.FC = () => {
                       rows={3}
                       value={script.description || ""}
                       onChange={(event) =>
-                        updatePanelDraft(script.id, { description: event.target.value })
+                        updatePanelDraft(script.id, {
+                          description: event.target.value,
+                        })
                       }
                       placeholder="Describe what the reader sees in this panel..."
                       className="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-200 font-serif italic"
@@ -757,7 +761,9 @@ export const WriterWorkspace: React.FC = () => {
                         rows={2}
                         value={script.caption || ""}
                         onChange={(event) =>
-                          updatePanelDraft(script.id, { caption: event.target.value })
+                          updatePanelDraft(script.id, {
+                            caption: event.target.value,
+                          })
                         }
                         placeholder="Caption / narration"
                         className="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-300"
@@ -779,81 +785,88 @@ export const WriterWorkspace: React.FC = () => {
                 )}
 
                 {!collapsedPanels.includes(script.id) && (
-                    <div className="space-y-2 bg-zinc-950/60 p-4 rounded-2xl border border-white/5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
-                          Characters & dialogue
-                        </span>
+                  <div className="space-y-2 bg-zinc-950/60 p-4 rounded-2xl border border-white/5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                        Characters & dialogue
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updatePanelDraft(script.id, {
+                            dialogue: [
+                              ...(script.dialogue || []),
+                              { character: "", text: "" },
+                            ],
+                          })
+                        }
+                        className="text-[10px] text-yellow-300"
+                      >
+                        <Plus className="inline w-3 h-3 mr-1" /> Add line
+                      </button>
+                    </div>
+                    {(script.dialogue || []).map((dlg: any, dIdx: number) => (
+                      <div
+                        key={dIdx}
+                        className="grid grid-cols-[0.7fr_1.3fr_auto] gap-2"
+                      >
+                        <input
+                          value={dlg.character || ""}
+                          list="writer-character-options"
+                          onChange={(event) =>
+                            updatePanelDraft(script.id, {
+                              dialogue: script.dialogue.map(
+                                (line: any, lineIndex: number) =>
+                                  lineIndex === dIdx
+                                    ? { ...line, character: event.target.value }
+                                    : line,
+                              ),
+                            })
+                          }
+                          placeholder="Character"
+                          className="bg-zinc-900 border border-white/10 rounded-xl px-2 py-2 text-xs font-semibold text-yellow-200"
+                        />
+                        <input
+                          value={dlg.text || ""}
+                          onChange={(event) =>
+                            updatePanelDraft(script.id, {
+                              dialogue: script.dialogue.map(
+                                (line: any, lineIndex: number) =>
+                                  lineIndex === dIdx
+                                    ? { ...line, text: event.target.value }
+                                    : line,
+                              ),
+                            })
+                          }
+                          placeholder="Dialogue line"
+                          className="bg-zinc-900 border border-white/10 rounded-xl px-2 py-2 text-xs text-zinc-100"
+                        />
                         <button
                           type="button"
                           onClick={() =>
                             updatePanelDraft(script.id, {
-                              dialogue: [
-                                ...(script.dialogue || []),
-                                { character: "", text: "" },
-                              ],
+                              dialogue: script.dialogue.filter(
+                                (_: any, lineIndex: number) =>
+                                  lineIndex !== dIdx,
+                              ),
                             })
                           }
-                          className="text-[10px] text-yellow-300"
+                          className="px-1 text-zinc-500 hover:text-red-300"
+                          aria-label={`Remove dialogue line ${dIdx + 1}`}
+                          title="Remove dialogue line"
                         >
-                          <Plus className="inline w-3 h-3 mr-1" /> Add line
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      {(script.dialogue || []).map((dlg: any, dIdx: number) => (
-                        <div key={dIdx} className="grid grid-cols-[0.7fr_1.3fr_auto] gap-2">
-                          <input
-                            value={dlg.character || ""}
-                            list="writer-character-options"
-                            onChange={(event) =>
-                              updatePanelDraft(script.id, {
-                                dialogue: script.dialogue.map((line: any, lineIndex: number) =>
-                                  lineIndex === dIdx
-                                    ? { ...line, character: event.target.value }
-                                    : line,
-                                ),
-                              })
-                            }
-                            placeholder="Character"
-                            className="bg-zinc-900 border border-white/10 rounded-xl px-2 py-2 text-xs font-semibold text-yellow-200"
-                          />
-                          <input
-                            value={dlg.text || ""}
-                            onChange={(event) =>
-                              updatePanelDraft(script.id, {
-                                dialogue: script.dialogue.map((line: any, lineIndex: number) =>
-                                  lineIndex === dIdx
-                                    ? { ...line, text: event.target.value }
-                                    : line,
-                                ),
-                              })
-                            }
-                            placeholder="Dialogue line"
-                            className="bg-zinc-900 border border-white/10 rounded-xl px-2 py-2 text-xs text-zinc-100"
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updatePanelDraft(script.id, {
-                                dialogue: script.dialogue.filter(
-                                  (_: any, lineIndex: number) => lineIndex !== dIdx,
-                                ),
-                              })
-                            }
-                            className="px-1 text-zinc-500 hover:text-red-300"
-                            aria-label={`Remove dialogue line ${dIdx + 1}`}
-                            title="Remove dialogue line"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                      {!script.dialogue?.length && (
-                        <p className="text-[11px] text-zinc-500">
-                          No dialogue yet. Add a line when a character speaks in this panel.
-                        </p>
-                      )}
-                    </div>
-                  )}
+                    ))}
+                    {!script.dialogue?.length && (
+                      <p className="text-[11px] text-zinc-500">
+                        No dialogue yet. Add a line when a character speaks in
+                        this panel.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {!collapsedPanels.includes(script.id) && (
                   <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-2 border-t border-white/5">
@@ -862,14 +875,17 @@ export const WriterWorkspace: React.FC = () => {
                       <input
                         value={script.sfx || ""}
                         onChange={(event) =>
-                          updatePanelDraft(script.id, { sfx: event.target.value })
+                          updatePanelDraft(script.id, {
+                            sfx: event.target.value,
+                          })
                         }
                         placeholder="BAM!"
                         className="w-28 bg-zinc-900 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-zinc-300"
                       />
                     </label>
                     <span>
-                      {script.dialogue?.length || 0} dialogue line{script.dialogue?.length === 1 ? "" : "s"}
+                      {script.dialogue?.length || 0} dialogue line
+                      {script.dialogue?.length === 1 ? "" : "s"}
                     </span>
                   </div>
                 )}
@@ -1022,10 +1038,7 @@ export const WriterWorkspace: React.FC = () => {
                 </button>
               </div>
               {dialogueLines.map((line, index) => (
-                <div
-                  className="writer-dialogue-row"
-                  key={index}
-                >
+                <div className="writer-dialogue-row" key={index}>
                   <span className="writer-dialogue-index" aria-hidden="true">
                     {String(index + 1).padStart(2, "0")}
                   </span>
@@ -1077,7 +1090,10 @@ export const WriterWorkspace: React.FC = () => {
                 </div>
               ))}
               <div className="writer-dialogue-footer">
-                <span>{dialogueLines.length} speaker row{dialogueLines.length === 1 ? "" : "s"}</span>
+                <span>
+                  {dialogueLines.length} speaker row
+                  {dialogueLines.length === 1 ? "" : "s"}
+                </span>
                 <span>Saved with this panel</span>
               </div>
               <datalist id="writer-character-options">
