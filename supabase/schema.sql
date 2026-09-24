@@ -390,6 +390,38 @@ create table if not exists public.events (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.events add column if not exists category text not null default 'Event';
+alter table public.events add column if not exists image text;
+alter table public.events add column if not exists caption text not null default '';
+alter table public.events add column if not exists full_name text not null default '';
+alter table public.events add column if not exists alias text not null default '';
+alter table public.events add column if not exists type text not null default '';
+alter table public.events add column if not exists status text not null default '';
+alter table public.events add column if not exists era text not null default '';
+alter table public.events add column if not exists duration text not null default '';
+alter table public.events add column if not exists scale text not null default '';
+alter table public.events add column if not exists cause text not null default '';
+alter table public.events add column if not exists participants text not null default '';
+alter table public.events add column if not exists key_figures text not null default '';
+alter table public.events add column if not exists factions text not null default '';
+alter table public.events add column if not exists outcome text not null default '';
+alter table public.events add column if not exists casualties text not null default '';
+alter table public.events add column if not exists overview text not null default '';
+alter table public.events add column if not exists long_term_tensions text not null default '';
+alter table public.events add column if not exists immediate_triggers text not null default '';
+alter table public.events add column if not exists warning_signs text not null default '';
+alter table public.events add column if not exists prelude text not null default '';
+alter table public.events add column if not exists the_event text not null default '';
+alter table public.events add column if not exists climax text not null default '';
+alter table public.events add column if not exists aftermath text not null default '';
+alter table public.events add column if not exists immediate_results text not null default '';
+alter table public.events add column if not exists long_term_consequences text not null default '';
+alter table public.events add column if not exists unresolved_threads text not null default '';
+alter table public.events add column if not exists significance text not null default '';
+alter table public.events add column if not exists legacy text not null default '';
+alter table public.events add column if not exists trivia text not null default '';
+alter table public.events add column if not exists see_also text not null default '';
+alter table public.events add column if not exists notes_references text not null default '';
 
 create table if not exists public.issues (
   id text primary key,

@@ -414,6 +414,70 @@ const artifactProfileSections = [
   },
 ] as const;
 
+const eventProfileSections = [
+  {
+    title: "Infobox",
+    fields: [
+      ["category", "Category", "Event"],
+      ["fullName", "Full name", "Formal event name"],
+      ["alias", "Alias", "Other names"],
+      ["caption", "Image caption", "Caption for the event image"],
+      [
+        "type",
+        "Type",
+        "Battle, disaster, discovery, political, cosmic, personal",
+      ],
+      ["status", "Status", "Resolved, ongoing, aftermath, suppressed"],
+      ["date", "Date", "Date or era"],
+      ["era", "Era", "Historical era"],
+      ["duration", "Duration", "How long it lasted"],
+      ["location", "Location", "Where it happened"],
+      ["scale", "Scale", "Local, planetary, galactic, multiversal"],
+      ["cause", "Cause", "Primary cause or trigger"],
+      ["participants", "Participants", "People involved"],
+      ["keyFigures", "Key figures", "Central individuals"],
+      ["factions", "Factions", "Groups and forces involved"],
+      ["outcome", "Outcome", "What resulted"],
+      ["casualties", "Casualties", "Losses and affected populations"],
+    ],
+  },
+  {
+    title: "Overview & Causes",
+    fields: [
+      ["overview", "Overview", "What happened and why it matters"],
+      [
+        "longTermTensions",
+        "Long-term tensions",
+        "Conditions building toward the event",
+      ],
+      ["immediateTriggers", "Immediate triggers", "What set it in motion"],
+      ["warningSigns", "Warning signs", "Forewarnings and ignored signals"],
+    ],
+  },
+  {
+    title: "Timeline of Events",
+    fields: [
+      ["prelude", "Prelude", "Events immediately before"],
+      ["theEvent", "The event", "Main sequence of events"],
+      ["climax", "Climax", "Turning point"],
+      ["aftermath", "Aftermath", "What followed"],
+    ],
+  },
+  {
+    title: "Outcome, Significance & Legacy",
+    fields: [
+      ["immediateResults", "Immediate results", "Direct consequences"],
+      ["longTermConsequences", "Long-term consequences", "Lasting effects"],
+      ["unresolvedThreads", "Unresolved threads", "Open questions"],
+      ["significance", "Significance", "In-universe and narrative importance"],
+      ["legacy", "Legacy", "How it is remembered or suppressed"],
+      ["trivia", "Trivia", "Optional facts"],
+      ["seeAlso", "See also", "Related records"],
+      ["notesReferences", "Notes & references", "Sources and editorial notes"],
+    ],
+  },
+] as const;
+
 interface CharacterPickerProps {
   label: string;
   characters: any[];
@@ -689,6 +753,23 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
         Object.assign(payload, profileFields);
         if (imageFile) {
           const upload = await uploadArchiveImage(imageFile, "species");
+          if (upload.error) throw upload.error;
+          payload.image = upload.url;
+        }
+      } else if (entityType === "events") {
+        payload.fullName = profileFields.fullName || name;
+        payload.category = profileFields.category || "Event";
+        payload.type = profileFields.type || "Battle";
+        payload.status = profileFields.status || "Ongoing";
+        payload.eventDate = profileFields.date || "";
+        payload.location = profileFields.location || "";
+        payload.characters = profileFields.keyFigures || "";
+        payload.teams = profileFields.factions || "";
+        payload.consequences = profileFields.longTermConsequences || "";
+        payload.description = profileFields.overview || description;
+        Object.assign(payload, profileFields);
+        if (imageFile) {
+          const upload = await uploadArchiveImage(imageFile, "events");
           if (upload.error) throw upload.error;
           payload.image = upload.url;
         }
@@ -1218,6 +1299,70 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
                         <textarea
                           rows={
                             key === "overview" || key === "significance" ? 4 : 2
+                          }
+                          value={profileFields[key] || ""}
+                          placeholder={placeholder}
+                          onChange={(event) =>
+                            setProfileFields((current) => ({
+                              ...current,
+                              [key]: event.target.value,
+                            }))
+                          }
+                          className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+
+          {entityType === "events" && (
+            <div className="space-y-5 bg-zinc-900/40 p-4 rounded-2xl border border-white/5">
+              <div className="border-b border-white/5 pb-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold text-zinc-200">
+                    Event Bible
+                  </p>
+                  <label className="inline-flex items-center gap-2 border border-white/10 bg-zinc-900 px-3 py-2 text-[10px] text-zinc-200 cursor-pointer hover:bg-white/10">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{imageFile ? "Replace image" : "Event image"}</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      onChange={(event) =>
+                        setImageFile(event.target.files?.[0] || null)
+                      }
+                      className="sr-only"
+                    />
+                  </label>
+                </div>
+                <p className="text-[10px] text-zinc-500 mt-1">
+                  Record what happened, who was involved, and how the event
+                  changed the universe.
+                </p>
+              </div>
+              {eventProfileSections.map((section) => (
+                <section key={section.title} className="space-y-3">
+                  <h3 className="text-[10px] uppercase tracking-widest text-yellow-400 font-mono">
+                    {section.title}
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {section.fields.map(([key, label, placeholder]) => (
+                      <label
+                        key={key}
+                        className={`space-y-1 text-[10px] text-zinc-400 uppercase font-mono ${["overview", "cause", "longTermTensions", "immediateTriggers", "warningSigns", "prelude", "theEvent", "climax", "aftermath", "immediateResults", "longTermConsequences", "unresolvedThreads", "significance", "legacy", "trivia", "seeAlso", "notesReferences"].includes(key) ? "sm:col-span-2" : ""}`}
+                      >
+                        <span>{label}</span>
+                        <textarea
+                          rows={
+                            key === "overview" ||
+                            key === "theEvent" ||
+                            key === "significance" ||
+                            key === "legacy"
+                              ? 4
+                              : 2
                           }
                           value={profileFields[key] || ""}
                           placeholder={placeholder}

@@ -902,7 +902,10 @@
 .public-profile-hero h1 {
   margin: 0;
   color: #f4f3ec;
-  font: 2.6rem "DM Serif Display", Georgia, serif;
+  font:
+    2.6rem "DM Serif Display",
+    Georgia,
+    serif;
 }
 .public-profile-summary,
 .public-profile-panel p {
@@ -916,7 +919,9 @@
   background: rgba(243, 233, 106, 0.08);
   color: var(--public-yellow);
   padding: 0.18rem 0.5rem;
-  font: 0.55rem "DM Mono", monospace;
+  font:
+    0.55rem "DM Mono",
+    monospace;
   text-transform: uppercase;
 }
 .public-profile-facts {
@@ -1127,45 +1132,245 @@
 }
 
 /* Public character dossier page */
-.public-character-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--public-line); padding: 1.2rem 2rem; }
-.public-back-button { display: inline-flex; align-items: center; gap: 0.45rem; border: 0; background: transparent; color: #c9c9c4; font-size: 0.72rem; cursor: pointer; }
-.public-back-button:hover { color: var(--public-yellow); }
-.public-character-content { max-width: 78rem; margin: 0 auto; padding: 2rem; }
-.public-character-hero { display: grid; grid-template-columns: 10rem minmax(0, 1fr) minmax(14rem, 0.8fr); gap: 1.5rem; align-items: center; border: 1px solid var(--public-line); border-radius: 1rem; background: #303137; padding: 1.5rem; }
-.public-character-portrait { display: grid; width: 10rem; height: 11rem; place-items: center; overflow: hidden; border-radius: 0.9rem; background: #202125; color: #f3e96a; }
-.public-character-portrait img { width: 100%; height: 100%; object-fit: cover; }
-.public-character-identity h1 { margin: 0.45rem 0 0; color: #f4f3ec; font: 2.4rem "DM Serif Display", Georgia, serif; }
-.public-character-identity p { margin: 0.7rem 0 0; color: #b6b7bc; font-size: 0.8rem; line-height: 1.7; }
-.public-character-identity .public-character-alias { margin-top: 0.25rem; color: #f3e96a; font: 0.7rem "DM Mono", monospace; }
-.public-character-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; border-left: 1px solid var(--public-line); padding-left: 1.5rem; }
-.public-character-facts span, .public-character-history span { display: grid; gap: 0.2rem; color: #777980; font-size: 0.65rem; }
-.public-character-facts strong, .public-character-history strong { color: #e2e2dd; font-weight: 600; }
-.public-character-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin: 1rem 0; }
-.public-character-metrics div { border: 1px solid var(--public-line); border-radius: 0.85rem; background: #303137; padding: 1rem; }
-.public-character-metrics span { display: block; color: #85868c; font-size: 0.65rem; }
-.public-character-metrics strong { display: block; margin-top: 0.55rem; color: #f3e96a; font-size: 1.15rem; }
-.public-character-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-.public-character-panel { border: 1px solid var(--public-line); border-radius: 0.9rem; background: #303137; padding: 1.25rem; }
-.public-character-panel h2 { margin: 0.45rem 0 0.8rem; color: #f1f1ec; font-size: 1rem; }
-.public-character-panel > p:not(.public-eyebrow) { color: #b6b7bc; font-size: 0.78rem; line-height: 1.7; }
-.public-chip-list { display: flex; flex-wrap: wrap; gap: 0.45rem; }
-.public-chip-list span { border: 1px solid rgba(243,233,106,0.22); border-radius: 999px; background: rgba(243,233,106,0.08); color: #eee89a; padding: 0.35rem 0.55rem; font-size: 0.62rem; }
-.public-character-history { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; margin-top: 1rem; }
-.public-related-characters { margin-top: 1rem; border: 1px solid var(--public-line); border-radius: 0.9rem; background: #292a2f; padding: 1.25rem; }
-.public-related-characters h2 { margin: 0.4rem 0 0; color: #f1f1ec; font-size: 1rem; }
-.public-related-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; margin-top: 1rem; }
-.public-related-card { display: grid; grid-template-columns: 2.5rem 1fr; grid-template-rows: 1fr 1fr; column-gap: 0.65rem; align-items: center; border: 1px solid var(--public-line); border-radius: 0.75rem; background: #303137; padding: 0.65rem; text-align: left; cursor: pointer; }
-.public-related-card:hover { border-color: rgba(243,233,106,0.5); }
-.public-related-card img, .public-related-card > span { grid-row: 1 / 3; width: 2.5rem; height: 2.5rem; display: grid; place-items: center; border-radius: 50%; object-fit: cover; background: rgba(243,233,106,0.15); color: #f3e96a; font-weight: 700; }
-.public-related-card strong { overflow: hidden; color: #e6e6e0; font-size: 0.68rem; text-overflow: ellipsis; white-space: nowrap; }
-.public-related-card small { overflow: hidden; color: #85868c; font-size: 0.58rem; text-overflow: ellipsis; white-space: nowrap; }
+.public-character-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--public-line);
+  padding: 1.2rem 2rem;
+}
+.public-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 0;
+  background: transparent;
+  color: #c9c9c4;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.public-back-button:hover {
+  color: var(--public-yellow);
+}
+.public-character-content {
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: 2rem;
+}
+.public-character-hero {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr) minmax(14rem, 0.8fr);
+  gap: 1.5rem;
+  align-items: center;
+  border: 1px solid var(--public-line);
+  border-radius: 1rem;
+  background: #303137;
+  padding: 1.5rem;
+}
+.public-character-portrait {
+  display: grid;
+  width: 10rem;
+  height: 11rem;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 0.9rem;
+  background: #202125;
+  color: #f3e96a;
+}
+.public-character-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.public-character-identity h1 {
+  margin: 0.45rem 0 0;
+  color: #f4f3ec;
+  font:
+    2.4rem "DM Serif Display",
+    Georgia,
+    serif;
+}
+.public-character-identity p {
+  margin: 0.7rem 0 0;
+  color: #b6b7bc;
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+.public-character-identity .public-character-alias {
+  margin-top: 0.25rem;
+  color: #f3e96a;
+  font:
+    0.7rem "DM Mono",
+    monospace;
+}
+.public-character-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  border-left: 1px solid var(--public-line);
+  padding-left: 1.5rem;
+}
+.public-character-facts span,
+.public-character-history span {
+  display: grid;
+  gap: 0.2rem;
+  color: #777980;
+  font-size: 0.65rem;
+}
+.public-character-facts strong,
+.public-character-history strong {
+  color: #e2e2dd;
+  font-weight: 600;
+}
+.public-character-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+.public-character-metrics div {
+  border: 1px solid var(--public-line);
+  border-radius: 0.85rem;
+  background: #303137;
+  padding: 1rem;
+}
+.public-character-metrics span {
+  display: block;
+  color: #85868c;
+  font-size: 0.65rem;
+}
+.public-character-metrics strong {
+  display: block;
+  margin-top: 0.55rem;
+  color: #f3e96a;
+  font-size: 1.15rem;
+}
+.public-character-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.public-character-panel {
+  border: 1px solid var(--public-line);
+  border-radius: 0.9rem;
+  background: #303137;
+  padding: 1.25rem;
+}
+.public-character-panel h2 {
+  margin: 0.45rem 0 0.8rem;
+  color: #f1f1ec;
+  font-size: 1rem;
+}
+.public-character-panel > p:not(.public-eyebrow) {
+  color: #b6b7bc;
+  font-size: 0.78rem;
+  line-height: 1.7;
+}
+.public-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.public-chip-list span {
+  border: 1px solid rgba(243, 233, 106, 0.22);
+  border-radius: 999px;
+  background: rgba(243, 233, 106, 0.08);
+  color: #eee89a;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.62rem;
+}
+.public-character-history {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+.public-related-characters {
+  margin-top: 1rem;
+  border: 1px solid var(--public-line);
+  border-radius: 0.9rem;
+  background: #292a2f;
+  padding: 1.25rem;
+}
+.public-related-characters h2 {
+  margin: 0.4rem 0 0;
+  color: #f1f1ec;
+  font-size: 1rem;
+}
+.public-related-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.public-related-card {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr;
+  grid-template-rows: 1fr 1fr;
+  column-gap: 0.65rem;
+  align-items: center;
+  border: 1px solid var(--public-line);
+  border-radius: 0.75rem;
+  background: #303137;
+  padding: 0.65rem;
+  text-align: left;
+  cursor: pointer;
+}
+.public-related-card:hover {
+  border-color: rgba(243, 233, 106, 0.5);
+}
+.public-related-card img,
+.public-related-card > span {
+  grid-row: 1 / 3;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(243, 233, 106, 0.15);
+  color: #f3e96a;
+  font-weight: 700;
+}
+.public-related-card strong {
+  overflow: hidden;
+  color: #e6e6e0;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.public-related-card small {
+  overflow: hidden;
+  color: #85868c;
+  font-size: 0.58rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 @media (max-width: 700px) {
-  .public-character-header { padding: 1rem 1rem 1rem 4rem; }
-  .public-character-content { padding: 1rem; }
-  .public-character-hero, .public-character-grid { grid-template-columns: 1fr; }
-  .public-character-portrait { width: 7rem; height: 8rem; }
-  .public-character-facts { border-left: 0; border-top: 1px solid var(--public-line); padding: 1rem 0 0; }
-  .public-character-metrics, .public-related-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .public-character-header {
+    padding: 1rem 1rem 1rem 4rem;
+  }
+  .public-character-content {
+    padding: 1rem;
+  }
+  .public-character-hero,
+  .public-character-grid {
+    grid-template-columns: 1fr;
+  }
+  .public-character-portrait {
+    width: 7rem;
+    height: 8rem;
+  }
+  .public-character-facts {
+    border-left: 0;
+    border-top: 1px solid var(--public-line);
+    padding: 1rem 0 0;
+  }
+  .public-character-metrics,
+  .public-related-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 html {

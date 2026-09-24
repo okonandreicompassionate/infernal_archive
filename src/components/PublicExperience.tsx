@@ -147,37 +147,84 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
       : item.category
         ? String(item.category).split(" / ")
         : [];
-    const profileSections = [
-      {
-        title: "Overview",
-        fields: [
-          ["overview", item.overview || getSummary(item)],
-          ["origin", item.origin],
-          ["significance", item.significance],
-        ],
-      },
-      {
-        title: "Function",
-        fields: [
-          ["capabilities", item.capabilities || item.abilities],
-          ["secondaryAbilities", item.secondaryAbilities],
-          ["activationUse", item.activationUse],
-          ["powerSource", item.powerSource],
-        ],
-      },
-      {
-        title: "Limits & context",
-        fields: [
-          ["limitations", item.limitations || item.drawbacks],
-          ["creator", item.creator],
-          ["users", item.users || item.wielders || item.notableWielders],
-          ["currentStatus", item.currentStatus || item.status],
-        ],
-      },
-    ].map((section) => ({
-      ...section,
-      fields: section.fields.filter(([, value]) => value),
-    }));
+    const profileSections =
+      type === "events"
+        ? [
+            {
+              title: "Overview & Causes",
+              fields: [
+                ["overview", item.overview || getSummary(item)],
+                ["cause", item.cause],
+                ["longTermTensions", item.longTermTensions],
+                ["immediateTriggers", item.immediateTriggers],
+                ["warningSigns", item.warningSigns],
+              ],
+            },
+            {
+              title: "Timeline of Events",
+              fields: [
+                ["prelude", item.prelude],
+                ["theEvent", item.theEvent],
+                ["climax", item.climax],
+                ["aftermath", item.aftermath],
+              ],
+            },
+            {
+              title: "Participants & Outcome",
+              fields: [
+                ["participants", item.participants],
+                ["keyFigures", item.keyFigures],
+                ["factions", item.factions],
+                ["outcome", item.outcome],
+                ["casualties", item.casualties],
+                ["immediateResults", item.immediateResults],
+              ],
+            },
+            {
+              title: "Significance & Legacy",
+              fields: [
+                [
+                  "longTermConsequences",
+                  item.longTermConsequences || item.consequences,
+                ],
+                ["unresolvedThreads", item.unresolvedThreads],
+                ["significance", item.significance],
+                ["legacy", item.legacy],
+                ["trivia", item.trivia],
+              ],
+            },
+          ]
+        : [
+            {
+              title: "Overview",
+              fields: [
+                ["overview", item.overview || getSummary(item)],
+                ["origin", item.origin],
+                ["significance", item.significance],
+              ],
+            },
+            {
+              title: "Function",
+              fields: [
+                ["capabilities", item.capabilities || item.abilities],
+                ["secondaryAbilities", item.secondaryAbilities],
+                ["activationUse", item.activationUse],
+                ["powerSource", item.powerSource],
+              ],
+            },
+            {
+              title: "Limits & context",
+              fields: [
+                ["limitations", item.limitations || item.drawbacks],
+                ["creator", item.creator],
+                ["users", item.users || item.wielders || item.notableWielders],
+                ["currentStatus", item.currentStatus || item.status],
+              ],
+            },
+          ].map((section) => ({
+            ...section,
+            fields: section.fields.filter(([, value]) => value),
+          }));
 
     return (
       <div className="public-content space-y-6">
@@ -185,7 +232,8 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
           onClick={() => setSelectedRecord(null)}
           className="public-back-button"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to {TYPE_LABELS[type] || "archive"}
+          <ArrowLeft className="w-4 h-4" /> Back to{" "}
+          {TYPE_LABELS[type] || "archive"}
         </button>
         <section className="public-profile-hero">
           <div className="public-profile-visual">
@@ -199,7 +247,9 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
           </div>
           <div className="min-w-0 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="public-eyebrow">{TYPE_LABELS[type] || type}</span>
+              <span className="public-eyebrow">
+                {TYPE_LABELS[type] || type}
+              </span>
               <span className="public-status">CANON</span>
               {recordTypes.map((recordType: string) => (
                 <span key={recordType} className="public-profile-tag">
@@ -211,25 +261,37 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
             <p className="public-profile-summary">{getSummary(item)}</p>
           </div>
           <div className="public-profile-facts">
-            <span>Type <strong>{item.type || TYPE_LABELS[type] || type}</strong></span>
-            <span>Status <strong>{item.currentStatus || item.status || "Unknown"}</strong></span>
-            <span>Affiliation <strong>{item.affiliation || "Independent"}</strong></span>
+            <span>
+              Type <strong>{item.type || TYPE_LABELS[type] || type}</strong>
+            </span>
+            <span>
+              Status{" "}
+              <strong>{item.currentStatus || item.status || "Unknown"}</strong>
+            </span>
+            <span>
+              Affiliation <strong>{item.affiliation || "Independent"}</strong>
+            </span>
           </div>
         </section>
         <section className="public-profile-sections">
-          {profileSections.filter((section) => section.fields.length > 0).map((section) => (
-            <article key={section.title} className="public-panel public-profile-panel">
-              <p className="public-eyebrow">{section.title}</p>
-              <div className="public-detail-list">
-                {section.fields.map(([key, value]) => (
-                  <div key={key}>
-                    <span>{String(key).replace(/([A-Z])/g, " $1")}</span>
-                    <strong>{String(value)}</strong>
-                  </div>
-                ))}
-              </div>
-            </article>
-          ))}
+          {profileSections
+            .filter((section) => section.fields.length > 0)
+            .map((section) => (
+              <article
+                key={section.title}
+                className="public-panel public-profile-panel"
+              >
+                <p className="public-eyebrow">{section.title}</p>
+                <div className="public-detail-list">
+                  {section.fields.map(([key, value]) => (
+                    <div key={key}>
+                      <span>{String(key).replace(/([A-Z])/g, " $1")}</span>
+                      <strong>{String(value)}</strong>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            ))}
         </section>
         {item.trivia && (
           <section className="public-panel public-profile-panel">
@@ -277,17 +339,26 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
     const relatedCharacters = characterRecords
       .filter((item) => item.id !== character.id)
       .filter((item) => {
-        const relationshipText = JSON.stringify(character.relationships || []).toLowerCase();
-        return relationshipText.includes(String(item.name || "").toLowerCase()) ||
-          relationshipText.includes(String(item.codeName || "").toLowerCase()) ||
-          item.affiliation && item.affiliation === character.affiliation;
+        const relationshipText = JSON.stringify(
+          character.relationships || [],
+        ).toLowerCase();
+        return (
+          relationshipText.includes(String(item.name || "").toLowerCase()) ||
+          relationshipText.includes(
+            String(item.codeName || "").toLowerCase(),
+          ) ||
+          (item.affiliation && item.affiliation === character.affiliation)
+        );
       })
       .slice(0, 6);
 
     return (
       <div className="public-character-page min-h-screen bg-[#25262b] text-zinc-100">
         <header className="public-character-header">
-          <button onClick={() => setSelectedRecord(null)} className="public-back-button">
+          <button
+            onClick={() => setSelectedRecord(null)}
+            className="public-back-button"
+          >
             <ArrowLeft className="w-4 h-4" /> Back to characters
           </button>
           <span className="public-eyebrow">Character dossier · Canon</span>
@@ -295,19 +366,36 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
         <main className="public-character-content">
           <section className="public-character-hero">
             <div className="public-character-portrait">
-              {getImage(character) ? <img src={getImage(character)} alt={getName(character)} /> : <Users className="w-12 h-12 text-yellow-300" />}
+              {getImage(character) ? (
+                <img src={getImage(character)} alt={getName(character)} />
+              ) : (
+                <Users className="w-12 h-12 text-yellow-300" />
+              )}
             </div>
             <div className="public-character-identity">
-              <span className="public-eyebrow">{character.category || "Character"} · {character.canonStatus}</span>
+              <span className="public-eyebrow">
+                {character.category || "Character"} · {character.canonStatus}
+              </span>
               <h1>{getName(character)}</h1>
-              {character.codeName && <p className="public-character-alias">"{character.codeName}"</p>}
+              {character.codeName && (
+                <p className="public-character-alias">"{character.codeName}"</p>
+              )}
               <p>{getSummary(character)}</p>
             </div>
             <div className="public-character-facts">
-              <span>Status <strong>{character.currentStatus || "Unknown"}</strong></span>
-              <span>Species <strong>{character.species || "Unknown"}</strong></span>
-              <span>Occupation <strong>{character.occupation || "Unknown"}</strong></span>
-              <span>Affiliation <strong>{character.affiliation || "Independent"}</strong></span>
+              <span>
+                Status <strong>{character.currentStatus || "Unknown"}</strong>
+              </span>
+              <span>
+                Species <strong>{character.species || "Unknown"}</strong>
+              </span>
+              <span>
+                Occupation <strong>{character.occupation || "Unknown"}</strong>
+              </span>
+              <span>
+                Affiliation{" "}
+                <strong>{character.affiliation || "Independent"}</strong>
+              </span>
             </div>
           </section>
           <section className="public-character-metrics">
@@ -316,13 +404,93 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
               ["Skills", character.skills?.length || 0],
               ["Allies", character.friends?.length || 0],
               ["First appearance", character.firstAppearance || "Unknown"],
-            ].map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}
+            ].map(([label, value]) => (
+              <div key={label}>
+                <span>{label}</span>
+                <strong>{value}</strong>
+              </div>
+            ))}
           </section>
           <section className="public-character-grid">
-            <article className="public-character-panel"><p className="public-eyebrow">Ability loadout</p><h2>Powers & skills</h2><div className="public-chip-list">{[...(character.powers || []), ...(character.skills || [])].map((value: string) => <span key={value}>{value}</span>)}</div></article>
-            <article className="public-character-panel"><p className="public-eyebrow">Character history</p><h2>Why they matter</h2><p>{character.origin || character.biography || "This character's history has not been published yet."}</p><div className="public-character-history"><span>First appearance <strong>{character.firstAppearance || "Unknown"}</strong></span><span>Current location <strong>{character.currentLocation || "Unknown"}</strong></span><span>Core themes <strong>{character.centralThemes || "Unrecorded"}</strong></span><span>Legacy <strong>{character.heroicVillainousLegacy || "Unrecorded"}</strong></span></div></article>
+            <article className="public-character-panel">
+              <p className="public-eyebrow">Ability loadout</p>
+              <h2>Powers & skills</h2>
+              <div className="public-chip-list">
+                {[...(character.powers || []), ...(character.skills || [])].map(
+                  (value: string) => (
+                    <span key={value}>{value}</span>
+                  ),
+                )}
+              </div>
+            </article>
+            <article className="public-character-panel">
+              <p className="public-eyebrow">Character history</p>
+              <h2>Why they matter</h2>
+              <p>
+                {character.origin ||
+                  character.biography ||
+                  "This character's history has not been published yet."}
+              </p>
+              <div className="public-character-history">
+                <span>
+                  First appearance{" "}
+                  <strong>{character.firstAppearance || "Unknown"}</strong>
+                </span>
+                <span>
+                  Current location{" "}
+                  <strong>{character.currentLocation || "Unknown"}</strong>
+                </span>
+                <span>
+                  Core themes{" "}
+                  <strong>{character.centralThemes || "Unrecorded"}</strong>
+                </span>
+                <span>
+                  Legacy{" "}
+                  <strong>
+                    {character.heroicVillainousLegacy || "Unrecorded"}
+                  </strong>
+                </span>
+              </div>
+            </article>
           </section>
-          <section className="public-related-characters"><div className="public-panel-heading"><div><p className="public-eyebrow">Continue exploring</p><h2>Related characters</h2></div><button onClick={() => setSelectedRecord(null)} className="public-inline-link">All characters <ChevronRight className="w-3.5 h-3.5" /></button></div><div className="public-related-grid">{relatedCharacters.map((item) => <button key={item.id} onClick={() => setSelectedRecord({ type: "characters", item })} className="public-related-card">{getImage(item) ? <img src={getImage(item)} alt="" /> : <span>{getName(item).slice(0, 1)}</span>}<strong>{getName(item)}</strong><small>{item.codeName || item.species || "Character"}</small></button>)}</div>{relatedCharacters.length === 0 && <p className="public-empty">No related canon characters have been linked yet.</p>}</section>
+          <section className="public-related-characters">
+            <div className="public-panel-heading">
+              <div>
+                <p className="public-eyebrow">Continue exploring</p>
+                <h2>Related characters</h2>
+              </div>
+              <button
+                onClick={() => setSelectedRecord(null)}
+                className="public-inline-link"
+              >
+                All characters <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="public-related-grid">
+              {relatedCharacters.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() =>
+                    setSelectedRecord({ type: "characters", item })
+                  }
+                  className="public-related-card"
+                >
+                  {getImage(item) ? (
+                    <img src={getImage(item)} alt="" />
+                  ) : (
+                    <span>{getName(item).slice(0, 1)}</span>
+                  )}
+                  <strong>{getName(item)}</strong>
+                  <small>{item.codeName || item.species || "Character"}</small>
+                </button>
+              ))}
+            </div>
+            {relatedCharacters.length === 0 && (
+              <p className="public-empty">
+                No related canon characters have been linked yet.
+              </p>
+            )}
+          </section>
         </main>
       </div>
     );
@@ -545,7 +713,6 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
           </div>
         )}
       </main>
-
     </div>
   );
 };
