@@ -10,6 +10,7 @@ import { VisualTimeline } from "./components/VisualTimeline";
 import { WriterWorkspace } from "./components/WriterWorkspace";
 import { ArtistWorkspace } from "./components/ArtistWorkspace";
 import { AILorekeeperChat } from "./components/AILorekeeperChat";
+import { CharacterForge } from "./components/CharacterForge";
 import { UniverseBibleExportModal } from "./components/UniverseBibleExportModal";
 import { CommandPalette } from "./components/CommandPalette";
 import { QuickCreateModal } from "./components/QuickCreateModal";
@@ -205,7 +206,12 @@ export default function App() {
         {activeTab === "timeline" && <VisualTimeline />}
         {activeTab === "writer" && <WriterWorkspace />}
         {activeTab === "artist" && <ArtistWorkspace />}
-        {activeTab === "lorekeeper" && <AILorekeeperChat />}
+        {activeTab === "lorekeeper" && (
+          <div className="space-y-8">
+            <AILorekeeperChat />
+            <CharacterForge />
+          </div>
+        )}
         {activeTab === "settings" && (
           <SettingsPage
             userId={user.id}
