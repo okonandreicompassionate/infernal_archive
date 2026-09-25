@@ -23,7 +23,7 @@ import { subscribeToTable } from "../utils/supabase";
 interface EntityBrowserProps {
   entityType: string; // 'characters', 'teams', 'planets', 'locations', 'powers', 'artifacts', 'events', 'issues'
   onSelectItem: (type: string, id: string) => void;
-  onOpenQuickCreate: () => void;
+  onOpenQuickCreate: (entityType?: string) => void;
 }
 
 export const EntityBrowser: React.FC<EntityBrowserProps> = ({
@@ -235,7 +235,7 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
 
         <div className="flex items-center space-x-3">
           <button
-            onClick={onOpenQuickCreate}
+            onClick={() => onOpenQuickCreate(entityType)}
             className="flex items-center space-x-1.5 bg-yellow-400 hover:bg-yellow-300 text-zinc-950 text-xs font-semibold px-4 py-2 rounded-2xl transition-all cursor-pointer shadow-sm"
           >
             <Plus className="w-4 h-4" />

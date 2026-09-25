@@ -54,6 +54,12 @@ export const speciesOptions = [
   "Other",
 ];
 
+const splitListInput = (value: string): string[] =>
+  value
+    .split(/[\n,]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
 const characterProfileFields = [
   ["affiliation", "Affiliation", "Teams, organizations, factions, alliances"],
   ["positionRole", "Position / Role", "Leader, commander, specialist, etc."],
@@ -364,6 +370,40 @@ const planetProfileSections = [
   },
 ] as const;
 
+const locationProfileSections = [
+  {
+    title: "Location Context",
+    fields: [
+      ["category", "Category", "City, district, planet, base, region"],
+      ["fullName", "Full name", "Formal location name"],
+      ["alias", "Alias", "Alternate or common name"],
+      ["type", "Type", "City, district, starport, ruin, stronghold"],
+      ["status", "Status", "Active, hidden, ruined, under siege"],
+      ["planetId", "Planet", "Select the planet this location belongs to"],
+      [
+        "parentLocation",
+        "Parent location",
+        "Choose a broader location it sits within",
+      ],
+      ["coordinates", "Coordinates", "Latitude / longitude / sector grid"],
+      ["population", "Population", "Estimated population or density"],
+      ["terrain", "Terrain", "Urban, desert, oceanic, subterranean, forest"],
+      ["security", "Security / threat", "Low, medium, high, forbidden"],
+    ],
+  },
+  {
+    title: "Overview & History",
+    fields: [
+      ["overview", "Overview", "What the place is and why it matters"],
+      ["history", "History", "Origins and turning points"],
+      ["culture", "Culture", "People, customs, and identity"],
+      ["economy", "Economy", "Trade, resources, and politics"],
+      ["notableFeatures", "Notable features", "Landmarks and hazards"],
+      ["access", "Access / travel", "How people reach or avoid it"],
+    ],
+  },
+] as const;
+
 const artifactProfileSections = [
   {
     title: "Infobox",
@@ -582,15 +622,17 @@ const CharacterPicker: React.FC<CharacterPickerProps> = ({
 };
 
 interface QuickCreateModalProps {
+  initialEntityType?: string;
   onClose: () => void;
   onCreated: () => void;
 }
 
 export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
+  initialEntityType = "characters",
   onClose,
   onCreated,
 }) => {
-  const [entityType, setEntityType] = useState("characters");
+  const [entityType, setEntityType] = useState(initialEntityType);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [extraField, setExtraField] = useState("");
@@ -604,8 +646,12 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const [selectedFamily, setSelectedFamily] = useState<string[]>([]);
   const [sketchUrl, setSketchUrl] = useState("");
+  const [powersInput, setPowersInput] = useState("");
+  const [skillsInput, setSkillsInput] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [availableCharacters, setAvailableCharacters] = useState<any[]>([]);
+  const [availablePlanets, setAvailablePlanets] = useState<any[]>([]);
+  const [availableLocations, setAvailableLocations] = useState<any[]>([]);
   const [saveError, setSaveError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [species, setSpecies] = useState("Human");
@@ -616,9 +662,20 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
   );
 
   useEffect(() => {
-    fetch("/api/characters")
-      .then((res) => res.json())
-      .then((data) => setAvailableCharacters(data))
+    setEntityType(initialEntityType || "characters");
+  }, [initialEntityType]);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/characters").then((res) => res.json()),
+      fetch("/api/planets").then((res) => res.json()),
+      fetch("/api/locations").then((res) => res.json()),
+    ])
+      .then(([characters, planets, locations]) => {
+        setAvailableCharacters(characters || []);
+        setAvailablePlanets(planets || []);
+        setAvailableLocations(locations || []);
+      })
       .catch((err) => console.error(err));
   }, []);
 
@@ -662,6 +719,18 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
         payload.friends = selectedFriends;
         payload.family = selectedFamily;
         Object.assign(payload, profileFields);
+        payload.powers = splitListInput(
+          String(profileFields.powers ?? powersInput ?? ""),
+        );
+        payload.skills = splitListInput(
+          String(profileFields.skills ?? skillsInput ?? ""),
+        );
+        payload.weaknesses = splitListInput(
+          String(profileFields.weaknesses ?? ""),
+        );
+        payload.equipment = splitListInput(
+          String(profileFields.equipment ?? ""),
+        );
         if (sketchUrl) {
           payload.portrait = sketchUrl;
         }
@@ -714,6 +783,23 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
         Object.assign(payload, profileFields);
         if (imageFile) {
           const upload = await uploadArchiveImage(imageFile, "planets");
+          if (upload.error) throw upload.error;
+          payload.image = upload.url;
+        }
+      } else if (entityType === "locations") {
+        payload.fullName = profileFields.fullName || name;
+        payload.category = profileFields.category || "Location";
+        payload.status = profileFields.status || "Active";
+        payload.alias = profileFields.alias || "";
+        payload.type = profileFields.type || extraField || "Settlement";
+        payload.planetId = profileFields.planetId || "";
+        payload.parentLocation = profileFields.parentLocation || "";
+        payload.coordinates = profileFields.coordinates || "";
+        payload.history = profileFields.history || "";
+        payload.description = profileFields.overview || description;
+        Object.assign(payload, profileFields);
+        if (imageFile) {
+          const upload = await uploadArchiveImage(imageFile, "locations");
           if (upload.error) throw upload.error;
           payload.image = upload.url;
         }
@@ -803,6 +889,68 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
     submitRecord("CANON");
   };
 
+  const entityMeta = {
+    characters: {
+      title: "Create Character",
+      nameLabel: "Full name / real name",
+      namePlaceholder: "e.g. Dr. Alika Vane",
+      secondaryLabel: "Code name / alias",
+      secondaryPlaceholder: "e.g. Viper",
+    },
+    species: {
+      title: "Create Species",
+      nameLabel: "Species name",
+      namePlaceholder: "e.g. Celestial Seraphim",
+      secondaryLabel: "",
+      secondaryPlaceholder: "",
+    },
+    teams: {
+      title: "Create Team",
+      nameLabel: "Team name",
+      namePlaceholder: "e.g. Crimson Vanguard",
+      secondaryLabel: "",
+      secondaryPlaceholder: "",
+    },
+    planets: {
+      title: "Create Planet",
+      nameLabel: "Planet name",
+      namePlaceholder: "e.g. Aether Prime",
+      secondaryLabel: "",
+      secondaryPlaceholder: "",
+    },
+    locations: {
+      title: "Create Location",
+      nameLabel: "Location name",
+      namePlaceholder: "e.g. Hollow Spire",
+      secondaryLabel: "",
+      secondaryPlaceholder: "",
+    },
+    artifacts: {
+      title: "Create Artifact",
+      nameLabel: "Artifact name",
+      namePlaceholder: "e.g. Ashen Crown",
+      secondaryLabel: "",
+      secondaryPlaceholder: "",
+    },
+    events: {
+      title: "Create Event",
+      nameLabel: "Event name",
+      namePlaceholder: "e.g. The Silent Eclipse",
+      secondaryLabel: "",
+      secondaryPlaceholder: "",
+    },
+    issues: {
+      title: "Create Issue",
+      nameLabel: "Issue title",
+      namePlaceholder: "e.g. The Veil Breaks",
+      secondaryLabel: "",
+      secondaryPlaceholder: "",
+    },
+  } as const;
+
+  const currentEntityMeta =
+    entityMeta[entityType as keyof typeof entityMeta] || entityMeta.characters;
+
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-zinc-950 border border-white/5 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl">
@@ -810,7 +958,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
           <div className="flex items-center space-x-3">
             <Globe className="w-5 h-5 text-yellow-400" />
             <h2 className="text-base font-bold text-zinc-100">
-              Create Universe Record & Precise Character Details
+              {currentEntityMeta.title}
             </h2>
           </div>
           <button
@@ -847,11 +995,11 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
           >
             <div className="space-y-1.5">
               <label className="text-xs text-zinc-400 font-medium">
-                Full Name / Real Name
+                {currentEntityMeta.nameLabel}
               </label>
               <input
                 type="text"
-                placeholder="e.g. Dr. Alika Vane"
+                placeholder={currentEntityMeta.namePlaceholder}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs text-zinc-200"
@@ -860,11 +1008,11 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
             {entityType === "characters" && (
               <div className="space-y-1.5">
                 <label className="text-xs text-zinc-400 font-medium">
-                  Code Name / Alias
+                  {currentEntityMeta.secondaryLabel}
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Viper"
+                  placeholder={currentEntityMeta.secondaryPlaceholder}
                   value={codeName}
                   onChange={(e) => setCodeName(e.target.value)}
                   className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs text-zinc-200"
@@ -990,6 +1138,40 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
               </div>
 
               <div className="space-y-3 bg-zinc-900/40 p-4 rounded-2xl border border-white/5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono sm:col-span-2">
+                    <span>Powers</span>
+                    <textarea
+                      rows={2}
+                      value={profileFields.powers ?? powersInput}
+                      placeholder="Separate powers with commas or new lines"
+                      onChange={(event) => {
+                        setPowersInput(event.target.value);
+                        setProfileFields((current) => ({
+                          ...current,
+                          powers: event.target.value,
+                        }));
+                      }}
+                      className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                    />
+                  </label>
+                  <label className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono sm:col-span-2">
+                    <span>Skills</span>
+                    <textarea
+                      rows={2}
+                      value={profileFields.skills ?? skillsInput}
+                      placeholder="Separate skills with commas or new lines"
+                      onChange={(event) => {
+                        setSkillsInput(event.target.value);
+                        setProfileFields((current) => ({
+                          ...current,
+                          skills: event.target.value,
+                        }));
+                      }}
+                      className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                    />
+                  </label>
+                </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-yellow-400 font-mono">
                     Character Infobox & History
@@ -1254,6 +1436,110 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
                         />
                       </label>
                     ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+
+          {entityType === "locations" && (
+            <div className="space-y-5 bg-zinc-900/40 p-4 rounded-2xl border border-white/5">
+              <div className="border-b border-white/5 pb-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold text-zinc-200">
+                    Location World Map
+                  </p>
+                  <label className="inline-flex items-center gap-2 border border-white/10 bg-zinc-900 px-3 py-2 text-[10px] text-zinc-200 cursor-pointer hover:bg-white/10">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>
+                      {imageFile ? "Replace image" : "Location image"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      onChange={(event) =>
+                        setImageFile(event.target.files?.[0] || null)
+                      }
+                      className="sr-only"
+                    />
+                  </label>
+                </div>
+                <p className="text-[10px] text-zinc-500 mt-1">
+                  Bind this location to a planet and optionally another broader
+                  region.
+                </p>
+              </div>
+              {locationProfileSections.map((section) => (
+                <section key={section.title} className="space-y-3">
+                  <h3 className="text-[10px] uppercase tracking-widest text-yellow-400 font-mono">
+                    {section.title}
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {section.fields.map(([key, label, placeholder]) => {
+                      const isSelect =
+                        key === "planetId" || key === "parentLocation";
+                      const options =
+                        key === "planetId"
+                          ? availablePlanets
+                          : key === "parentLocation"
+                            ? availableLocations
+                            : [];
+
+                      if (isSelect) {
+                        return (
+                          <label
+                            key={key}
+                            className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono"
+                          >
+                            <span>{label}</span>
+                            <select
+                              value={profileFields[key] || ""}
+                              onChange={(event) =>
+                                setProfileFields((current) => ({
+                                  ...current,
+                                  [key]: event.target.value,
+                                }))
+                              }
+                              className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                            >
+                              <option value="">
+                                {key === "planetId"
+                                  ? "Select a planet"
+                                  : "No parent location"}
+                              </option>
+                              {options.map((option) => (
+                                <option key={option.id} value={option.id}>
+                                  {option.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        );
+                      }
+
+                      return (
+                        <label
+                          key={key}
+                          className={`space-y-1 text-[10px] text-zinc-400 uppercase font-mono ${["overview", "history", "culture", "economy", "notableFeatures", "access"].includes(key) ? "sm:col-span-2" : ""}`}
+                        >
+                          <span>{label}</span>
+                          <textarea
+                            rows={
+                              key === "overview" || key === "history" ? 4 : 2
+                            }
+                            value={profileFields[key] || ""}
+                            placeholder={placeholder}
+                            onChange={(event) =>
+                              setProfileFields((current) => ({
+                                ...current,
+                                [key]: event.target.value,
+                              }))
+                            }
+                            className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                          />
+                        </label>
+                      );
+                    })}
                   </div>
                 </section>
               ))}

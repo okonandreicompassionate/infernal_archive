@@ -32,6 +32,8 @@ export interface SimLocation {
   dominantSpecies?: string;
   technologyLevel?: string;
   description?: string;
+  planetId?: string;
+  parentLocation?: string;
 }
 
 export type Knowledge = "unknown" | "partial" | "full";
@@ -49,10 +51,14 @@ export interface SimSetup {
 }
 
 interface StatBundle {
+  strength: number;
   speed: number;
   durability: number;
   intelligence: number;
-  combatExperience: number;
+  combatSkill: number;
+  stamina: number;
+  adaptability: number;
+  experience: number;
   rawPower: number;
   weaknessPenalty: number;
   basePower: number;
@@ -67,6 +73,15 @@ interface ModifierBreakdown {
   total: number;
 }
 
+interface RoundEvent {
+  round: number;
+  summary: string;
+  reason: string;
+  damage: number;
+  healthAfter: [number, number];
+  staminaAfter: [number, number];
+}
+
 export interface SimComputation {
   stats: [StatBundle, StatBundle];
   modifiers: [ModifierBreakdown, ModifierBreakdown];
@@ -77,9 +92,14 @@ export interface SimComputation {
   turningPoint: string;
   primaryCause: string;
   unexpectedFactor: string;
+  why: string;
+  rounds: RoundEvent[];
 }
 
-// Simple deterministic PRNG (mulberry32) so reruns with an explicit seed are reproducible.
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
 function mulberry32(seed: number) {
   let a = seed;
   return () => {
@@ -120,37 +140,67 @@ const textBlob = (c: SimCombatant) =>
     c.occupation,
     (c.powers || []).join(" "),
     (c.skills || []).join(" "),
+    (c.weaknesses || []).join(" "),
+    (c.equipment || []).join(" "),
   ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
 
-function deriveStats(c: SimCombatant, rng: () => number): StatBundle {
-  const blob = textBlob(c);
-  const powerCount = c.powers?.length || 0;
-  const skillCount = c.skills?.length || 0;
-  const weaknessCount = c.weaknesses?.length || 0;
-  const equipmentCount = c.equipment?.length || 0;
-  const variance = () => rng() * 10;
+function parseDistance(distance: string): number {
+  const normalized = distance.toLowerCase();
+  const match = normalized.match(/(\d+(?:\.\d+)?)\s*(m|km|ft|yard|y)/i);
+  if (!match) return 30;
+  const value = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  if (unit === "km") return value * 1000;
+  if (unit === "m") return value;
+  if (unit === "ft" || unit === "yard" || unit === "y") return value * 0.3;
+  return value;
+}
 
+function keywordMap(text: string) {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+function deriveStats(c: SimCombatant): StatBundle {
+  const blob = textBlob(c);
+  const powers = keywordMap((c.powers || []).join(" "));
+  const skills = keywordMap((c.skills || []).join(" "));
+  const weaknesses = keywordMap((c.weaknesses || []).join(" "));
+  const equipment = keywordMap((c.equipment || []).join(" "));
+
+  const strength =
+    40 +
+    (c.powers?.length || 0) * 8 +
+    countMatches(blob, ["power", "force", "energy", "cosmic", "godlike"]) * 10;
   const speed =
     40 +
-    powerCount * 3 +
-    countMatches(blob, ["speed", "reflexes", "agile", "swift", "fast"]) * 8 +
-    variance();
+    countMatches(blob, [
+      "speed",
+      "reflex",
+      "agile",
+      "swift",
+      "flight",
+      "phase",
+    ]) *
+      9 +
+    (c.skills?.includes("CQC") || c.skills?.includes("Combat") ? 5 : 0);
   const durability =
     40 +
     countMatches(blob, [
-      "durab",
-      "regenerat",
+      "durable",
+      "regener",
       "armor",
-      "resilient",
+      "resist",
       "tank",
-      "invulnerab",
+      "shield",
     ]) *
       10 +
-    equipmentCount * 3 +
-    variance();
+    (equipment.length > 0 ? equipment.length * 2 : 0);
   const intelligence =
     40 +
     countMatches(blob, [
@@ -158,133 +208,183 @@ function deriveStats(c: SimCombatant, rng: () => number): StatBundle {
       "tactician",
       "strategist",
       "scientist",
-      "intellect",
-      "analytical",
       "engineer",
+      "analytical",
     ]) *
-      10 +
-    skillCount * 2 +
-    variance();
-  const combatExperience =
+      11 +
+    Math.max(0, skills.length - 2) * 2;
+  const combatSkill =
     40 +
     countMatches(blob, [
       "veteran",
       "trained",
       "master",
       "combat",
-      "soldier",
       "warrior",
       "assassin",
-      "operative",
+      "martial",
+    ]) *
+      10 +
+    Math.max(0, skills.length - 2) * 3;
+  const stamina =
+    40 +
+    countMatches(blob, [
+      "endurance",
+      "stamina",
+      "tough",
+      "fortitude",
+      "resilient",
+    ]) *
+      9 +
+    Math.max(0, 6 - weaknesses.length) * 3;
+  const adaptability =
+    40 +
+    countMatches(blob, [
+      "adapt",
+      "react",
+      "improv",
+      "learn",
+      "counter",
+      "versatile",
     ]) *
       8 +
-    skillCount * 3 +
-    variance();
-  const rawPower =
+    (powers.length > 0 ? 4 : 0);
+  const experience =
     40 +
-    powerCount * 12 +
     countMatches(blob, [
-      "cosmic",
-      "godlike",
-      "omnipotent",
-      "reality",
-      "multiversal",
-      "primordial",
+      "veteran",
+      "seasoned",
+      "trained",
+      "expert",
+      "battle",
+      "mission",
     ]) *
-      15 +
-    variance();
-  const weaknessPenalty = weaknessCount * 6;
-
-  const basePower =
-    rawPower * 0.35 +
-    speed * 0.15 +
-    durability * 0.2 +
-    intelligence * 0.1 +
-    combatExperience * 0.2 -
-    weaknessPenalty;
+      8 +
+    (c.origin ? 5 : 0);
+  const rawPower =
+    strength * 0.9 +
+    speed * 0.7 +
+    intelligence * 0.6 +
+    combatSkill * 0.8 +
+    stamina * 0.6;
+  const weaknessPenalty = Math.max(0, weaknesses.length * 6);
 
   return {
-    speed,
-    durability,
-    intelligence,
-    combatExperience,
-    rawPower,
+    strength: clamp(strength, 30, 100),
+    speed: clamp(speed, 30, 100),
+    durability: clamp(durability, 30, 100),
+    intelligence: clamp(intelligence, 30, 100),
+    combatSkill: clamp(combatSkill, 30, 100),
+    stamina: clamp(stamina, 30, 100),
+    adaptability: clamp(adaptability, 30, 100),
+    experience: clamp(experience, 30, 100),
+    rawPower: clamp(rawPower, 30, 160),
     weaknessPenalty,
-    basePower: Math.max(10, basePower),
+    basePower: clamp(rawPower - weaknessPenalty, 20, 160),
   };
 }
 
-// A first-pass "power interaction" table. Grounded in simple documented
-// keyword antagonisms rather than an LLM freely deciding who counters whom —
-// this is the seed of the fuller power_interactions table described for later.
 const INTERACTIONS: { a: string[]; b: string[]; label: string }[] = [
   {
     a: ["fire", "flame", "heat", "pyro", "inferno"],
     b: ["ice", "cold", "frost", "cryo"],
-    label: "Thermal matchup",
+    label: "thermal pressure",
   },
   {
     a: ["light", "solar", "radiant", "photon"],
     b: ["void", "shadow", "dark", "umbra"],
-    label: "Light vs. void matchup",
-  },
-  {
-    a: ["reality", "anchor", "stabiliz"],
-    b: ["void", "shadow", "dark", "phase", "intangib"],
-    label: "Reality anchoring",
+    label: "light versus void",
   },
   {
     a: ["electric", "lightning", "volt"],
-    b: ["water", "aqua", "hydro"],
-    label: "Conductive matchup",
+    b: ["water", "aqua", "hydro", "shield"],
+    label: "conductive overload",
   },
   {
-    a: ["telepath", "mind", "psychic"],
-    b: ["mindless", "construct", "robot", "android"],
-    label: "Psionic immunity",
+    a: ["telepath", "mind", "psychic", "illusion"],
+    b: ["robot", "android", "construct", "machine"],
+    label: "mental disruption",
   },
   {
     a: ["sonic", "sound", "vibration"],
-    b: ["crystal", "glass", "brittle"],
-    label: "Resonance matchup",
+    b: ["glass", "crystal", "brittle", "armor"],
+    label: "resonant fracture",
+  },
+  {
+    a: ["gravity", "mass", "force", "kinetic"],
+    b: ["air", "wind", "speed", "agility"],
+    label: "gravitational disruption",
+  },
+  {
+    a: ["speed", "movement", "phase", "blink", "teleport"],
+    b: ["fortify", "barrier", "shield", "anchor"],
+    label: "mobility pressure",
   },
 ];
 
-function matchupModifier(
-  a: SimCombatant,
-  b: SimCombatant,
-): { aMod: number; bMod: number; label: string | null } {
-  const aPowers = (a.powers || []).join(" ").toLowerCase();
-  const bPowers = (b.powers || []).join(" ").toLowerCase();
-  const aWeak = (a.weaknesses || []).join(" ").toLowerCase();
-  const bWeak = (b.weaknesses || []).join(" ").toLowerCase();
+function matchupModifier(a: SimCombatant, b: SimCombatant) {
+  const aKeys = keywordMap((a.powers || []).join(" "));
+  const bKeys = keywordMap((b.powers || []).join(" "));
+  const aWeak = keywordMap((a.weaknesses || []).join(" "));
+  const bWeak = keywordMap((b.weaknesses || []).join(" "));
+
+  let aMod = 1;
+  let bMod = 1;
+  let label: string | null = null;
 
   for (const rule of INTERACTIONS) {
-    const aHasA = rule.a.some((kw) => aPowers.includes(kw));
-    const bHasA = rule.a.some((kw) => bPowers.includes(kw));
-    const bVulnerable = rule.b.some(
-      (kw) => bPowers.includes(kw) || bWeak.includes(kw),
+    const aHas = rule.a.some(
+      (kw) => aKeys.includes(kw) || textBlob(a).includes(kw),
     );
-    const aVulnerable = rule.b.some(
-      (kw) => aPowers.includes(kw) || aWeak.includes(kw),
+    const bHas = rule.a.some(
+      (kw) => bKeys.includes(kw) || textBlob(b).includes(kw),
+    );
+    const aCountered = rule.b.some(
+      (kw) => aWeak.includes(kw) || bKeys.includes(kw),
+    );
+    const bCountered = rule.b.some(
+      (kw) => bWeak.includes(kw) || aKeys.includes(kw),
     );
 
-    if (aHasA && bVulnerable)
-      return { aMod: 1.18, bMod: 0.88, label: rule.label };
-    if (bHasA && aVulnerable)
-      return { aMod: 0.88, bMod: 1.18, label: rule.label };
+    if (aHas && bCountered) {
+      aMod *= 1.18;
+      bMod *= 0.89;
+      label = label || rule.label;
+    }
+    if (bHas && aCountered) {
+      bMod *= 1.18;
+      aMod *= 0.89;
+      label = label || rule.label;
+    }
   }
-  return { aMod: 1, bMod: 1, label: null };
+
+  const aTraits = textBlob(a);
+  const bTraits = textBlob(b);
+  if (
+    aTraits.includes("shield") &&
+    bTraits.includes("heavy") &&
+    !aTraits.includes("counter")
+  ) {
+    aMod *= 1.04;
+  }
+  if (
+    bTraits.includes("shield") &&
+    aTraits.includes("heavy") &&
+    !bTraits.includes("counter")
+  ) {
+    bMod *= 1.04;
+  }
+
+  return { aMod, bMod, label };
 }
 
 function environmentModifier(
   c: SimCombatant,
   location: SimLocation | null,
   conditions: string,
-): { mod: number; label: string | null } {
+) {
   if (!location) return { mod: 1, label: null };
   const blob = textBlob(c);
-  const cond = conditions.toLowerCase();
   let mod = 1;
   let label: string | null = null;
 
@@ -293,15 +393,22 @@ function environmentModifier(
     c.species &&
     location.dominantSpecies.toLowerCase().includes(c.species.toLowerCase())
   ) {
-    mod *= 1.1;
-    label = "Home-turf familiarity";
+    mod *= 1.08;
+    label = label || "home terrain familiarity";
   }
   if (
-    cond.includes("night") &&
-    countMatches(blob, ["shadow", "void", "stealth", "night", "dark"]) > 0
+    conditions.toLowerCase().includes("night") &&
+    countMatches(blob, ["shadow", "void", "stealth", "dark", "night"]) > 0
   ) {
-    mod *= 1.12;
-    label = label || "Cover of darkness";
+    mod *= 1.1;
+    label = label || "night cover";
+  }
+  if (
+    conditions.toLowerCase().includes("rain") &&
+    countMatches(blob, ["electric", "lightning", "storm"]) > 0
+  ) {
+    mod *= 1.06;
+    label = label || "weather leverage";
   }
   if (
     location.atmosphere &&
@@ -310,68 +417,55 @@ function environmentModifier(
       "radiation",
       "corrosive",
     ]) > 0 &&
-    countMatches(blob, ["immun", "resistan", "adapt"]) === 0
+    countMatches(blob, ["immun", "resist", "adapt"]) === 0
   ) {
-    mod *= 0.92;
-    label = label || "Hostile atmosphere exposure";
-  }
-  if (
-    location.technologyLevel &&
-    countMatches(location.technologyLevel.toLowerCase(), [
-      "high",
-      "advanced",
-      "futuristic",
-    ]) > 0 &&
-    countMatches(blob, ["hack", "tech", "engineer", "cyber"]) > 0
-  ) {
-    mod *= 1.1;
-    label = label || "Technological exploitation";
+    mod *= 0.9;
+    label = label || "hostile environment pressure";
   }
   return { mod, label };
 }
 
-function conditionModifier(
-  index: 0 | 1,
-  setup: SimSetup,
-): { mod: number; label: string | null } {
-  let mod = 1;
-  let label: string | null = null;
-  if (
+function conditionModifier(index: 0 | 1, setup: SimSetup) {
+  const prepared =
     setup.preparation === "both" ||
     (setup.preparation === "combatant1" && index === 0) ||
-    (setup.preparation === "combatant2" && index === 1)
-  ) {
-    mod *= 1.1;
-    label = "Preparation advantage";
-  }
-  return { mod, label };
+    (setup.preparation === "combatant2" && index === 1);
+
+  return {
+    mod: prepared ? 1.12 : 1,
+    label: prepared ? "preparation advantage" : null,
+  };
 }
 
-function personalityModifier(
-  c: SimCombatant,
-  setup: SimSetup,
-): { mod: number; label: string | null } {
+function personalityModifier(c: SimCombatant, setup: SimSetup) {
   const blob = textBlob(c);
   let mod = 1;
   let label: string | null = null;
-  if (countMatches(blob, ["arrogant", "overconfiden", "cocky"]) > 0) {
-    mod *= 0.95;
-    label = "Overconfidence";
+
+  if (countMatches(blob, ["arrogant", "cocky", "overconfident"]) > 0) {
+    mod *= 0.92;
+    label = label || "overconfidence";
   }
   if (
-    setup.morals === "canon" &&
-    countMatches(blob, ["protective", "merciful", "compassion", "heroic"]) > 0
+    countMatches(blob, ["calculating", "strategic", "adaptive", "tactician"]) >
+    0
   ) {
-    mod *= 0.97;
-    label = label || "Restraint / held back";
+    mod *= 1.07;
+    label = label || "adaptability";
   }
   if (
-    countMatches(blob, ["ruthless", "strategic", "calculating", "adapt"]) > 0
+    setup.morals === "no_kill" &&
+    countMatches(blob, ["merciful", "protective", "heroic"]) > 0
   ) {
-    mod *= 1.06;
-    label = label || "Tactical adaptability";
+    mod *= 0.94;
+    label = label || "restraint";
   }
+
   return { mod, label };
+}
+
+function parseStatRange(value: number) {
+  return clamp(value, 10, 100);
 }
 
 export function runSimulation(
@@ -388,8 +482,8 @@ export function runSimulation(
   const rng = mulberry32(baseSeed);
 
   const stats: [StatBundle, StatBundle] = [
-    deriveStats(combatants[0], rng),
-    deriveStats(combatants[1], rng),
+    deriveStats(combatants[0]),
+    deriveStats(combatants[1]),
   ];
 
   const {
@@ -404,15 +498,12 @@ export function runSimulation(
   const pers0 = personalityModifier(combatants[0], setup);
   const pers1 = personalityModifier(combatants[1], setup);
 
-  // Wider randomness swing when neither side knows the other's abilities.
   const randSpread =
     setup.knowledge === "unknown"
-      ? 0.35
+      ? 0.34
       : setup.knowledge === "partial"
         ? 0.22
-        : 0.1;
-  const rand0 = 1 - randSpread / 2 + rng() * randSpread;
-  const rand1 = 1 - randSpread / 2 + rng() * randSpread;
+        : 0.12;
 
   const modifiers: [ModifierBreakdown, ModifierBreakdown] = [
     {
@@ -420,44 +511,271 @@ export function runSimulation(
       environment: env0.mod,
       condition: cond0.mod,
       personality: pers0.mod,
-      randomness: rand0,
-      total: aMod * env0.mod * cond0.mod * pers0.mod * rand0,
+      randomness: 1 - randSpread / 2 + rng() * randSpread,
+      total: 1,
     },
     {
       matchup: bMod,
       environment: env1.mod,
       condition: cond1.mod,
       personality: pers1.mod,
-      randomness: rand1,
-      total: bMod * env1.mod * cond1.mod * pers1.mod * rand1,
+      randomness: 1 - randSpread / 2 + rng() * randSpread,
+      total: 1,
     },
   ];
 
-  const effective: [number, number] = [
-    stats[0].basePower * modifiers[0].total,
-    stats[1].basePower * modifiers[1].total,
+  modifiers[0].total =
+    modifiers[0].matchup *
+    modifiers[0].environment *
+    modifiers[0].condition *
+    modifiers[0].personality *
+    modifiers[0].randomness;
+  modifiers[1].total =
+    modifiers[1].matchup *
+    modifiers[1].environment *
+    modifiers[1].condition *
+    modifiers[1].personality *
+    modifiers[1].randomness;
+
+  const distanceFactor = parseDistance(setup.distance) / 80;
+  const knowledgeFactor =
+    setup.knowledge === "full"
+      ? 1.08
+      : setup.knowledge === "partial"
+        ? 1.02
+        : 0.95;
+  const moraleFactor =
+    setup.morals === "bloodlusted"
+      ? 1.08
+      : setup.morals === "no_kill"
+        ? 0.96
+        : 1;
+
+  const fighterRaw = [
+    stats[0].basePower * 0.9 +
+      stats[0].strength * 0.6 +
+      stats[0].combatSkill * 0.7 +
+      stats[0].adaptability * 0.4,
+    stats[1].basePower * 0.9 +
+      stats[1].strength * 0.6 +
+      stats[1].combatSkill * 0.7 +
+      stats[1].adaptability * 0.4,
   ];
+
+  const effective: [number, number] = [
+    fighterRaw[0] *
+      modifiers[0].total *
+      distanceFactor *
+      knowledgeFactor *
+      moraleFactor,
+    fighterRaw[1] *
+      modifiers[1].total *
+      distanceFactor *
+      knowledgeFactor *
+      moraleFactor,
+  ];
+
   const probability: [number, number] = [
     effective[0] / (effective[0] + effective[1]),
     effective[1] / (effective[0] + effective[1]),
   ];
 
-  const roll = rng();
-  const winnerIndex: 0 | 1 = roll < probability[0] ? 0 : 1;
-  const favoredIndex: 0 | 1 = stats[0].basePower >= stats[1].basePower ? 0 : 1;
-  const isUpset = winnerIndex !== favoredIndex;
-
-  // Attribute the win to whichever modifier swung hardest in the winner's favor.
-  const winnerMods = modifiers[winnerIndex];
-  const categories: [string, number][] = [
-    ["Power matchup", winnerMods.matchup],
-    ["Environmental exploitation", winnerMods.environment],
-    ["Preparation advantage", winnerMods.condition],
-    ["Behavioral deviation", winnerMods.personality],
+  const state = [
+    {
+      health: 100,
+      stamina: 100,
+      energy: 100,
+      wounds: 0,
+      position: 0,
+      adaptation: 0,
+    },
+    {
+      health: 100,
+      stamina: 100,
+      energy: 100,
+      wounds: 0,
+      position: 0,
+      adaptation: 0,
+    },
   ];
-  categories.sort((a, b) => b[1] - a[1]);
-  const primaryCause =
-    categories[0][1] > 1.01 ? categories[0][0] : "Statistical favorite";
+
+  const rounds: RoundEvent[] = [];
+  let winnerIndex: 0 | 1 = probability[0] >= probability[1] ? 0 : 1;
+  let lastReason = "statistical model";
+
+  for (let round = 1; round <= 7; round++) {
+    const actionA =
+      stats[0].speed * 0.42 +
+      stats[0].combatSkill * 0.33 +
+      stats[0].intelligence * 0.16 +
+      state[0].adaptation * 0.2 +
+      state[0].position * 0.15 +
+      (setup.preparation === "combatant1" ? 8 : 0) -
+      state[0].wounds * 0.2;
+
+    const actionB =
+      stats[1].speed * 0.42 +
+      stats[1].combatSkill * 0.33 +
+      stats[1].intelligence * 0.16 +
+      state[1].adaptation * 0.2 +
+      state[1].position * 0.15 +
+      (setup.preparation === "combatant2" ? 8 : 0) -
+      state[1].wounds * 0.2;
+
+    const counterA = matchupModifier(combatants[0], combatants[1]).aMod;
+    const counterB = matchupModifier(combatants[1], combatants[0]).aMod;
+
+    let damageA = clamp(
+      actionA * counterA * 0.18 -
+        (stats[1].durability * 0.14 + state[1].position * 0.6),
+      4,
+      32,
+    );
+    let damageB = clamp(
+      actionB * counterB * 0.18 -
+        (stats[0].durability * 0.14 + state[0].position * 0.6),
+      4,
+      32,
+    );
+
+    const distanceMeters = parseDistance(setup.distance);
+    if (distanceMeters > 150) {
+      damageA *= 0.8;
+      damageB *= 0.8;
+    }
+    if (setup.knowledge === "unknown") {
+      damageA *= 0.94;
+      damageB *= 0.94;
+    }
+    if (setup.conditions.toLowerCase().includes("night")) {
+      damageA *= 1.02;
+      damageB *= 1.02;
+    }
+
+    state[0].stamina = clamp(
+      state[0].stamina - 8 + stats[0].stamina * 0.04,
+      0,
+      100,
+    );
+    state[1].stamina = clamp(
+      state[1].stamina - 8 + stats[1].stamina * 0.04,
+      0,
+      100,
+    );
+    state[0].energy = clamp(
+      state[0].energy - 5 + stats[0].intelligence * 0.04,
+      0,
+      100,
+    );
+    state[1].energy = clamp(
+      state[1].energy - 5 + stats[1].intelligence * 0.04,
+      0,
+      100,
+    );
+
+    if (state[0].stamina < 28 || actionA < actionB) {
+      damageA *= 0.9;
+    }
+    if (state[1].stamina < 28 || actionB < actionA) {
+      damageB *= 0.9;
+    }
+
+    const strikeA = damageA * (0.9 + rng() * 0.28);
+    const strikeB = damageB * (0.9 + rng() * 0.28);
+
+    state[0].health = clamp(state[0].health - strikeB, 0, 100);
+    state[1].health = clamp(state[1].health - strikeA, 0, 100);
+
+    state[0].wounds = clamp(state[0].wounds + strikeB * 0.16, 0, 100);
+    state[1].wounds = clamp(state[1].wounds + strikeA * 0.16, 0, 100);
+    state[0].position = clamp(
+      state[0].position +
+        (actionA > actionB ? 8 : -4) +
+        (distanceMeters < 25 ? 5 : 0),
+      -20,
+      20,
+    );
+    state[1].position = clamp(
+      state[1].position +
+        (actionB > actionA ? 8 : -4) +
+        (distanceMeters < 25 ? 5 : 0),
+      -20,
+      20,
+    );
+    state[0].adaptation = clamp(
+      state[0].adaptation + (actionB > actionA ? 10 : 4),
+      0,
+      100,
+    );
+    state[1].adaptation = clamp(
+      state[1].adaptation + (actionA > actionB ? 10 : 4),
+      0,
+      100,
+    );
+
+    const roundReason =
+      actionA > actionB
+        ? `${combatants[0].name} dictated the pace with superior timing and pressure.`
+        : actionB > actionA
+          ? `${combatants[1].name} forced the exchange with better control and spacing.`
+          : "Neither fighter gained a decisive edge, but the exchange still shaped the next exchanges.";
+
+    const summary =
+      actionA >= actionB
+        ? `${combatants[0].name} attacks first, forcing ${combatants[1].name} to react under pressure.`
+        : `${combatants[1].name} lands the sharper sequence, pushing ${combatants[0].name} back on the back foot.`;
+
+    rounds.push({
+      round,
+      summary,
+      reason: roundReason,
+      damage: Math.round(Math.max(strikeA, strikeB)),
+      healthAfter: [
+        Number(state[0].health.toFixed(1)),
+        Number(state[1].health.toFixed(1)),
+      ],
+      staminaAfter: [
+        Number(state[0].stamina.toFixed(1)),
+        Number(state[1].stamina.toFixed(1)),
+      ],
+    });
+
+    if (state[0].health <= 0 || state[1].health <= 0) {
+      winnerIndex = state[0].health > state[1].health ? 0 : 1;
+      lastReason = roundReason;
+      break;
+    }
+    if (round === 6) {
+      winnerIndex = state[0].health >= state[1].health ? 0 : 1;
+      lastReason = `Late-round resource drift favored ${combatants[winnerIndex].name}.`;
+    }
+  }
+
+  const totalHealth = state[0].health + state[1].health;
+  const preferredWinner = state[0].health >= state[1].health ? 0 : 1;
+  const victoryIndex = totalHealth > 0 ? preferredWinner : winnerIndex;
+  const finalWinner = victoryIndex as 0 | 1;
+  const finalLoser = finalWinner === 0 ? 1 : 0;
+
+  const categoryFactors: [string, number][] = [
+    [
+      "power and damage output",
+      stats[finalWinner].strength + stats[finalWinner].combatSkill,
+    ],
+    ["environment and positioning", modifiers[finalWinner].environment * 20],
+    [
+      "adaptation under pressure",
+      stats[finalWinner].adaptability + state[finalWinner].adaptation / 2,
+    ],
+    [
+      "preparation and knowledge",
+      modifiers[finalWinner].condition *
+        modifiers[finalWinner].personality *
+        40,
+    ],
+  ];
+  categoryFactors.sort((a, b) => b[1] - a[1]);
+  const primaryCause = categoryFactors[0][0];
   const turningPoint =
     matchupLabel ||
     env0.label ||
@@ -466,26 +784,31 @@ export function runSimulation(
     cond1.label ||
     pers0.label ||
     pers1.label ||
-    "A single decisive exchange";
+    `${combatants[finalWinner].name} adjusted after the midpoint and broke the rhythm.`;
+
+  const favored = stats[0].basePower >= stats[1].basePower ? 0 : 1;
+  const isUpset = finalWinner !== favored;
   const unexpectedFactor = isUpset
-    ? `${combatants[winnerIndex].name} overcame the numbers via ${primaryCause.toLowerCase()}.`
-    : "None — the statistical favorite prevailed.";
+    ? `${combatants[finalWinner].name} won by outlasting the favored profile through ${primaryCause}.`
+    : `${combatants[finalWinner].name} won as the stronger profile; the model expected it.`;
+
+  const why = `${combatants[finalWinner].name} won because ${primaryCause} carried more weight than the opponent's resilience, and the decisive shift was ${turningPoint}. This outcome was shaped by the environment, preparation, and round-to-round adaptation, not by random narrative overrides.`;
 
   return {
     stats,
     modifiers,
     effective,
     probability,
-    winnerIndex,
+    winnerIndex: finalWinner,
     isUpset,
     turningPoint,
     primaryCause,
     unexpectedFactor,
+    why,
+    rounds,
   };
 }
 
-// Builds the prompt handed to the AI narrative layer. The AI is only allowed
-// to dramatize this pre-computed outcome, never to change who wins.
 export function buildNarrativePrompt(
   combatants: [SimCombatant, SimCombatant],
   location: SimLocation | null,
@@ -520,6 +843,7 @@ ENGINE RESULT (do not contradict this):
 - Win probability at simulation start: ${(computation.probability[0] * 100).toFixed(0)}% / ${(computation.probability[1] * 100).toFixed(0)}%
 - Turning point: ${computation.turningPoint}
 - Primary cause of outcome: ${computation.primaryCause}
+- Why this happened: ${computation.why}
 - Was this an upset over the statistical favorite: ${computation.isUpset ? "yes" : "no"}
 
 Write 4 to 6 short "ROUND" beats (label each "ROUND 01", "ROUND 02", etc.), each 2-4 short sentences, escalating tension, in present tense. Reference the turning point explicitly in the round it occurs. End with one short "TWIST" paragraph revealing something about ${winner.name} or ${loser.name} that recontextualizes the fight (tie it to their personality, weakness, or relationship if plausible), still consistent with ${winner.name} winning. Do not use markdown headers, just plain paragraphs separated by "---" on their own line.`;

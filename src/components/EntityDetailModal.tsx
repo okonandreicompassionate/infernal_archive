@@ -74,6 +74,20 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
   const [actionPending, setActionPending] = useState(false);
   const profileEditorRef = useRef<HTMLDivElement>(null);
 
+  const asArray = (value: unknown): string[] => {
+    if (Array.isArray(value))
+      return value.filter(
+        (entry): entry is string => typeof entry === "string",
+      );
+    if (typeof value === "string") {
+      return value
+        .split(/[\n,]/)
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+    }
+    return [];
+  };
+
   const editableCharacterFields = [
     ["codeName", "Code name / alias"],
     ["species", "Species / race"],
@@ -89,6 +103,8 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
     ["majorAbilities", "Major abilities"],
     ["secondaryAbilities", "Secondary abilities"],
     ["signatureTechniques", "Signature techniques"],
+    ["powers", "Powers"],
+    ["skills", "Skills"],
     ["positiveTraits", "Positive traits"],
     ["negativeTraits", "Negative traits"],
     ["quirksHabits", "Quirks & habits"],
@@ -301,6 +317,21 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
     setActionPending(true);
     try {
       const payload = { ...item, ...profileDraft, id: entityId };
+      for (const key of [
+        "powers",
+        "skills",
+        "weaknesses",
+        "equipment",
+        "friends",
+        "family",
+      ]) {
+        if (key in payload && typeof payload[key] === "string") {
+          payload[key] = payload[key]
+            .split(/[\n,]/)
+            .map((entry: string) => entry.trim())
+            .filter(Boolean);
+        }
+      }
       const response = await fetch(`/api/${apiPath}/${entityId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -702,18 +733,19 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                             Ability loadout
                           </p>
                           <div className="flex flex-wrap gap-2 mt-3">
-                            {[...(item.powers || []), ...(item.skills || [])]
+                            {[...asArray(item.powers), ...asArray(item.skills)]
                               .slice(0, 8)
                               .map((power: string) => (
                                 <span key={power} className="character-chip">
                                   {power}
                                 </span>
                               ))}
-                            {!item.powers?.length && !item.skills?.length && (
-                              <span className="text-xs text-zinc-500">
-                                No abilities recorded.
-                              </span>
-                            )}
+                            {!asArray(item.powers).length &&
+                              !asArray(item.skills).length && (
+                                <span className="text-xs text-zinc-500">
+                                  No abilities recorded.
+                                </span>
+                              )}
                           </div>
                         </div>
                       </div>

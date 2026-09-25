@@ -146,17 +146,44 @@ alter table public.planets add column if not exists notes_references text not nu
 create table if not exists public.locations (
   id text primary key,
   planet_id text references public.planets(id) on delete set null,
+  parent_location_id text references public.locations(id) on delete set null,
   name text not null,
+  full_name text not null default '',
+  alias text not null default '',
+  category text not null default 'Location',
+  status text not null default 'Active',
   type text not null default '',
   parent_location text not null default '',
   description text not null default '',
+  overview text not null default '',
   coordinates text not null default '',
   history text not null default '',
+  culture text not null default '',
+  economy text not null default '',
+  population text not null default '',
+  terrain text not null default '',
+  security text not null default '',
+  notable_features text not null default '',
+  access text not null default '',
   canon_status public.canon_status not null default 'DRAFT',
   image text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.locations add column if not exists parent_location_id text references public.locations(id) on delete set null;
+alter table public.locations add column if not exists full_name text not null default '';
+alter table public.locations add column if not exists alias text not null default '';
+alter table public.locations add column if not exists category text not null default 'Location';
+alter table public.locations add column if not exists status text not null default 'Active';
+alter table public.locations add column if not exists overview text not null default '';
+alter table public.locations add column if not exists culture text not null default '';
+alter table public.locations add column if not exists economy text not null default '';
+alter table public.locations add column if not exists population text not null default '';
+alter table public.locations add column if not exists terrain text not null default '';
+alter table public.locations add column if not exists security text not null default '';
+alter table public.locations add column if not exists notable_features text not null default '';
+alter table public.locations add column if not exists access text not null default '';
 
 create table if not exists public.characters (
   id text primary key,

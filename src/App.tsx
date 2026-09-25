@@ -42,6 +42,7 @@ export default function App() {
   } | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showQuickCreate, setShowQuickCreate] = useState(false);
+  const [quickCreateType, setQuickCreateType] = useState("characters");
   const [showBibleExport, setShowBibleExport] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [authReady, setAuthReady] = useState(false);
@@ -138,6 +139,11 @@ export default function App() {
     setSelectedEntity({ type, id });
   };
 
+  const openQuickCreate = (entityType = "characters") => {
+    setQuickCreateType(entityType);
+    setShowQuickCreate(true);
+  };
+
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
   };
@@ -165,7 +171,7 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenCommandPalette={() => setShowCommandPalette(true)}
-        onOpenQuickCreate={() => setShowQuickCreate(true)}
+        onOpenQuickCreate={() => openQuickCreate("characters")}
         onOpenBibleExport={() => setShowBibleExport(true)}
         onRefreshData={handleRefresh}
         onSelectItem={handleSelectItem}
@@ -201,7 +207,7 @@ export default function App() {
             key={activeTab}
             entityType={activeTab}
             onSelectItem={handleSelectItem}
-            onOpenQuickCreate={() => setShowQuickCreate(true)}
+            onOpenQuickCreate={openQuickCreate}
           />
         )}
         {activeTab === "drafts" && (
@@ -250,6 +256,7 @@ export default function App() {
 
       {showQuickCreate && (
         <QuickCreateModal
+          initialEntityType={quickCreateType}
           onClose={() => setShowQuickCreate(false)}
           onCreated={handleRefresh}
         />
