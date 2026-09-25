@@ -38,6 +38,8 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkTagInput, setBulkTagInput] = useState("");
   const [columns, setColumns] = useState<4 | 8 | 12>(4);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 12;
 
   const endpointMap: Record<string, string> = {
     characters: "characters",
@@ -76,6 +78,10 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
     const unsubscribe = subscribeToTable(apiPath, () => loadData(true));
     return unsubscribe;
   }, [entityType]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, canonFilter, entityType]);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -203,6 +209,16 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
     return matchesSearch && matchesCanon;
   });
 
+  const pageCount = Math.max(1, Math.ceil(filteredItems.length / pageSize));
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, pageCount));
+  }, [pageCount]);
+
+  const visibleItems = filteredItems.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+
   const getTitle = (item: any) =>
     item.name || item.title || item.codeName || "Untitled Entity";
   const getSubtitle = (item: any) =>
@@ -328,70 +344,44 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
           </p>
         </div>
       ) : (
-        <div
-          className="record-grid"
-          style={{ "--record-columns": columns } as React.CSSProperties}
-        >
-          {filteredItems.map((item) => {
-            const isSelected = selectedIds.includes(item.id);
-            return (
-              <div
-                key={item.id}
-                onClick={() => onSelectItem(entityType, item.id)}
-                className={`bg-zinc-900/70 backdrop-blur-xl hover:bg-zinc-900 border transition-all cursor-pointer group flex flex-col justify-between shadow-md rounded-2xl overflow-hidden relative ${
-                  isSelected
-                    ? "border-yellow-400 ring-2 ring-yellow-400/30 bg-indigo-950/20"
-                    : "border-white/5 hover:border-yellow-400/50"
-                }`}
-              >
-                <div>
-                  {(item.portrait || item.cover || item.image || item.logo) && (
-                    <div className="h-44 w-full overflow-hidden bg-zinc-950 relative">
-                      <img
-                        src={
-                          item.portrait || item.cover || item.image || item.logo
-                        }
-                        alt={getTitle(item)}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent opacity-80"></div>
-                      <div className="absolute top-3 left-3 z-10">
-                        <button
-                          onClick={(e) => handleToggleSelect(e, item.id)}
-                          className="p-1 rounded bg-black/60 backdrop-blur border border-white/10 text-white hover:bg-yellow-400 transition-colors"
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-yellow-400" />
-                          ) : (
-                            <Square className="w-4 h-4 text-zinc-400" />
-                          )}
-                        </button>
-                      </div>
-                      <div className="absolute top-3 right-3">
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded font-mono font-medium border shadow-sm ${
-                            item.canonStatus === "CANON"
-                              ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                              : item.canonStatus === "APPROVED"
-                                ? "bg-yellow-400/20 text-yellow-300 border-yellow-400/30"
-                                : "bg-amber-500/20 text-amber-300 border-amber-500/30"
-                          }`}
-                        >
-                          {item.canonStatus}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="p-5 space-y-2">
-                    {!item.portrait &&
-                      !item.cover &&
-                      !item.image &&
-                      !item.logo && (
-                        <div className="flex items-center justify-between mb-2">
+        <>
+          <div
+            className="record-grid"
+            style={{ "--record-columns": columns } as React.CSSProperties}
+          >
+            {visibleItems.map((item) => {
+              const isSelected = selectedIds.includes(item.id);
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => onSelectItem(entityType, item.id)}
+                  className={`bg-zinc-900/70 backdrop-blur-xl hover:bg-zinc-900 border transition-all cursor-pointer group flex flex-col justify-between shadow-md rounded-2xl overflow-hidden relative ${
+                    isSelected
+                      ? "border-yellow-400 ring-2 ring-yellow-400/30 bg-indigo-950/20"
+                      : "border-white/5 hover:border-yellow-400/50"
+                  }`}
+                >
+                  <div>
+                    {(item.portrait ||
+                      item.cover ||
+                      item.image ||
+                      item.logo) && (
+                      <div className="h-44 w-full overflow-hidden bg-zinc-950 relative">
+                        <img
+                          src={
+                            item.portrait ||
+                            item.cover ||
+                            item.image ||
+                            item.logo
+                          }
+                          alt={getTitle(item)}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent opacity-80"></div>
+                        <div className="absolute top-3 left-3 z-10">
                           <button
                             onClick={(e) => handleToggleSelect(e, item.id)}
-                            className="p-1 rounded bg-white/5 border border-white/10 text-white hover:bg-yellow-400 transition-colors"
+                            className="p-1 rounded bg-black/60 backdrop-blur border border-white/10 text-white hover:bg-yellow-400 transition-colors"
                           >
                             {isSelected ? (
                               <CheckSquare className="w-4 h-4 text-yellow-400" />
@@ -399,81 +389,173 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
                               <Square className="w-4 h-4 text-zinc-400" />
                             )}
                           </button>
+                        </div>
+                        <div className="absolute top-3 right-3">
                           <span
-                            className={`text-[10px] px-2 py-0.5 rounded font-mono font-medium border ${
+                            className={`text-[10px] px-2 py-0.5 rounded font-mono font-medium border shadow-sm ${
                               item.canonStatus === "CANON"
                                 ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                                : "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                                : item.canonStatus === "APPROVED"
+                                  ? "bg-yellow-400/20 text-yellow-300 border-yellow-400/30"
+                                  : "bg-amber-500/20 text-amber-300 border-amber-500/30"
                             }`}
                           >
                             {item.canonStatus}
                           </span>
                         </div>
-                      )}
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-yellow-400 font-mono uppercase tracking-widest">
-                        {getSubtitle(item)}
-                      </span>
-                      {entityType === "issues" && item.finalFileUrl && (
-                        <span
-                          className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono border border-emerald-500/30"
-                          title="Final comic file uploaded"
-                        >
-                          📖 Final
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className="text-base font-bold text-zinc-100 group-hover:text-yellow-300 transition-colors">
-                      {getTitle(item)}
-                    </h3>
-
-                    <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
-                      {item.description ||
-                        item.synopsis ||
-                        item.biography ||
-                        item.goals ||
-                        "No description provided."}
-                    </p>
-
-                    {/* Custom Tags */}
-                    {item.tags && item.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {item.tags.map((tag: string, idx: number) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center space-x-1 bg-white/5 text-zinc-300 text-[10px] px-2 py-0.5 rounded font-mono"
-                          >
-                            <Tag className="w-2.5 h-2.5 text-yellow-400" />
-                            <span>{tag}</span>
-                          </span>
-                        ))}
                       </div>
                     )}
+
+                    <div className="p-5 space-y-2">
+                      {!item.portrait &&
+                        !item.cover &&
+                        !item.image &&
+                        !item.logo && (
+                          <div className="flex items-center justify-between mb-2">
+                            <button
+                              onClick={(e) => handleToggleSelect(e, item.id)}
+                              className="p-1 rounded bg-white/5 border border-white/10 text-white hover:bg-yellow-400 transition-colors"
+                            >
+                              {isSelected ? (
+                                <CheckSquare className="w-4 h-4 text-yellow-400" />
+                              ) : (
+                                <Square className="w-4 h-4 text-zinc-400" />
+                              )}
+                            </button>
+                            <span
+                              className={`text-[10px] px-2 py-0.5 rounded font-mono font-medium border ${
+                                item.canonStatus === "CANON"
+                                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                                  : "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                              }`}
+                            >
+                              {item.canonStatus}
+                            </span>
+                          </div>
+                        )}
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-yellow-400 font-mono uppercase tracking-widest">
+                          {getSubtitle(item)}
+                        </span>
+                        {entityType === "issues" && item.finalFileUrl && (
+                          <span
+                            className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono border border-emerald-500/30"
+                            title="Final comic file uploaded"
+                          >
+                            📖 Final
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className="text-base font-bold text-zinc-100 group-hover:text-yellow-300 transition-colors">
+                        {getTitle(item)}
+                      </h3>
+
+                      <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
+                        {item.description ||
+                          item.synopsis ||
+                          item.biography ||
+                          item.goals ||
+                          "No description provided."}
+                      </p>
+
+                      {/* Custom Tags */}
+                      {item.tags && item.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {item.tags.map((tag: string, idx: number) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center space-x-1 bg-white/5 text-zinc-300 text-[10px] px-2 py-0.5 rounded font-mono"
+                            >
+                              <Tag className="w-2.5 h-2.5 text-yellow-400" />
+                              <span>{tag}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+                  <div className="px-5 py-3 border-t border-white/5 bg-zinc-950/40 flex items-center justify-between text-xs text-zinc-400">
+                    <span className="font-mono text-[11px]">ID: {item.id}</span>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={(e) => handleDelete(e, item.id)}
+                        className="p-1 hover:text-rose-400 transition-colors"
+                        title="Delete record"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-yellow-400 group-hover:translate-x-1 transition-transform inline-flex items-center space-x-1">
+                        <span>View Record</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {filteredItems.length > pageSize && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-white/5 pt-4 text-xs text-zinc-400">
+              <p>
+                Showing{" "}
+                {Math.min(
+                  (currentPage - 1) * pageSize + 1,
+                  filteredItems.length,
+                )}
+                -{Math.min(currentPage * pageSize, filteredItems.length)} of{" "}
+                {filteredItems.length} records
+              </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                  }
+                  disabled={currentPage === 1}
+                  className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-1.5 text-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 hover:border-yellow-400/50 transition-colors"
+                >
+                  Prev
+                </button>
+
+                <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-zinc-900 px-2 py-1.5">
+                  {Array.from(
+                    { length: pageCount },
+                    (_, index) => index + 1,
+                  ).map((page) => (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={() => setCurrentPage(page)}
+                      className={`h-7 min-w-[2rem] rounded-lg text-[11px] font-medium transition-colors ${
+                        currentPage === page
+                          ? "bg-yellow-400 text-zinc-950"
+                          : "text-zinc-300 hover:bg-white/5"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
                 </div>
 
-                <div className="px-5 py-3 border-t border-white/5 bg-zinc-950/40 flex items-center justify-between text-xs text-zinc-400">
-                  <span className="font-mono text-[11px]">ID: {item.id}</span>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={(e) => handleDelete(e, item.id)}
-                      className="p-1 hover:text-rose-400 transition-colors"
-                      title="Delete record"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="text-yellow-400 group-hover:translate-x-1 transition-transform inline-flex items-center space-x-1">
-                      <span>View Record</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </span>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(pageCount, prev + 1))
+                  }
+                  disabled={currentPage === pageCount}
+                  className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-1.5 text-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 hover:border-yellow-400/50 transition-colors"
+                >
+                  Next
+                </button>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Floating Bulk Management Toolbar */}

@@ -298,152 +298,213 @@ export const CombatSimulator: React.FC<CombatSimulatorProps> = () => {
   };
 
   if (result) {
+    const matchupCards = [
+      {
+        name: result.combatant1Name,
+        probability: result.probability1,
+        isWinner: result.winnerName === result.combatant1Name,
+        vibe: "amber",
+      },
+      {
+        name: result.combatant2Name,
+        probability: result.probability2,
+        isWinner: result.winnerName === result.combatant2Name,
+        vibe: "rose",
+      },
+    ];
+
     return (
-      <div className="max-w-3xl mx-auto px-4 py-8 space-y-6 pb-28">
-        <div className="border border-white/5 rounded-2xl bg-zinc-950 overflow-hidden">
-          <div className="border-b border-white/5 px-6 py-4 bg-zinc-900/60">
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6 pb-28">
+        <div className="border border-white/5 rounded-3xl bg-zinc-950 overflow-hidden shadow-2xl shadow-black/20">
+          <div className="border-b border-white/5 px-6 py-4 bg-gradient-to-r from-zinc-900 via-zinc-900 to-zinc-950">
             <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">
               Simulation // {result.id.replace(/^sim-/, "").slice(0, 6)}
             </p>
-            <h1 className="text-xl font-bold text-zinc-100 font-sans">
+            <h1 className="text-xl font-bold text-zinc-100 font-sans mt-2">
               {result.combatant1Name.toUpperCase()} VS{" "}
               {result.combatant2Name.toUpperCase()}
             </h1>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-zinc-400 font-mono">
-              <span>LOCATION: {result.setup?.locationName}</span>
-              <span>CONDITIONS: {result.setup?.conditions}</span>
-              <span>KNOWLEDGE: {result.setup?.knowledge}</span>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] text-zinc-400 font-mono">
+              <span>LOCATION: {result.setup?.locationName || "Unknown"}</span>
+              <span>CONDITIONS: {result.setup?.conditions || "Default"}</span>
+              <span>KNOWLEDGE: {result.setup?.knowledge || "unknown"}</span>
             </div>
           </div>
 
           <div className="p-6 space-y-5">
-            {result.rounds.map((round: string, i: number) => (
-              <div key={i} className="space-y-1.5">
-                {result.rounds.length > 1 && (
-                  <p className="text-[10px] font-mono text-yellow-400 uppercase tracking-widest">
-                    {i === result.rounds.length - 1 &&
-                    round.toUpperCase().startsWith("TWIST")
-                      ? "Twist"
-                      : `Round ${String(i + 1).padStart(2, "0")}`}
-                  </p>
-                )}
-                <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-line">
-                  {round.replace(/^TWIST:\s*/i, "")}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <div className="border-t border-white/5 px-6 py-5 bg-zinc-900/40 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-zinc-100">
-                {result.winnerName.toUpperCase()} WINS
-              </span>
-              <span className="text-xs font-mono text-zinc-400">
-                {result.probability1}% / {result.probability2}%
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-zinc-400">
-              <p>
-                <span className="text-zinc-500">Turning point:</span>{" "}
-                {result.turningPoint}
-              </p>
-              <p>
-                <span className="text-zinc-500">Primary cause:</span>{" "}
-                {result.primaryCause}
-              </p>
-              {result.isUpset && (
-                <p className="sm:col-span-2 text-amber-400">
-                  Upset result: {result.unexpectedFactor}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {result.engineReport && (
-            <div className="border-t border-white/5 px-6 py-5 space-y-4 bg-black/20">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-mono uppercase tracking-widest text-yellow-400">
-                    Engine telemetry
-                  </p>
-                  <p className="text-xs text-zinc-500 mt-1">
-                    The narrative dramatizes this model. It does not decide the
-                    winner.
-                  </p>
-                </div>
-                <span className="text-[10px] font-mono text-zinc-600">
-                  RULESET // v1
-                </span>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-[10px] font-mono text-zinc-500">
-                  <span>{result.combatant1Name}</span>
-                  <span>{result.probability1}%</span>
-                </div>
-                <div className="flex h-2 overflow-hidden rounded-full bg-zinc-800">
-                  <div
-                    className="bg-yellow-300"
-                    style={{ width: `${result.probability1}%` }}
-                  />
-                  <div
-                    className="bg-pink-400"
-                    style={{ width: `${result.probability2}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-[10px] font-mono text-zinc-500">
-                  <span>{result.combatant2Name}</span>
-                  <span>{result.probability2}%</span>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {result.engineReport.effective?.map(
-                  (score: number, index: number) => (
+            <div className="grid gap-4 md:grid-cols-2">
+              {matchupCards.map((card) => (
+                <div
+                  key={card.name}
+                  className={`rounded-2xl border p-4 ${
+                    card.isWinner
+                      ? "border-yellow-400/40 bg-yellow-400/10"
+                      : "border-white/10 bg-zinc-900/70"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400">
+                      {card.isWinner ? "Winner" : "Challenger"}
+                    </p>
+                    <span className="text-[10px] font-mono text-zinc-300">
+                      {card.probability}%
+                    </span>
+                  </div>
+                  <h2 className="mt-3 text-xl font-black text-white">
+                    {card.name.toUpperCase()}
+                  </h2>
+                  <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-zinc-800">
                     <div
-                      key={`effective-${index}`}
-                      className="rounded-xl border border-white/5 bg-zinc-900/70 p-3"
-                    >
-                      <p className="text-[9px] uppercase text-zinc-600">
-                        Effective score
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-zinc-200">
-                        {Math.round(score)}
-                      </p>
-                      <p className="text-[10px] text-zinc-500 truncate">
-                        {index === 0
-                          ? result.combatant1Name
-                          : result.combatant2Name}
-                      </p>
-                    </div>
-                  ),
-                )}
+                      className={`h-full ${
+                        card.vibe === "amber" ? "bg-yellow-300" : "bg-pink-400"
+                      }`}
+                      style={{ width: `${card.probability}%` }}
+                    />
+                  </div>
+                  <div className="mt-4 flex items-center justify-between text-[10px] text-zinc-400 font-mono">
+                    <span>Win chance</span>
+                    <span>{card.probability}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4">
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                  Outcome
+                </p>
+                <p className="mt-2 text-lg font-black text-yellow-200">
+                  {result.winnerName.toUpperCase()} WINS
+                </p>
               </div>
-              <div className="grid grid-cols-1 gap-2 text-[10px] font-mono text-zinc-500 sm:grid-cols-2">
-                <p>
-                  Matchup ×{" "}
-                  {result.engineReport.modifiers?.[0]?.matchup?.toFixed(2)} /{" "}
-                  {result.engineReport.modifiers?.[1]?.matchup?.toFixed(2)}
+              <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4">
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                  Turning point
                 </p>
-                <p>
-                  Environment ×{" "}
-                  {result.engineReport.modifiers?.[0]?.environment?.toFixed(2)}{" "}
-                  /{" "}
-                  {result.engineReport.modifiers?.[1]?.environment?.toFixed(2)}
+                <p className="mt-2 text-sm text-zinc-300">
+                  {result.turningPoint}
                 </p>
-                <p>
-                  Strategy ×{" "}
-                  {result.engineReport.modifiers?.[0]?.personality?.toFixed(2)}{" "}
-                  /{" "}
-                  {result.engineReport.modifiers?.[1]?.personality?.toFixed(2)}
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4">
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                  Primary cause
                 </p>
-                <p>
-                  Randomness ×{" "}
-                  {result.engineReport.modifiers?.[0]?.randomness?.toFixed(2)} /{" "}
-                  {result.engineReport.modifiers?.[1]?.randomness?.toFixed(2)}
+                <p className="mt-2 text-sm text-zinc-300">
+                  {result.primaryCause}
                 </p>
               </div>
             </div>
-          )}
+
+            <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4">
+              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                Match rounds
+              </p>
+              <div className="mt-4 space-y-3">
+                {result.rounds.map((round: string, i: number) => (
+                  <div
+                    key={i}
+                    className="rounded-xl border border-white/10 bg-zinc-950 px-3 py-3"
+                  >
+                    <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-yellow-400 mb-2">
+                      {result.rounds.length > 1 &&
+                      i === result.rounds.length - 1 &&
+                      round.toUpperCase().startsWith("TWIST")
+                        ? "Twist"
+                        : `Round ${String(i + 1).padStart(2, "0")}`}
+                    </p>
+                    <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-line">
+                      {round.replace(/^TWIST:\s*/i, "")}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-white/5 px-6 py-5 bg-zinc-900/40 space-y-4">
+            {result.isUpset && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                Upset result: {result.unexpectedFactor}
+              </div>
+            )}
+
+            {result.engineReport && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-mono uppercase tracking-widest text-yellow-400">
+                      Engine telemetry
+                    </p>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      The narrative dramatizes this model. It does not decide
+                      the winner.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-600">
+                    RULESET // v1
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {result.engineReport.effective?.map(
+                    (score: number, index: number) => (
+                      <div
+                        key={`effective-${index}`}
+                        className="rounded-xl border border-white/5 bg-zinc-900/70 p-3"
+                      >
+                        <p className="text-[9px] uppercase text-zinc-600">
+                          Effective score
+                        </p>
+                        <p className="mt-1 text-sm font-bold text-zinc-200">
+                          {Math.round(score)}
+                        </p>
+                        <p className="text-[10px] text-zinc-500 truncate">
+                          {index === 0
+                            ? result.combatant1Name
+                            : result.combatant2Name}
+                        </p>
+                      </div>
+                    ),
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 text-[10px] font-mono text-zinc-500 sm:grid-cols-2">
+                  <p>
+                    Matchup ×{" "}
+                    {result.engineReport.modifiers?.[0]?.matchup?.toFixed(2)} /{" "}
+                    {result.engineReport.modifiers?.[1]?.matchup?.toFixed(2)}
+                  </p>
+                  <p>
+                    Environment ×{" "}
+                    {result.engineReport.modifiers?.[0]?.environment?.toFixed(
+                      2,
+                    )}{" "}
+                    /{" "}
+                    {result.engineReport.modifiers?.[1]?.environment?.toFixed(
+                      2,
+                    )}
+                  </p>
+                  <p>
+                    Strategy ×{" "}
+                    {result.engineReport.modifiers?.[0]?.personality?.toFixed(
+                      2,
+                    )}{" "}
+                    /{" "}
+                    {result.engineReport.modifiers?.[1]?.personality?.toFixed(
+                      2,
+                    )}
+                  </p>
+                  <p>
+                    Randomness ×{" "}
+                    {result.engineReport.modifiers?.[0]?.randomness?.toFixed(2)}{" "}
+                    /{" "}
+                    {result.engineReport.modifiers?.[1]?.randomness?.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-3">

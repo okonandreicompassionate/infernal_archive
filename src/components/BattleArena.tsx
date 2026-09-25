@@ -961,8 +961,8 @@ function BattleArena({ publicMode = false }: { publicMode?: boolean }) {
         )}
 
         {battleResult && (
-          <div className="mt-8 rounded-3xl border border-yellow-400/20 bg-gradient-to-br from-zinc-900 via-zinc-950 to-[#1a160f] p-5">
-            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="mt-8 rounded-3xl border border-yellow-400/20 bg-gradient-to-br from-zinc-900 via-zinc-950 to-[#1a160f] p-5 shadow-2xl shadow-black/20">
+            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.3em] text-yellow-300">
                   Battle complete
@@ -977,7 +977,51 @@ function BattleArena({ publicMode = false }: { publicMode?: boolean }) {
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/5 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">
+                    Winner
+                  </p>
+                  <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2 py-1 text-[9px] uppercase tracking-[0.18em] text-yellow-200">
+                    Victory
+                  </span>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {battleResult.winnerTeam.map((fighter) => (
+                    <div
+                      key={fighter}
+                      className="rounded-xl border border-white/10 bg-zinc-950/70 px-3 py-2 text-sm font-medium text-zinc-100"
+                    >
+                      {fighter}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">
+                    Defeated
+                  </p>
+                  <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-[9px] uppercase tracking-[0.18em] text-rose-200">
+                    Loss
+                  </span>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {battleResult.losingTeam.map((fighter) => (
+                    <div
+                      key={fighter}
+                      className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-zinc-300"
+                    >
+                      {fighter}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
               <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
                   MVP
