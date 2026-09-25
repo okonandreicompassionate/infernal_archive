@@ -76,9 +76,7 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
 
   const asArray = (value: unknown): string[] => {
     if (Array.isArray(value))
-      return value.filter(
-        (entry): entry is string => typeof entry === "string",
-      );
+      return value.map((entry) => String(entry).trim()).filter(Boolean);
     if (typeof value === "string") {
       return value
         .split(/[\n,]/)
@@ -86,6 +84,52 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
         .filter(Boolean);
     }
     return [];
+  };
+
+  const normalizeCharacterListValue = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+      return value.map((entry) => String(entry).trim()).filter(Boolean);
+    }
+    if (typeof value === "string") {
+      return value
+        .split(/[\n,]/)
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+    }
+    return [];
+  };
+
+  const getFieldValue = (record: any, key: string) => {
+    if (!record) return undefined;
+    if (record[key] !== undefined) return record[key];
+    const snakeKey = key.replace(
+      /[A-Z]/g,
+      (letter) => `_${letter.toLowerCase()}`,
+    );
+    if (record[snakeKey] !== undefined) return record[snakeKey];
+    return undefined;
+  };
+
+  const normalizeCharacterPayload = (record: Record<string, any>) => {
+    const next = { ...record };
+    for (const key of [
+      "powers",
+      "skills",
+      "weaknesses",
+      "equipment",
+      "friends",
+      "family",
+      "aliases",
+      "members",
+      "formerMembers",
+      "allies",
+      "enemies",
+    ]) {
+      const rawValue = next[key];
+      if (rawValue === undefined || rawValue === null) continue;
+      next[key] = normalizeCharacterListValue(rawValue);
+    }
+    return next;
   };
 
   const editableCharacterFields = [
@@ -288,7 +332,7 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
     if (!item) return;
     const nextDraft = Object.fromEntries(
       editableCharacterFields.map(([key]) => {
-        const rawValue = item[key];
+        const rawValue = getFieldValue(item, key);
         const value =
           rawValue == null
             ? ""
@@ -316,22 +360,11 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
     if (actionPending || !item) return;
     setActionPending(true);
     try {
-      const payload = { ...item, ...profileDraft, id: entityId };
-      for (const key of [
-        "powers",
-        "skills",
-        "weaknesses",
-        "equipment",
-        "friends",
-        "family",
-      ]) {
-        if (key in payload && typeof payload[key] === "string") {
-          payload[key] = payload[key]
-            .split(/[\n,]/)
-            .map((entry: string) => entry.trim())
-            .filter(Boolean);
-        }
-      }
+      const payload = normalizeCharacterPayload({
+        ...item,
+        ...profileDraft,
+        id: entityId,
+      });
       const response = await fetch(`/api/${apiPath}/${entityId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },

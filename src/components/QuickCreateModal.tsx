@@ -842,6 +842,19 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
           if (upload.error) throw upload.error;
           payload.image = upload.url;
         }
+      } else if (entityType === "powers") {
+        payload.category = profileFields.category || "Power / Tech";
+        payload.type = profileFields.type || extraField || "Power";
+        payload.status = profileFields.status || "Active";
+        payload.description = profileFields.description || description;
+        payload.limitations = profileFields.limitations || "";
+        payload.knownUsers = splitListInput(
+          String(profileFields.knownUsers || ""),
+        );
+        payload.strengthRating = profileFields.strengthRating
+          ? Number(profileFields.strengthRating)
+          : null;
+        Object.assign(payload, profileFields);
       } else if (entityType === "events") {
         payload.fullName = profileFields.fullName || name;
         payload.category = profileFields.category || "Event";
@@ -901,6 +914,13 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
       title: "Create Species",
       nameLabel: "Species name",
       namePlaceholder: "e.g. Celestial Seraphim",
+      secondaryLabel: "",
+      secondaryPlaceholder: "",
+    },
+    powers: {
+      title: "Create Power / Tech",
+      nameLabel: "Power or tech name",
+      namePlaceholder: "e.g. Chrono Pulse",
       secondaryLabel: "",
       secondaryPlaceholder: "",
     },
@@ -981,6 +1001,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
             >
               <option value="characters">Character (Detailed)</option>
               <option value="species">Species / Race</option>
+              <option value="powers">Powers &amp; Tech</option>
               <option value="teams">Team</option>
               <option value="planets">Planet</option>
               <option value="locations">Location</option>
@@ -1269,6 +1290,129 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
                 )}
               </div>
             </>
+          )}
+
+          {entityType === "powers" && (
+            <div className="space-y-4 bg-zinc-900/40 p-4 rounded-2xl border border-white/5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono">
+                  <span>Type</span>
+                  <select
+                    value={profileFields.type || "Power"}
+                    onChange={(event) =>
+                      setProfileFields((current) => ({
+                        ...current,
+                        type: event.target.value,
+                      }))
+                    }
+                    className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                  >
+                    <option value="Power">Power</option>
+                    <option value="Tech">Tech</option>
+                    <option value="Mutation">Mutation</option>
+                    <option value="Artifact Tech">Artifact Tech</option>
+                    <option value="Mystic Ability">Mystic Ability</option>
+                  </select>
+                </label>
+
+                <label className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono">
+                  <span>Status</span>
+                  <select
+                    value={profileFields.status || "Active"}
+                    onChange={(event) =>
+                      setProfileFields((current) => ({
+                        ...current,
+                        status: event.target.value,
+                      }))
+                    }
+                    className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Lost">Lost</option>
+                    <option value="Forbidden">Forbidden</option>
+                    <option value="Unknown">Unknown</option>
+                  </select>
+                </label>
+
+                <label className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono">
+                  <span>Category</span>
+                  <input
+                    value={profileFields.category || "Power / Tech"}
+                    onChange={(event) =>
+                      setProfileFields((current) => ({
+                        ...current,
+                        category: event.target.value,
+                      }))
+                    }
+                    className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                  />
+                </label>
+
+                <label className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono">
+                  <span>Strength rating</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={10}
+                    value={profileFields.strengthRating || ""}
+                    onChange={(event) =>
+                      setProfileFields((current) => ({
+                        ...current,
+                        strengthRating: event.target.value,
+                      }))
+                    }
+                    className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                  />
+                </label>
+
+                <label className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono sm:col-span-2">
+                  <span>Known Users</span>
+                  <textarea
+                    rows={2}
+                    value={profileFields.knownUsers || ""}
+                    placeholder="Separate names with commas or new lines"
+                    onChange={(event) =>
+                      setProfileFields((current) => ({
+                        ...current,
+                        knownUsers: event.target.value,
+                      }))
+                    }
+                    className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                  />
+                </label>
+
+                <label className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono sm:col-span-2">
+                  <span>Limitations</span>
+                  <textarea
+                    rows={2}
+                    value={profileFields.limitations || ""}
+                    onChange={(event) =>
+                      setProfileFields((current) => ({
+                        ...current,
+                        limitations: event.target.value,
+                      }))
+                    }
+                    className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                  />
+                </label>
+
+                <label className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono sm:col-span-2">
+                  <span>Description</span>
+                  <textarea
+                    rows={3}
+                    value={profileFields.description || description || ""}
+                    onChange={(event) => {
+                      setDescription(event.target.value);
+                      setProfileFields((current) => ({
+                        ...current,
+                        description: event.target.value,
+                      }));
+                    }}
+                    className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                  />
+                </label>
+              </div>
+            </div>
           )}
 
           {entityType === "species" && (

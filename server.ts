@@ -25,6 +25,40 @@ import {
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 
+const normalizeListField = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((entry) => String(entry).trim()).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/[\n,]/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const normalizeListFields = (record: Record<string, any>) => {
+  const next = { ...record };
+  for (const key of [
+    "powers",
+    "skills",
+    "weaknesses",
+    "equipment",
+    "friends",
+    "family",
+    "aliases",
+    "members",
+    "formerMembers",
+    "allies",
+    "enemies",
+  ]) {
+    if (next[key] === undefined || next[key] === null) continue;
+    next[key] = normalizeListField(next[key]);
+  }
+  return next;
+};
+
 type ProviderKeyEntry = {
   key: string;
   label: string;
@@ -1644,11 +1678,18 @@ for (const col of collections) {
       }
     }
 
+    const sanitizedBody = normalizeListFields(req.body || {});
     const newItem = {
       id: makeEntityId(col),
-      ...req.body,
-      canonStatus: req.body.canonStatus || "CANON",
+      ...sanitizedBody,
+      canonStatus: sanitizedBody.canonStatus || "CANON",
     };
+    const createdLabel = String(
+      (newItem as any).name ||
+        (newItem as any).title ||
+        (newItem as any).id ||
+        "record",
+    );
 
     const remote = await createRow(col, newItem);
     if (remote.data) {
@@ -1665,7 +1706,7 @@ for (const col of collections) {
       timestamp: new Date().toISOString(),
       user: req.body.author || "Andrei Thorne (Editor)",
       action: `CREATE_${col.toUpperCase()}`,
-      details: `Created new ${col.slice(0, -1)}: ${newItem.name || newItem.title || newItem.id}`,
+      details: `Created new ${col.slice(0, -1)}: ${createdLabel}`,
     });
 
     saveDB(db);
@@ -1674,8 +1715,9 @@ for (const col of collections) {
 
   app.put(`/api/${col}/:id`, async (req, res) => {
     const { id } = req.params;
+    const sanitizedBody = normalizeListFields(req.body || {});
 
-    const remote = await updateRow(col, id, req.body);
+    const remote = await updateRow(col, id, sanitizedBody);
     if (remote.data) {
       return res.json(remote.data);
     }
@@ -1686,7 +1728,7 @@ for (const col of collections) {
     if (index === -1) {
       return res.status(404).json({ error: "Item not found" });
     }
-    const updated = { ...(db as any)[col][index], ...req.body, id };
+    const updated = { ...(db as any)[col][index], ...sanitizedBody, id };
     (db as any)[col][index] = updated;
 
     db.auditLogs.unshift({
