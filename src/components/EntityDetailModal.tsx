@@ -269,11 +269,22 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
   };
 
   const beginProfileEdit = () => {
-    setProfileDraft(
-      Object.fromEntries(
-        editableCharacterFields.map(([key]) => [key, item[key] || ""]),
-      ),
+    if (!item) return;
+    const nextDraft = Object.fromEntries(
+      editableCharacterFields.map(([key]) => {
+        const rawValue = item[key];
+        const value =
+          rawValue == null
+            ? ""
+            : Array.isArray(rawValue)
+              ? rawValue.join(", ")
+              : typeof rawValue === "string"
+                ? rawValue
+                : String(rawValue);
+        return [key, value];
+      }),
     );
+    setProfileDraft(nextDraft);
     setSpeciesQuery("");
     setShowSpecies(false);
     setEditingProfile(true);
@@ -286,20 +297,24 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
   };
 
   const saveProfileEdit = async () => {
-    if (actionPending) return;
+    if (actionPending || !item) return;
     setActionPending(true);
     try {
+      const payload = { ...item, ...profileDraft, id: entityId };
       const response = await fetch(`/api/${apiPath}/${entityId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profileDraft),
+        body: JSON.stringify(payload),
       });
-      if (!response.ok)
-        return alert(
-          (await response.json().catch(() => ({}))).error ||
-            "Profile could not be saved.",
-        );
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => ({}));
+        return alert(errorPayload.error || "Profile could not be saved.");
+      }
+
+      const updatedItem = await response.json().catch(() => payload);
+      setItem(updatedItem || payload);
       setEditingProfile(false);
+      setProfileDraft({});
       loadData();
     } finally {
       setActionPending(false);

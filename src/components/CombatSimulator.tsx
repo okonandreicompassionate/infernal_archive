@@ -51,6 +51,7 @@ interface EntitySearchPickerProps {
   selected: any | null;
   onSelect: (item: any | null) => void;
   accentClass?: string;
+  allowedTypes?: string[];
 }
 
 const EntitySearchPicker: React.FC<EntitySearchPickerProps> = ({
@@ -59,6 +60,7 @@ const EntitySearchPicker: React.FC<EntitySearchPickerProps> = ({
   selected,
   onSelect,
   accentClass = "text-yellow-400",
+  allowedTypes,
 }) => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ type: string; item: any }[]>([]);
@@ -90,6 +92,7 @@ const EntitySearchPicker: React.FC<EntitySearchPickerProps> = ({
           const q = query.toLowerCase();
           const matches: { type: string; item: any }[] = [];
           all.forEach(({ type, item }: { type: string; item: any }) => {
+            if (allowedTypes && !allowedTypes.includes(type)) return;
             const name = (
               item.name ||
               item.title ||
@@ -498,17 +501,19 @@ export const CombatSimulator: React.FC<CombatSimulatorProps> = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <EntitySearchPicker
           label="Select Combatant 1"
-          placeholder="Search the archive..."
+          placeholder="Search characters..."
           selected={combatant1}
           onSelect={setCombatant1}
           accentClass="text-yellow-400"
+          allowedTypes={["characters"]}
         />
         <EntitySearchPicker
           label="Select Combatant 2"
-          placeholder="Search the archive..."
+          placeholder="Search characters..."
           selected={combatant2}
           onSelect={setCombatant2}
           accentClass="text-pink-400"
+          allowedTypes={["characters"]}
         />
       </div>
 
@@ -556,6 +561,7 @@ export const CombatSimulator: React.FC<CombatSimulatorProps> = () => {
             selected={location}
             onSelect={setLocation}
             accentClass="text-emerald-400"
+            allowedTypes={["planets", "locations"]}
           />
           <div className="space-y-1.5">
             <label className="text-xs text-zinc-400 font-medium">
