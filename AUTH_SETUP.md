@@ -1,8 +1,10 @@
 # Universe OS access setup
 
-## 1. Apply the database schema
+## 1. Apply the database setup
 
-Run `supabase/schema.sql` in the Supabase SQL Editor. It creates the `profiles` table, the `admin`/`god` role check, profile creation trigger, and row-level security policy.
+For a brand-new Supabase project, run `supabase/schema.sql` in the Supabase SQL Editor. It is the full baseline setup and creates the archive tables, profiles, triggers, indexes, and row-level security policies.
+
+For an existing project, use only the specific additive migration you need. The full file list and recommended order are documented in [supabase/README.md](supabase/README.md).
 
 ## 2. Configure environment variables
 

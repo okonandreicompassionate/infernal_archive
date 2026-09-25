@@ -741,6 +741,7 @@ create table if not exists public.simulations (
 );
 
 alter table public.simulations add column if not exists engine_report jsonb not null default '{}'::jsonb;
+alter table public.simulations add column if not exists finish_state jsonb;
 
 -- Align older simulator tables with the API's camelCase-to-snake_case mapping.
 do $$
