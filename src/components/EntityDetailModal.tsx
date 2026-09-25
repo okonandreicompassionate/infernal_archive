@@ -28,7 +28,7 @@ import {
   Download,
   ArrowLeft,
 } from "lucide-react";
-import { uploadArchiveImage } from "../utils/supabase";
+import { authorizedFetch, uploadArchiveImage } from "../utils/supabase";
 import { getEntityDescription } from "../utils/entitySummary";
 import { speciesOptions } from "./QuickCreateModal";
 
@@ -161,6 +161,37 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
     ["battlePhilosophy", "Battle philosophy"],
     ["characterArc", "Character arc"],
     ["heroicVillainousLegacy", "Heroic / villainous legacy"],
+  ] as const;
+
+  const editableSpeciesFields = [
+    ["category", "Category"],
+    ["status", "Status"],
+    ["homePlanet", "Homeworld"],
+    ["primaryLocations", "Primary locations"],
+    ["lifespan", "Lifespan"],
+    ["population", "Population"],
+    ["language", "Language(s)"],
+    ["government", "Government"],
+    ["technologyLevel", "Technology level"],
+    ["overview", "Overview"],
+    ["appearance", "Appearance"],
+    ["physiology", "Physiology"],
+    ["lifecycleReproduction", "Lifecycle & reproduction"],
+    ["diet", "Diet"],
+    ["innateAbilities", "Innate abilities"],
+    ["learnedEnhanced", "Learned / enhanced"],
+    ["limitationsWeaknesses", "Limitations & weaknesses"],
+    ["culture", "Customs & values"],
+    ["governmentStructure", "Government & structure"],
+    ["technology", "Technology"],
+    ["notableFactions", "Notable factions"],
+    ["origins", "Origins"],
+    ["majorEvents", "Major events"],
+    ["currentStatus", "Current status"],
+    ["notableIndividuals", "Notable individuals"],
+    ["trivia", "Trivia"],
+    ["seeAlso", "See also"],
+    ["notesReferences", "Notes & references"],
   ] as const;
 
   const endpointMap: Record<string, string> = {
@@ -331,8 +362,10 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
 
   const beginProfileEdit = () => {
     if (!item) return;
+    const editableFields =
+      apiPath === "species" ? editableSpeciesFields : editableCharacterFields;
     const nextDraft = Object.fromEntries(
-      editableCharacterFields.map(([key]) => {
+      editableFields.map(([key]) => {
         const rawValue = getFieldValue(item, key);
         const value =
           rawValue == null
@@ -361,12 +394,19 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
     if (actionPending || !item) return;
     setActionPending(true);
     try {
-      const payload = normalizeCharacterPayload({
-        ...item,
-        ...profileDraft,
-        id: entityId,
-      });
-      const response = await fetch(`/api/${apiPath}/${entityId}`, {
+      const payload =
+        apiPath === "characters"
+          ? normalizeCharacterPayload({
+              ...item,
+              ...profileDraft,
+              id: entityId,
+            })
+          : {
+              ...item,
+              ...profileDraft,
+              id: entityId,
+            };
+      const response = await authorizedFetch(`/api/${apiPath}/${entityId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -812,7 +852,7 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
               {/* Top Banner / Portrait */}
               <div
                 className={
-                  entityType === "characters"
+                  entityType === "characters" && !editingProfile
                     ? "hidden"
                     : "flex flex-col md:flex-row gap-6 items-start"
                 }
@@ -847,7 +887,7 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                       className="sr-only"
                     />
                   </label>
-                  {entityType === "characters" && (
+                  {(apiPath === "characters" || apiPath === "species") && (
                     <button
                       type="button"
                       onClick={
@@ -922,7 +962,7 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                       "No detailed summary available."}
                   </p>
 
-                  {editingProfile && entityType === "characters" && (
+                  {editingProfile && apiPath === "characters" && (
                     <div
                       ref={profileEditorRef}
                       className="scroll-mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 border border-yellow-400/30 bg-zinc-900/80 p-4 rounded-2xl"
@@ -1035,6 +1075,56 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                           </label>
                         ),
                       )}
+                    </div>
+                  )}
+
+                  {editingProfile && apiPath === "species" && (
+                    <div
+                      ref={profileEditorRef}
+                      className="scroll-mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 border border-yellow-400/30 bg-zinc-900/80 p-4 rounded-2xl"
+                    >
+                      <div className="sm:col-span-2 flex items-center justify-between border-b border-white/10 pb-3">
+                        <div>
+                          <p className="text-xs font-semibold text-zinc-100">
+                            Edit species profile
+                          </p>
+                          <p className="mt-1 text-[10px] text-zinc-500">
+                            Update the living species bible record. Images are
+                            optional and unchanged here.
+                          </p>
+                        </div>
+                        <Save className="w-4 h-4 text-yellow-300" />
+                      </div>
+                      {editableSpeciesFields.map(([key, label]) => (
+                        <label
+                          key={key}
+                          className="space-y-1 text-[10px] text-zinc-400 uppercase font-mono"
+                        >
+                          <span>{label}</span>
+                          <textarea
+                            rows={
+                              [
+                                "overview",
+                                "biology",
+                                "abilities",
+                                "weaknesses",
+                                "culture",
+                                "notesReferences",
+                              ].includes(key)
+                                ? 3
+                                : 2
+                            }
+                            value={profileDraft[key] || ""}
+                            onChange={(event) =>
+                              setProfileDraft((current) => ({
+                                ...current,
+                                [key]: event.target.value,
+                              }))
+                            }
+                            className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-3 py-2 text-xs normal-case font-sans text-zinc-200"
+                          />
+                        </label>
+                      ))}
                     </div>
                   )}
 

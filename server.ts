@@ -21,6 +21,7 @@ import {
   runSimulation,
   type SimSetup,
 } from "./utils/combatEngine";
+import { speciesBibleSeed } from "./speciesBibleSeed";
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -1182,9 +1183,81 @@ function saveDB(db: UniverseDB) {
   }
 }
 
+const normalizeSpeciesName = (value: unknown) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/\s*\([^)]*\)\s*/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+function mergeSpeciesBible(database: UniverseDB) {
+  const existingSpecies = Array.isArray(database.species)
+    ? database.species
+    : [];
+  let changed = false;
+
+  for (const [index, seedSpecies] of speciesBibleSeed.entries()) {
+    const existing = existingSpecies.find(
+      (species) =>
+        normalizeSpeciesName(species.name) ===
+        normalizeSpeciesName(seedSpecies.name),
+    );
+    if (existing) {
+      for (const [key, value] of Object.entries(seedSpecies)) {
+        if (
+          key !== "image" &&
+          (existing[key] === undefined ||
+            existing[key] === null ||
+            existing[key] === "")
+        ) {
+          existing[key] = value;
+          changed = true;
+        }
+      }
+      continue;
+    }
+
+    existingSpecies.push({
+      id: `spec-bible-${String(index + 1).padStart(2, "0")}`,
+      ...seedSpecies,
+    });
+    changed = true;
+  }
+
+  database.species = existingSpecies;
+  if (changed) saveDB(database);
+  return changed;
+}
+
 let db = loadDB();
 db.chatMessages = db.chatMessages || [];
 db.simulations = db.simulations || [];
+mergeSpeciesBible(db);
+
+async function seedRemoteSpecies() {
+  if (!supabaseAdmin) return;
+  const { data: existing, error: readError } = await supabaseAdmin
+    .from("species")
+    .select("id, name");
+  if (readError) return;
+
+  const existingNames = new Set(
+    (existing || []).map((species) => normalizeSpeciesName(species.name)),
+  );
+  const missing = speciesBibleSeed
+    .map((species, index) => ({
+      id: `spec-bible-${String(index + 1).padStart(2, "0")}`,
+      ...species,
+    }))
+    .filter((species) => !existingNames.has(normalizeSpeciesName(species.name)))
+    .map(toSupabaseRow);
+
+  if (missing.length > 0) {
+    await supabaseAdmin.from("species").insert(missing);
+  }
+}
+
+void seedRemoteSpecies();
 
 async function getCurrentArchive() {
   if (!supabase) return db;
@@ -1227,6 +1300,43 @@ function makeEntityId(col: string) {
 }
 
 // API Endpoints
+
+app.post("/api/species/seed", async (req, res) => {
+  const actor = await getAuthenticatedProfile(req.headers.authorization);
+  if (!actor)
+    return res.status(401).json({ error: "Authentication required." });
+
+  const client = getUserClient(req.headers.authorization);
+  if (!client) return res.status(401).json({ error: "Invalid session." });
+
+  const { data: existing, error: readError } = await client
+    .from("species")
+    .select("id, name");
+  if (readError) return res.status(400).json({ error: readError.message });
+
+  const existingNames = new Set(
+    (existing || []).map((species) => normalizeSpeciesName(species.name)),
+  );
+  const missing = speciesBibleSeed
+    .map((species, index) => ({
+      id: `spec-bible-${String(index + 1).padStart(2, "0")}`,
+      ...species,
+    }))
+    .filter((species) => !existingNames.has(normalizeSpeciesName(species.name)))
+    .map(toSupabaseRow);
+
+  if (missing.length === 0)
+    return res.json({ inserted: 0, total: existing?.length || 0 });
+
+  const { error: insertError } = await client.from("species").insert(missing);
+  if (insertError) return res.status(400).json({ error: insertError.message });
+  res
+    .status(201)
+    .json({
+      inserted: missing.length,
+      total: (existing?.length || 0) + missing.length,
+    });
+});
 
 app.post("/api/admin/invite", async (req, res) => {
   const actor = await getAuthenticatedProfile(req.headers.authorization);
@@ -1646,6 +1756,15 @@ const collections = [
 for (const col of collections) {
   app.get(`/api/${col}`, async (req, res) => {
     const remote = await readCollection(col);
+    if (
+      col === "species" &&
+      Array.isArray(remote.data) &&
+      remote.data.length === 0 &&
+      Array.isArray((db as any).species) &&
+      (db as any).species.length > 0
+    ) {
+      return res.json((db as any).species);
+    }
     if (remote.data !== null && supabase) {
       return res.json(remote.data);
     }
@@ -1748,7 +1867,12 @@ for (const col of collections) {
     const { id } = req.params;
     const sanitizedBody = normalizeListFields(req.body || {});
 
-    const remote = await updateRow(col, id, sanitizedBody);
+    const remote = await updateRow(
+      col,
+      id,
+      sanitizedBody,
+      req.headers.authorization,
+    );
     if (remote.data) {
       return res.json(remote.data);
     }

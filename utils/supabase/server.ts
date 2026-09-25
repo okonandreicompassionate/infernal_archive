@@ -113,21 +113,23 @@ export async function updateRow<T>(
   collection: string,
   id: string,
   value: Record<string, unknown>,
+  authorization?: string,
 ): Promise<{ data: T | null; error: string | null }> {
-  const client = databaseClient();
+  const client = getUserClient(authorization) || databaseClient();
   if (!client)
     return {
       data: null,
       error: "Supabase environment variables are not configured.",
     };
-  const { data, error } = await client
+  const { error } = await client
     .from(tableForCollection(collection))
     .update(toSupabaseRow(value))
-    .eq("id", id)
-    .select()
-    .single();
+    .eq("id", id);
   if (error) return { data: null, error: error.message };
-  return { data: fromSupabaseRow<T>(data), error: null };
+  return {
+    data: fromSupabaseRow<T>({ ...value, id }),
+    error: null,
+  };
 }
 
 export async function deleteRow(

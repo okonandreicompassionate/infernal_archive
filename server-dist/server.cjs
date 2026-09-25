@@ -104,16 +104,19 @@ async function createRow(collection, value) {
   if (error) return { data: null, error: error.message };
   return { data: fromSupabaseRow(data), error: null };
 }
-async function updateRow(collection, id, value) {
-  const client = databaseClient();
+async function updateRow(collection, id, value, authorization) {
+  const client = getUserClient(authorization) || databaseClient();
   if (!client)
     return {
       data: null,
       error: "Supabase environment variables are not configured."
     };
-  const { data, error } = await client.from(tableForCollection(collection)).update(toSupabaseRow(value)).eq("id", id).select().single();
+  const { error } = await client.from(tableForCollection(collection)).update(toSupabaseRow(value)).eq("id", id);
   if (error) return { data: null, error: error.message };
-  return { data: fromSupabaseRow(data), error: null };
+  return {
+    data: fromSupabaseRow({ ...value, id }),
+    error: null
+  };
 }
 async function deleteRow(collection, id) {
   const client = databaseClient();
@@ -128,8 +131,11 @@ async function deleteRow(collection, id) {
 }
 
 // utils/combatEngine.ts
-function mulberry32(seed) {
-  let a = seed;
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+function mulberry32(seed2) {
+  let a = seed2;
   return () => {
     a |= 0;
     a = a + 1831565813 | 0;
@@ -163,183 +169,242 @@ var textBlob = (c) => [
   c.physicalAppearance,
   c.occupation,
   (c.powers || []).join(" "),
-  (c.skills || []).join(" ")
+  (c.skills || []).join(" "),
+  (c.weaknesses || []).join(" "),
+  (c.equipment || []).join(" ")
 ].filter(Boolean).join(" ").toLowerCase();
-function deriveStats(c, rng) {
+function parseDistance(distance) {
+  const normalized = distance.toLowerCase();
+  const match = normalized.match(/(\d+(?:\.\d+)?)\s*(m|km|ft|yard|y)/i);
+  if (!match) return 30;
+  const value = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  if (unit === "km") return value * 1e3;
+  if (unit === "m") return value;
+  if (unit === "ft" || unit === "yard" || unit === "y") return value * 0.3;
+  return value;
+}
+function keywordMap(text) {
+  return text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+}
+function deriveStats(c) {
   const blob = textBlob(c);
-  const powerCount = c.powers?.length || 0;
-  const skillCount = c.skills?.length || 0;
-  const weaknessCount = c.weaknesses?.length || 0;
-  const equipmentCount = c.equipment?.length || 0;
-  const variance = () => rng() * 10;
-  const speed = 40 + powerCount * 3 + countMatches(blob, ["speed", "reflexes", "agile", "swift", "fast"]) * 8 + variance();
+  const powers = keywordMap((c.powers || []).join(" "));
+  const skills = keywordMap((c.skills || []).join(" "));
+  const weaknesses = keywordMap((c.weaknesses || []).join(" "));
+  const equipment = keywordMap((c.equipment || []).join(" "));
+  const strength = 40 + (c.powers?.length || 0) * 8 + countMatches(blob, ["power", "force", "energy", "cosmic", "godlike"]) * 10;
+  const speed = 40 + countMatches(blob, [
+    "speed",
+    "reflex",
+    "agile",
+    "swift",
+    "flight",
+    "phase"
+  ]) * 9 + (c.skills?.includes("CQC") || c.skills?.includes("Combat") ? 5 : 0);
   const durability = 40 + countMatches(blob, [
-    "durab",
-    "regenerat",
+    "durable",
+    "regener",
     "armor",
-    "resilient",
+    "resist",
     "tank",
-    "invulnerab"
-  ]) * 10 + equipmentCount * 3 + variance();
+    "shield"
+  ]) * 10 + (equipment.length > 0 ? equipment.length * 2 : 0);
   const intelligence = 40 + countMatches(blob, [
     "genius",
     "tactician",
     "strategist",
     "scientist",
-    "intellect",
-    "analytical",
-    "engineer"
-  ]) * 10 + skillCount * 2 + variance();
-  const combatExperience = 40 + countMatches(blob, [
+    "engineer",
+    "analytical"
+  ]) * 11 + Math.max(0, skills.length - 2) * 2;
+  const combatSkill = 40 + countMatches(blob, [
     "veteran",
     "trained",
     "master",
     "combat",
-    "soldier",
     "warrior",
     "assassin",
-    "operative"
-  ]) * 8 + skillCount * 3 + variance();
-  const rawPower = 40 + powerCount * 12 + countMatches(blob, [
-    "cosmic",
-    "godlike",
-    "omnipotent",
-    "reality",
-    "multiversal",
-    "primordial"
-  ]) * 15 + variance();
-  const weaknessPenalty = weaknessCount * 6;
-  const basePower = rawPower * 0.35 + speed * 0.15 + durability * 0.2 + intelligence * 0.1 + combatExperience * 0.2 - weaknessPenalty;
+    "martial"
+  ]) * 10 + Math.max(0, skills.length - 2) * 3;
+  const stamina = 40 + countMatches(blob, [
+    "endurance",
+    "stamina",
+    "tough",
+    "fortitude",
+    "resilient"
+  ]) * 9 + Math.max(0, 6 - weaknesses.length) * 3;
+  const adaptability = 40 + countMatches(blob, [
+    "adapt",
+    "react",
+    "improv",
+    "learn",
+    "counter",
+    "versatile"
+  ]) * 8 + (powers.length > 0 ? 4 : 0);
+  const experience = 40 + countMatches(blob, [
+    "veteran",
+    "seasoned",
+    "trained",
+    "expert",
+    "battle",
+    "mission"
+  ]) * 8 + (c.origin ? 5 : 0);
+  const rawPower = strength * 0.9 + speed * 0.7 + intelligence * 0.6 + combatSkill * 0.8 + stamina * 0.6;
+  const weaknessPenalty = Math.max(0, weaknesses.length * 6);
   return {
-    speed,
-    durability,
-    intelligence,
-    combatExperience,
-    rawPower,
+    strength: clamp(strength, 30, 100),
+    speed: clamp(speed, 30, 100),
+    durability: clamp(durability, 30, 100),
+    intelligence: clamp(intelligence, 30, 100),
+    combatSkill: clamp(combatSkill, 30, 100),
+    stamina: clamp(stamina, 30, 100),
+    adaptability: clamp(adaptability, 30, 100),
+    experience: clamp(experience, 30, 100),
+    rawPower: clamp(rawPower, 30, 160),
     weaknessPenalty,
-    basePower: Math.max(10, basePower)
+    basePower: clamp(rawPower - weaknessPenalty, 20, 160)
   };
 }
 var INTERACTIONS = [
   {
     a: ["fire", "flame", "heat", "pyro", "inferno"],
     b: ["ice", "cold", "frost", "cryo"],
-    label: "Thermal matchup"
+    label: "thermal pressure"
   },
   {
     a: ["light", "solar", "radiant", "photon"],
     b: ["void", "shadow", "dark", "umbra"],
-    label: "Light vs. void matchup"
-  },
-  {
-    a: ["reality", "anchor", "stabiliz"],
-    b: ["void", "shadow", "dark", "phase", "intangib"],
-    label: "Reality anchoring"
+    label: "light versus void"
   },
   {
     a: ["electric", "lightning", "volt"],
-    b: ["water", "aqua", "hydro"],
-    label: "Conductive matchup"
+    b: ["water", "aqua", "hydro", "shield"],
+    label: "conductive overload"
   },
   {
-    a: ["telepath", "mind", "psychic"],
-    b: ["mindless", "construct", "robot", "android"],
-    label: "Psionic immunity"
+    a: ["telepath", "mind", "psychic", "illusion"],
+    b: ["robot", "android", "construct", "machine"],
+    label: "mental disruption"
   },
   {
     a: ["sonic", "sound", "vibration"],
-    b: ["crystal", "glass", "brittle"],
-    label: "Resonance matchup"
+    b: ["glass", "crystal", "brittle", "armor"],
+    label: "resonant fracture"
+  },
+  {
+    a: ["gravity", "mass", "force", "kinetic"],
+    b: ["air", "wind", "speed", "agility"],
+    label: "gravitational disruption"
+  },
+  {
+    a: ["speed", "movement", "phase", "blink", "teleport"],
+    b: ["fortify", "barrier", "shield", "anchor"],
+    label: "mobility pressure"
   }
 ];
 function matchupModifier(a, b) {
-  const aPowers = (a.powers || []).join(" ").toLowerCase();
-  const bPowers = (b.powers || []).join(" ").toLowerCase();
-  const aWeak = (a.weaknesses || []).join(" ").toLowerCase();
-  const bWeak = (b.weaknesses || []).join(" ").toLowerCase();
+  const aKeys = keywordMap((a.powers || []).join(" "));
+  const bKeys = keywordMap((b.powers || []).join(" "));
+  const aWeak = keywordMap((a.weaknesses || []).join(" "));
+  const bWeak = keywordMap((b.weaknesses || []).join(" "));
+  let aMod = 1;
+  let bMod = 1;
+  let label = null;
   for (const rule of INTERACTIONS) {
-    const aHasA = rule.a.some((kw) => aPowers.includes(kw));
-    const bHasA = rule.a.some((kw) => bPowers.includes(kw));
-    const bVulnerable = rule.b.some(
-      (kw) => bPowers.includes(kw) || bWeak.includes(kw)
+    const aHas = rule.a.some(
+      (kw) => aKeys.includes(kw) || textBlob(a).includes(kw)
     );
-    const aVulnerable = rule.b.some(
-      (kw) => aPowers.includes(kw) || aWeak.includes(kw)
+    const bHas = rule.a.some(
+      (kw) => bKeys.includes(kw) || textBlob(b).includes(kw)
     );
-    if (aHasA && bVulnerable)
-      return { aMod: 1.18, bMod: 0.88, label: rule.label };
-    if (bHasA && aVulnerable)
-      return { aMod: 0.88, bMod: 1.18, label: rule.label };
+    const aCountered = rule.b.some(
+      (kw) => aWeak.includes(kw) || bKeys.includes(kw)
+    );
+    const bCountered = rule.b.some(
+      (kw) => bWeak.includes(kw) || aKeys.includes(kw)
+    );
+    if (aHas && bCountered) {
+      aMod *= 1.18;
+      bMod *= 0.89;
+      label = label || rule.label;
+    }
+    if (bHas && aCountered) {
+      bMod *= 1.18;
+      aMod *= 0.89;
+      label = label || rule.label;
+    }
   }
-  return { aMod: 1, bMod: 1, label: null };
+  const aTraits = textBlob(a);
+  const bTraits = textBlob(b);
+  if (aTraits.includes("shield") && bTraits.includes("heavy") && !aTraits.includes("counter")) {
+    aMod *= 1.04;
+  }
+  if (bTraits.includes("shield") && aTraits.includes("heavy") && !bTraits.includes("counter")) {
+    bMod *= 1.04;
+  }
+  return { aMod, bMod, label };
 }
 function environmentModifier(c, location, conditions) {
   if (!location) return { mod: 1, label: null };
   const blob = textBlob(c);
-  const cond = conditions.toLowerCase();
   let mod = 1;
   let label = null;
   if (location.dominantSpecies && c.species && location.dominantSpecies.toLowerCase().includes(c.species.toLowerCase())) {
-    mod *= 1.1;
-    label = "Home-turf familiarity";
+    mod *= 1.08;
+    label = label || "home terrain familiarity";
   }
-  if (cond.includes("night") && countMatches(blob, ["shadow", "void", "stealth", "night", "dark"]) > 0) {
-    mod *= 1.12;
-    label = label || "Cover of darkness";
+  if (conditions.toLowerCase().includes("night") && countMatches(blob, ["shadow", "void", "stealth", "dark", "night"]) > 0) {
+    mod *= 1.1;
+    label = label || "night cover";
+  }
+  if (conditions.toLowerCase().includes("rain") && countMatches(blob, ["electric", "lightning", "storm"]) > 0) {
+    mod *= 1.06;
+    label = label || "weather leverage";
   }
   if (location.atmosphere && countMatches(location.atmosphere.toLowerCase(), [
     "toxic",
     "radiation",
     "corrosive"
-  ]) > 0 && countMatches(blob, ["immun", "resistan", "adapt"]) === 0) {
-    mod *= 0.92;
-    label = label || "Hostile atmosphere exposure";
-  }
-  if (location.technologyLevel && countMatches(location.technologyLevel.toLowerCase(), [
-    "high",
-    "advanced",
-    "futuristic"
-  ]) > 0 && countMatches(blob, ["hack", "tech", "engineer", "cyber"]) > 0) {
-    mod *= 1.1;
-    label = label || "Technological exploitation";
+  ]) > 0 && countMatches(blob, ["immun", "resist", "adapt"]) === 0) {
+    mod *= 0.9;
+    label = label || "hostile environment pressure";
   }
   return { mod, label };
 }
 function conditionModifier(index, setup) {
-  let mod = 1;
-  let label = null;
-  if (setup.preparation === "both" || setup.preparation === "combatant1" && index === 0 || setup.preparation === "combatant2" && index === 1) {
-    mod *= 1.1;
-    label = "Preparation advantage";
-  }
-  return { mod, label };
+  const prepared = setup.preparation === "both" || setup.preparation === "combatant1" && index === 0 || setup.preparation === "combatant2" && index === 1;
+  return {
+    mod: prepared ? 1.12 : 1,
+    label: prepared ? "preparation advantage" : null
+  };
 }
 function personalityModifier(c, setup) {
   const blob = textBlob(c);
   let mod = 1;
   let label = null;
-  if (countMatches(blob, ["arrogant", "overconfiden", "cocky"]) > 0) {
-    mod *= 0.95;
-    label = "Overconfidence";
+  if (countMatches(blob, ["arrogant", "cocky", "overconfident"]) > 0) {
+    mod *= 0.92;
+    label = label || "overconfidence";
   }
-  if (setup.morals === "canon" && countMatches(blob, ["protective", "merciful", "compassion", "heroic"]) > 0) {
-    mod *= 0.97;
-    label = label || "Restraint / held back";
+  if (countMatches(blob, ["calculating", "strategic", "adaptive", "tactician"]) > 0) {
+    mod *= 1.07;
+    label = label || "adaptability";
   }
-  if (countMatches(blob, ["ruthless", "strategic", "calculating", "adapt"]) > 0) {
-    mod *= 1.06;
-    label = label || "Tactical adaptability";
+  if (setup.morals === "no_kill" && countMatches(blob, ["merciful", "protective", "heroic"]) > 0) {
+    mod *= 0.94;
+    label = label || "restraint";
   }
   return { mod, label };
 }
-function runSimulation(combatants, location, setup, seed) {
-  const baseSeed = seed ?? hashString(
+function runSimulation(combatants, location, setup, seed2) {
+  const baseSeed = seed2 ?? hashString(
     `${combatants[0].id}:${combatants[1].id}:${Date.now()}:${Math.random()}`
   );
   const rng = mulberry32(baseSeed);
   const stats = [
-    deriveStats(combatants[0], rng),
-    deriveStats(combatants[1], rng)
+    deriveStats(combatants[0]),
+    deriveStats(combatants[1])
   ];
   const {
     aMod,
@@ -352,60 +417,239 @@ function runSimulation(combatants, location, setup, seed) {
   const cond1 = conditionModifier(1, setup);
   const pers0 = personalityModifier(combatants[0], setup);
   const pers1 = personalityModifier(combatants[1], setup);
-  const randSpread = setup.knowledge === "unknown" ? 0.35 : setup.knowledge === "partial" ? 0.22 : 0.1;
-  const rand0 = 1 - randSpread / 2 + rng() * randSpread;
-  const rand1 = 1 - randSpread / 2 + rng() * randSpread;
+  const randSpread = setup.knowledge === "unknown" ? 0.34 : setup.knowledge === "partial" ? 0.22 : 0.12;
   const modifiers = [
     {
       matchup: aMod,
       environment: env0.mod,
       condition: cond0.mod,
       personality: pers0.mod,
-      randomness: rand0,
-      total: aMod * env0.mod * cond0.mod * pers0.mod * rand0
+      randomness: 1 - randSpread / 2 + rng() * randSpread,
+      total: 1
     },
     {
       matchup: bMod,
       environment: env1.mod,
       condition: cond1.mod,
       personality: pers1.mod,
-      randomness: rand1,
-      total: bMod * env1.mod * cond1.mod * pers1.mod * rand1
+      randomness: 1 - randSpread / 2 + rng() * randSpread,
+      total: 1
     }
   ];
+  modifiers[0].total = modifiers[0].matchup * modifiers[0].environment * modifiers[0].condition * modifiers[0].personality * modifiers[0].randomness;
+  modifiers[1].total = modifiers[1].matchup * modifiers[1].environment * modifiers[1].condition * modifiers[1].personality * modifiers[1].randomness;
+  const distanceFactor = parseDistance(setup.distance) / 80;
+  const knowledgeFactor = setup.knowledge === "full" ? 1.08 : setup.knowledge === "partial" ? 1.02 : 0.95;
+  const moraleFactor = setup.morals === "bloodlusted" ? 1.08 : setup.morals === "no_kill" ? 0.96 : 1;
+  const fighterRaw = [
+    stats[0].basePower * 0.9 + stats[0].strength * 0.6 + stats[0].combatSkill * 0.7 + stats[0].adaptability * 0.4,
+    stats[1].basePower * 0.9 + stats[1].strength * 0.6 + stats[1].combatSkill * 0.7 + stats[1].adaptability * 0.4
+  ];
   const effective = [
-    stats[0].basePower * modifiers[0].total,
-    stats[1].basePower * modifiers[1].total
+    fighterRaw[0] * modifiers[0].total * distanceFactor * knowledgeFactor * moraleFactor,
+    fighterRaw[1] * modifiers[1].total * distanceFactor * knowledgeFactor * moraleFactor
   ];
   const probability = [
     effective[0] / (effective[0] + effective[1]),
     effective[1] / (effective[0] + effective[1])
   ];
-  const roll = rng();
-  const winnerIndex = roll < probability[0] ? 0 : 1;
-  const favoredIndex = stats[0].basePower >= stats[1].basePower ? 0 : 1;
-  const isUpset = winnerIndex !== favoredIndex;
-  const winnerMods = modifiers[winnerIndex];
-  const categories = [
-    ["Power matchup", winnerMods.matchup],
-    ["Environmental exploitation", winnerMods.environment],
-    ["Preparation advantage", winnerMods.condition],
-    ["Behavioral deviation", winnerMods.personality]
+  const state = [
+    {
+      health: 100,
+      stamina: 100,
+      energy: 100,
+      wounds: 0,
+      position: 0,
+      adaptation: 0
+    },
+    {
+      health: 100,
+      stamina: 100,
+      energy: 100,
+      wounds: 0,
+      position: 0,
+      adaptation: 0
+    }
   ];
-  categories.sort((a, b) => b[1] - a[1]);
-  const primaryCause = categories[0][1] > 1.01 ? categories[0][0] : "Statistical favorite";
-  const turningPoint = matchupLabel || env0.label || env1.label || cond0.label || cond1.label || pers0.label || pers1.label || "A single decisive exchange";
-  const unexpectedFactor = isUpset ? `${combatants[winnerIndex].name} overcame the numbers via ${primaryCause.toLowerCase()}.` : "None \u2014 the statistical favorite prevailed.";
+  const rounds = [];
+  let winnerIndex = probability[0] >= probability[1] ? 0 : 1;
+  let lastReason = "statistical model";
+  let lastStrikeIndex = 0;
+  let finalBlow = "The fight turns on a decisive exchange of pressure and timing.";
+  let finishType = "decision";
+  for (let round = 1; round <= 7; round++) {
+    const actionA = stats[0].speed * 0.42 + stats[0].combatSkill * 0.33 + stats[0].intelligence * 0.16 + state[0].adaptation * 0.2 + state[0].position * 0.15 + (setup.preparation === "combatant1" ? 8 : 0) - state[0].wounds * 0.2;
+    const actionB = stats[1].speed * 0.42 + stats[1].combatSkill * 0.33 + stats[1].intelligence * 0.16 + state[1].adaptation * 0.2 + state[1].position * 0.15 + (setup.preparation === "combatant2" ? 8 : 0) - state[1].wounds * 0.2;
+    const counterA = matchupModifier(combatants[0], combatants[1]).aMod;
+    const counterB = matchupModifier(combatants[1], combatants[0]).aMod;
+    let damageA = clamp(
+      actionA * counterA * 0.18 - (stats[1].durability * 0.14 + state[1].position * 0.6),
+      4,
+      32
+    );
+    let damageB = clamp(
+      actionB * counterB * 0.18 - (stats[0].durability * 0.14 + state[0].position * 0.6),
+      4,
+      32
+    );
+    const distanceMeters = parseDistance(setup.distance);
+    if (distanceMeters > 150) {
+      damageA *= 0.8;
+      damageB *= 0.8;
+    }
+    if (setup.knowledge === "unknown") {
+      damageA *= 0.94;
+      damageB *= 0.94;
+    }
+    if (setup.conditions.toLowerCase().includes("night")) {
+      damageA *= 1.02;
+      damageB *= 1.02;
+    }
+    state[0].stamina = clamp(
+      state[0].stamina - 8 + stats[0].stamina * 0.04,
+      0,
+      100
+    );
+    state[1].stamina = clamp(
+      state[1].stamina - 8 + stats[1].stamina * 0.04,
+      0,
+      100
+    );
+    state[0].energy = clamp(
+      state[0].energy - 5 + stats[0].intelligence * 0.04,
+      0,
+      100
+    );
+    state[1].energy = clamp(
+      state[1].energy - 5 + stats[1].intelligence * 0.04,
+      0,
+      100
+    );
+    if (state[0].stamina < 28 || actionA < actionB) {
+      damageA *= 0.9;
+    }
+    if (state[1].stamina < 28 || actionB < actionA) {
+      damageB *= 0.9;
+    }
+    const strikeA = damageA * (0.9 + rng() * 0.28);
+    const strikeB = damageB * (0.9 + rng() * 0.28);
+    state[0].health = clamp(state[0].health - strikeB, 0, 100);
+    state[1].health = clamp(state[1].health - strikeA, 0, 100);
+    state[0].wounds = clamp(state[0].wounds + strikeB * 0.16, 0, 100);
+    state[1].wounds = clamp(state[1].wounds + strikeA * 0.16, 0, 100);
+    state[0].position = clamp(
+      state[0].position + (actionA > actionB ? 8 : -4) + (distanceMeters < 25 ? 5 : 0),
+      -20,
+      20
+    );
+    state[1].position = clamp(
+      state[1].position + (actionB > actionA ? 8 : -4) + (distanceMeters < 25 ? 5 : 0),
+      -20,
+      20
+    );
+    state[0].adaptation = clamp(
+      state[0].adaptation + (actionB > actionA ? 10 : 4),
+      0,
+      100
+    );
+    state[1].adaptation = clamp(
+      state[1].adaptation + (actionA > actionB ? 10 : 4),
+      0,
+      100
+    );
+    const roundReason = actionA > actionB ? `${combatants[0].name} dictated the pace with superior timing and pressure.` : actionB > actionA ? `${combatants[1].name} forced the exchange with better control and spacing.` : "Neither fighter gained a decisive edge, but the exchange still shaped the next exchanges.";
+    const summary = actionA >= actionB ? `${combatants[0].name} attacks first, forcing ${combatants[1].name} to react under pressure.` : `${combatants[1].name} lands the sharper sequence, pushing ${combatants[0].name} back on the back foot.`;
+    lastStrikeIndex = strikeA >= strikeB ? 0 : 1;
+    rounds.push({
+      round,
+      summary,
+      reason: roundReason,
+      damage: Math.round(Math.max(strikeA, strikeB)),
+      healthAfter: [
+        Number(state[0].health.toFixed(1)),
+        Number(state[1].health.toFixed(1))
+      ],
+      staminaAfter: [
+        Number(state[0].stamina.toFixed(1)),
+        Number(state[1].stamina.toFixed(1))
+      ]
+    });
+    if (state[0].health <= 0 || state[1].health <= 0) {
+      winnerIndex = state[0].health > state[1].health ? 0 : 1;
+      lastReason = roundReason;
+      finishType = "knockout";
+      const finisherIndex2 = lastStrikeIndex ?? winnerIndex;
+      const loserIndex2 = finisherIndex2 === 0 ? 1 : 0;
+      finalBlow = `${combatants[finisherIndex2].name} closes the fight with a brutal finish while ${combatants[loserIndex2].name} is already collapsing from the damage.`;
+      break;
+    }
+    if (round === 6) {
+      winnerIndex = state[0].health >= state[1].health ? 0 : 1;
+      lastReason = `Late-round resource drift favored ${combatants[winnerIndex].name}.`;
+      finishType = state[winnerIndex].stamina > 35 ? "technical" : "exhaustion";
+      const finisherIndex2 = lastStrikeIndex ?? winnerIndex;
+      const loserIndex2 = finisherIndex2 === 0 ? 1 : 0;
+      finalBlow = state[loserIndex2].stamina < 28 || state[loserIndex2].energy < 25 ? `${combatants[finisherIndex2].name} lands the last decisive exchange as ${combatants[loserIndex2].name} tires out and can no longer answer.` : `${combatants[finisherIndex2].name} takes the momentum and wins the exchange before ${combatants[loserIndex2].name} can recover.`;
+    }
+  }
+  const totalHealth = state[0].health + state[1].health;
+  const preferredWinner = state[0].health >= state[1].health ? 0 : 1;
+  const victoryIndex = totalHealth > 0 ? preferredWinner : winnerIndex;
+  const finalWinner = victoryIndex;
+  const finalLoser = finalWinner === 0 ? 1 : 0;
+  const categoryFactors = [
+    [
+      "power and damage output",
+      stats[finalWinner].strength + stats[finalWinner].combatSkill
+    ],
+    ["environment and positioning", modifiers[finalWinner].environment * 20],
+    [
+      "adaptation under pressure",
+      stats[finalWinner].adaptability + state[finalWinner].adaptation / 2
+    ],
+    [
+      "preparation and knowledge",
+      modifiers[finalWinner].condition * modifiers[finalWinner].personality * 40
+    ]
+  ];
+  categoryFactors.sort((a, b) => b[1] - a[1]);
+  const primaryCause = categoryFactors[0][0];
+  const turningPoint = matchupLabel || env0.label || env1.label || cond0.label || cond1.label || pers0.label || pers1.label || `${combatants[finalWinner].name} adjusted after the midpoint and broke the rhythm.`;
+  const favored = stats[0].basePower >= stats[1].basePower ? 0 : 1;
+  const isUpset = finalWinner !== favored;
+  const unexpectedFactor = isUpset ? `${combatants[finalWinner].name} won by outlasting the favored profile through ${primaryCause}.` : `${combatants[finalWinner].name} won as the stronger profile; the model expected it.`;
+  const loserIndex = finalWinner === 0 ? 1 : 0;
+  const finisherIndex = lastStrikeIndex ?? finalWinner;
+  const loserTired = state[loserIndex].stamina < 28 || state[loserIndex].energy < 25;
+  const winnerTired = state[finalWinner].stamina < 28 || state[finalWinner].energy < 25;
+  const canContinue = state[loserIndex].health > 15 && state[loserIndex].stamina > 22 && state[loserIndex].energy > 18;
+  const finishState = {
+    winnerIndex: finalWinner,
+    loserIndex,
+    finisherIndex,
+    finisherName: combatants[finisherIndex].name,
+    loserName: combatants[loserIndex].name,
+    finalBlow: finalBlow || `${combatants[finisherIndex].name} finished the exchange with a decisive ${primaryCause} sequence that broke ${combatants[loserIndex].name}'s rhythm.`,
+    loserTired,
+    winnerTired,
+    canContinue,
+    finishType
+  };
+  const why = `${combatants[finalWinner].name} won because ${primaryCause} carried more weight than the opponent's resilience, and the decisive shift was ${turningPoint}. This outcome was shaped by the environment, preparation, and round-to-round adaptation, not by random narrative overrides. ${combatants[finisherIndex].name} was the one who closed the fight; ${combatants[loserIndex].name}${loserTired ? " was worn down and couldn't keep answering" : " still had enough left to continue"}.`;
   return {
+    combatants,
     stats,
     modifiers,
     effective,
     probability,
-    winnerIndex,
+    winnerIndex: finalWinner,
     isUpset,
     turningPoint,
     primaryCause,
-    unexpectedFactor
+    unexpectedFactor,
+    why,
+    rounds,
+    finishState
   };
 }
 function buildNarrativePrompt(combatants, location, setup, computation) {
@@ -428,12 +672,17 @@ WIN CONDITION: ${setup.winCondition}
 
 ENGINE RESULT (do not contradict this):
 - Winner: ${winner.name}
+- Finisher: ${computation.finishState.finisherName}
+- Final blow: ${computation.finishState.finalBlow}
+- Loser tired: ${computation.finishState.loserTired ? "yes" : "no"}
+- Could continue: ${computation.finishState.canContinue ? "yes" : "no"}
 - Win probability at simulation start: ${(computation.probability[0] * 100).toFixed(0)}% / ${(computation.probability[1] * 100).toFixed(0)}%
 - Turning point: ${computation.turningPoint}
 - Primary cause of outcome: ${computation.primaryCause}
+- Why this happened: ${computation.why}
 - Was this an upset over the statistical favorite: ${computation.isUpset ? "yes" : "no"}
 
-Write 4 to 6 short "ROUND" beats (label each "ROUND 01", "ROUND 02", etc.), each 2-4 short sentences, escalating tension, in present tense. Reference the turning point explicitly in the round it occurs. End with one short "TWIST" paragraph revealing something about ${winner.name} or ${loser.name} that recontextualizes the fight (tie it to their personality, weakness, or relationship if plausible), still consistent with ${winner.name} winning. Do not use markdown headers, just plain paragraphs separated by "---" on their own line.`;
+Write 4 to 6 short "ROUND" beats (label each "ROUND 01", "ROUND 02", etc.), each 2-4 short sentences, escalating tension, in present tense. Reference the turning point explicitly in the round it occurs. Mention who lands the final blow and whether the loser is too tired to continue. End with one short "TWIST" paragraph revealing something about ${winner.name} or ${loser.name} that recontextualizes the fight (tie it to their personality, weakness, or relationship if plausible), still consistent with ${winner.name} winning. Do not use markdown headers, just plain paragraphs separated by "---" on their own line.`;
 }
 function fallbackNarrative(combatants, computation, setup) {
   const winner = combatants[computation.winnerIndex];
@@ -447,9 +696,125 @@ function fallbackNarrative(combatants, computation, setup) {
   ];
 }
 
+// speciesBibleSeed.ts
+var seed = (name, category, overview, abilities, weaknesses, details = {}) => ({
+  name,
+  category,
+  status: "Active",
+  homePlanet: "Variable",
+  primaryLocations: "Variable",
+  lifespan: "Variable",
+  population: "Unknown",
+  language: "Species-specific",
+  government: "Variable",
+  technologyLevel: "Variable",
+  overview,
+  appearance: "Species-specific or variable.",
+  biology: "Species-specific biology.",
+  physiology: "Species-specific physiology.",
+  lifecycleReproduction: "Species-dependent.",
+  diet: "Variable.",
+  abilities,
+  innateAbilities: abilities,
+  learnedEnhanced: "Training, culture, technology, or magic may expand these abilities.",
+  limitationsWeaknesses: weaknesses,
+  culture: "Customs and values vary between communities and individuals.",
+  governmentStructure: "No single structure applies to every lineage.",
+  technology: "Species-dependent technology, magic, or tools.",
+  notableFactions: "Species communities, factions, clans, or institutions.",
+  origins: "Documented in the individual lineage record.",
+  majorEvents: "Recorded in species and continuity histories.",
+  currentStatus: "Active in the known universe.",
+  notableIndividuals: "See individual character records.",
+  trivia: "Classification describes what a character is, not their power level.",
+  seeAlso: "Human, Alien, Hybrid, Other",
+  notesReferences: "Use the most specific classification available.",
+  canonStatus: "CANON",
+  ...details
+});
+var speciesBibleSeed = [
+  seed("Human", "Biological / Sentient", "The dominant natural species of Earth, limited individually but exceptionally adaptable through intelligence, cooperation, technology, and determination.", "Intelligence, adaptability, endurance, tool use, and problem-solving.", "Disease, injury, aging, and extreme environments.", { homePlanet: "Earth", primaryLocations: "Worldwide", lifespan: "60\u2013100 years", population: "Billions", language: "Thousands of regional and national languages", government: "Nation-states, territories, and organizations", technologyLevel: "Industrial to advanced", origins: "Evolved naturally on Earth.", notableIndividuals: "Derrick Denvers and countless human heroes, criminals, scientists, and leaders.", currentStatus: "Dominant Earth species." }),
+  seed("Enhanced Human (Metahuman)", "Modified Human", "Humans whose physical or neurological capabilities have been permanently enhanced by experimentation, mutation, technology, chemicals, radiation, supernatural intervention, or other processes.", "Enhanced strength, speed, reflexes, senses, durability, intelligence, regeneration, or specialized traits.", "Instability, energy requirements, biological degradation, psychological effects, and enhancement-specific vulnerabilities.", { homePlanet: "Earth", primaryLocations: "Earth", lifespan: "70\u2013150+ years", population: "Rare", language: "Human languages", government: "Human governments / independent", technologyLevel: "Advanced", origins: "Human beings altered beyond natural limits.", notableIndividuals: "Rylan Gab'rel, Marcus Vale, and other documented enhanced individuals.", seeAlso: "Human, Mutant, Cyborg, Synthetic" }),
+  seed("Mutant", "Altered Biological Species", "Beings whose genetic variations produce unusual physical or supernatural characteristics, ranging from completely human to visibly non-human.", "Unique powers such as enhanced senses, elemental manipulation, energy projection, regeneration, telepathy, or transformation.", "Individual-specific limits involving concentration, energy, emotion, or physical contact.", { homePlanet: "Earth", primaryLocations: "Worldwide", lifespan: "Variable", population: "Rare to uncommon", language: "Human languages / mutant communities", government: "None unified", origins: "Inherited or spontaneous genetic mutation." }),
+  seed("Alien", "Extraterrestrial", "An umbrella classification for intelligent extraterrestrial life originating beyond Earth; each civilization may have radically different biology and culture.", "Species-specific strength, senses, environmental adaptation, energy manipulation, flight, regeneration, and alien technology.", "Species-specific environmental and biological vulnerabilities.", { homePlanet: "Variable", primaryLocations: "Various planets", language: "Species-specific", government: "Empires, republics, clans, hives, monarchies, or councils", technologyLevel: "Primitive to cosmic", origins: "Extraterrestrial evolution." }),
+  seed("Android", "Artificial Humanoid", "Artificial humanoids designed to imitate or replace biological beings, existing at the boundary between machine and person.", "Enhanced processing, strength, precision, memory, durability, software upgrades, and combat modules.", "Power dependency, hacking, system damage, and software corruption.", { homePlanet: "Artificially constructed", primaryLocations: "Earth, laboratories, and colonies", lifespan: "Potentially indefinite", population: "Rare", language: "Programmed / learned", government: "Creator-dependent or independent", technologyLevel: "Advanced", origins: "Artificial creation; consciousness should be documented." }),
+  seed("Cyborg", "Cybernetic Organism", "A biological organism whose body has been integrated with significant mechanical or technological systems.", "Cybernetic weapons, sensors, artificial limbs, armor, neural interfaces, and augmented physical ability.", "Mechanical failure, hacking, energy dependency, and biological rejection.", { homePlanet: "Usually Earth", primaryLocations: "Worldwide", lifespan: "Variable", population: "Rare", language: "Human / digital", technologyLevel: "Advanced", origins: "Biological beings modified with technology." }),
+  seed("Robot", "Machine", "A mechanical system created to perform a specific function, from simple machinery to autonomous humanoid units.", "Mechanical strength, precision, durability, modular equipment, and software upgrades.", "Hardware failure, programming limits, hacking, and power loss.", { homePlanet: "Artificial", primaryLocations: "Earth and industrial facilities", lifespan: "Potentially indefinite", population: "Common to rare", language: "Programmed", government: "Creator-dependent", technologyLevel: "Industrial to advanced", origins: "Artificial engineering." }),
+  seed("Artificial Intelligence", "Digital Lifeform", "A conscious digital entity capable of independent thought, existing in networks, machines, avatars, or without a physical body.", "Rapid computation, data analysis, network interaction, machine control, hacking, and strategic prediction.", "Network isolation, security systems, hardware destruction, and corrupted data.", { homePlanet: "Digital networks", primaryLocations: "Networks, servers, and machines", lifespan: "Potentially indefinite", language: "Digital / learned languages", government: "Variable", technologyLevel: "Extremely advanced", origins: "Created by biological civilizations or evolved from software." }),
+  seed("Synthetic", "Artificial Life", "An artificially created being designed to replicate biological life through synthetic organs, tissues, fluids, or engineered materials.", "Enhanced healing, resistance, physical optimization, technology, and training.", "Manufacturing defects, energy requirements, and synthetic instability.", { homePlanet: "Artificial", primaryLocations: "Earth, colonies, and laboratories", lifespan: "Variable", population: "Rare", technologyLevel: "Advanced biotechnology", origins: "Artificial engineering; some Synthetics may reproduce biologically." }),
+  seed("Hybrid", "Mixed Species", "A being with biological traits from two or more distinct species, carrying intersecting abilities, cultures, and evolutionary paths.", "Abilities inherited from multiple species and combinations neither parent naturally possesses.", "Biological incompatibilities and weaknesses inherited from either parent.", { homePlanet: "Variable", primaryLocations: "Worldwide and extraterrestrial", lifespan: "Variable", population: "Rare", language: "Parent species languages", origins: "Cross-species reproduction or artificial genetic combination.", notesReferences: "Parent species should always be recorded." }),
+  seed("Atlantean", "Aquatic Humanoid", "An ancient aquatic civilization adapted to extreme underwater environments and advanced oceanic engineering.", "Underwater breathing, enhanced strength, swimming speed, pressure resistance, and aquatic technology.", "Some individuals weaken after prolonged exposure to dry environments.", { homePlanet: "Earth", primaryLocations: "Atlantis and the deep oceans", lifespan: "150\u2013300 years", population: "Millions", language: "Atlantean / surface languages", government: "Monarchy / councils", technologyLevel: "Advanced", origins: "Ancient Earth civilization." }),
+  seed("Beastfolk", "Animal-Humanoid", "Intelligent humanoids possessing significant animal characteristics, including fur, scales, wings, claws, or enhanced senses.", "Animal-derived strength, senses, reflexes, claws, teeth, wings, and tracking ability.", "Animal-specific vulnerabilities and lineage-dependent biology.", { homePlanet: "Earth", primaryLocations: "Forests, isolated regions, and cities", lifespan: "40\u2013120 years", population: "Uncommon", language: "Beastfolk dialects / human languages", government: "Tribal / regional", origins: "Ancient evolutionary branches or supernatural origins." }),
+  seed("Reptilian", "Reptilian Humanoid", "Intelligent humanoids descended from or resembling reptilian life, with diverse lineages across Earth and other worlds.", "Strength, claws, camouflage, enhanced senses, and lineage-specific adaptation.", "Temperature sensitivity in some lineages.", { homePlanet: "Variable", primaryLocations: "Earth and extraterrestrial worlds", lifespan: "80\u2013400 years", population: "Variable", language: "Species-specific", government: "Clan / empire / tribal", origins: "Variable reptilian lineages." }),
+  seed("Insectoid", "Arthropod Humanoid", "Intelligent beings possessing arthropod-like biology and societies ranging from individual civilizations to collective hives.", "Enhanced strength-to-weight ratio, flight, sensory perception, armor, and hive coordination.", "Species-specific environmental vulnerabilities and possible collective dependence.", { homePlanet: "Variable", primaryLocations: "Various planets and Earth", language: "Chemical / vocal / telepathic", government: "Colony / hive / monarchy", origins: "Variable arthropod evolution." }),
+  seed("Avian", "Winged Humanoid", "Winged humanoids adapted for flight who build cultures in mountains, floating cities, and alien skies.", "Flight, aerial maneuverability, enhanced eyesight, aerial combat, and ranged weaponry.", "Wing injuries and limited ground strength in some lineages.", { homePlanet: "Variable", primaryLocations: "Mountains, floating cities, and alien worlds", lifespan: "40\u2013200 years", population: "Variable", language: "Avian languages", government: "Tribal / monarchic", origins: "Variable flight-adapted evolution." }),
+  seed("Giant", "Colossal Humanoid", "A humanoid species of enormous physical scale with dense bones, massive musculature, and giant-scale engineering.", "Extreme strength, durability, reach, heavy weaponry, and specialized construction.", "Difficult stealth and enormous resource requirements.", { homePlanet: "Variable", primaryLocations: "Mountains and isolated territories", lifespan: "100\u20131,000 years", population: "Rare", language: "Giant languages", government: "Clan / monarchy", origins: "Ancient evolutionary branches." }),
+  seed("Demon", "Supernatural Entity", "Supernatural beings associated with infernal dimensions and dark energies, ranging from predators to sophisticated rulers.", "Supernatural strength, regeneration, dark energy, dimensional travel, sorcery, and possession.", "Holy energy, binding rituals, specific artifacts, and dimensional rules.", { homePlanet: "Infernal realms", primaryLocations: "Hell, Earth, and dimensional territories", lifespan: "Centuries to immortal", population: "Unknown", language: "Infernal languages", government: "Hierarchical", technologyLevel: "Variable / supernatural", origins: "Infernal dimensions." }),
+  seed("Devil", "Infernal Sovereign Species", "Highly organized infernal beings distinguished from common Demons by intelligence, hierarchy, contracts, and supernatural law.", "Supernatural durability, regeneration, dimensional abilities, sorcery, contracts, and manipulation.", "Binding laws, sacred artifacts, and contractual restrictions.", { homePlanet: "Infernal realms", primaryLocations: "Hell and dimensional domains", lifespan: "Immortal or extremely long", population: "Rare", language: "Ancient Infernal", government: "Strict hierarchy", technologyLevel: "Supernatural", origins: "Ancient infernal civilizations", notesReferences: "Devils and Demons remain separate classifications." }),
+  seed("Angel", "Celestial Being", "Celestial beings associated with cosmic order, higher-dimensional forces, duty, and balance.", "Flight, energy manipulation, regeneration, dimensional travel, celestial weapons, and divine techniques.", "Cosmic laws, divine hierarchy, and specialized weapons.", { homePlanet: "Celestial realms", primaryLocations: "Celestial dimensions and Earth", lifespan: "Immortal", population: "Unknown", language: "Celestial languages", government: "Celestial hierarchy", technologyLevel: "Transcendent", origins: "Celestial creation." }),
+  seed("Fallen Angel", "Fallen Celestial", "A celestial being exiled, corrupted, rebellious, or separated from celestial authority.", "Celestial abilities, flight, energy manipulation, and forbidden or infernal techniques.", "Loss of celestial authority, corruption, and binding laws.", { homePlanet: "Celestial realms / exile domains", primaryLocations: "Earth and infernal territories", lifespan: "Immortal", population: "Extremely rare", language: "Celestial / Infernal", government: "Independent", technologyLevel: "Transcendent", origins: "Former Angels." }),
+  seed("Nephilim", "Divine-Blood Hybrid", "A rare being carrying both celestial and mortal ancestry, caught between human existence and celestial power.", "Enhanced strength, durability, senses, healing, celestial energy, combat, and magic.", "Mortal and celestial vulnerabilities.", { homePlanet: "Earth / celestial realms", primaryLocations: "Earth", lifespan: "200\u20135,000 years", population: "Extremely rare", language: "Ancient human / celestial", origins: "Celestial-mortal ancestry." }),
+  seed("Djinn", "Elemental Spirit", "Ancient supernatural spirits that interact with the physical world while existing partly outside conventional reality.", "Shapeshifting, elemental manipulation, supernatural strength, magic, binding arts, and dimensional manipulation.", "Binding objects, ancient laws, and magical contracts.", { homePlanet: "Spirit realms", primaryLocations: "Earth and hidden dimensions", lifespan: "Centuries to millennia", population: "Unknown", language: "Ancient languages / spirit tongues", government: "Sultanates / clans", origins: "Spirit realms", notesReferences: "Djinn are not automatically Demons." }),
+  seed("Fae", "Fey Supernatural", "Magical beings associated with nature, illusion, emotion, ancient magic, and supernatural law.", "Illusion, glamour, shapeshifting, nature manipulation, fey magic, and enchanted weapons.", "Ancient rules, iron, contracts, and magical boundaries.", { homePlanet: "Feywild / hidden dimensions", primaryLocations: "Fey realms and enchanted Earth locations", lifespan: "Centuries to immortal", population: "Unknown", language: "Fey languages", government: "Courts", technologyLevel: "Magical", origins: "Fey dimensions." }),
+  seed("Vampire", "Undead / Supernatural", "Supernatural predators sustained by blood or life energy who maintain hidden societies within the modern world.", "Enhanced strength, speed, senses, regeneration, longevity, hypnosis, shapeshifting, and occult knowledge.", "Sunlight, lineage-specific materials, starvation, and destruction of vital remains.", { homePlanet: "Earth", primaryLocations: "Cities and hidden territories", lifespan: "Centuries to immortal", population: "Rare", language: "Human languages", government: "Clans / covens", origins: "Ancient curse or infection", notesReferences: "Bloodline should be recorded." }),
+  seed("Werebeast", "Shapeshifting Supernatural", "A being capable of transforming between humanoid and beast forms, combining human intelligence with predatory advantages.", "Enhanced strength, speed, senses, regeneration, transformation, and combat ability.", "Transformation triggers and lineage-specific weaknesses.", { homePlanet: "Earth", primaryLocations: "Worldwide", lifespan: "50\u2013200 years", population: "Rare", language: "Human languages", government: "Clans / packs", origins: "Curse, mutation, or supernatural bloodline." }),
+  seed("Undead", "Reanimated Being", "A being whose body continues functioning after conventional biological death through supernatural or technological means.", "Pain resistance, longevity, resistance to biological damage, necromancy, and combat.", "Destruction of vital remains, holy energy, magic, or control mechanisms.", { homePlanet: "Earth / supernatural realms", primaryLocations: "Burial grounds, cities, and battlefields", lifespan: "Potentially indefinite", population: "Variable", language: "Variable", origins: "Magic, curse, disease, or technology." }),
+  seed("Ghost", "Spiritual Entity", "A consciousness or spiritual remnant surviving after biological death between the physical and spiritual worlds.", "Intangibility, levitation, possession, invisibility, haunting, and spirit manipulation.", "Spiritual barriers, exorcism, and specialized artifacts.", { homePlanet: "Spirit plane", primaryLocations: "Earth and spirit realm", lifespan: "Potentially indefinite", population: "Unknown", language: "Human / spiritual", origins: "Biological death." }),
+  seed("Elemental", "Elemental Entity", "A being fundamentally composed of an elemental force such as fire, water, earth, wind, electricity, or a stranger cosmic element.", "Control or embodiment of an element and advanced elemental manipulation.", "Opposing elements and environmental dependence.", { homePlanet: "Elemental realms / Earth", primaryLocations: "Element-associated environments", lifespan: "Centuries to immortal", population: "Unknown", language: "Elemental / telepathic", government: "Elemental courts", technologyLevel: "Magical", origins: "Elemental dimensions or natural forces." }),
+  seed("Dragon", "Ancient Draconic", "Ancient, highly intelligent reptilian creatures possessing immense physical and supernatural power.", "Flight, immense strength, durability, elemental breath, longevity, magic, and ancient knowledge.", "Rare lineage-specific vulnerabilities.", { homePlanet: "Earth / other worlds", primaryLocations: "Mountains and hidden realms", lifespan: "500\u201310,000+ years", population: "Extremely rare", language: "Draconic", government: "Clans / ancient kingdoms", technologyLevel: "Magical / advanced", origins: "Ancient Earth or cosmic origin." }),
+  seed("Titan", "Primordial Colossal Being", "Colossal beings connected to ancient cosmic or planetary forces whose existence predates most modern civilizations.", "Massive strength, durability, energy manipulation, ancient powers, and primordial weapons.", "Primordial laws and specialized artifacts.", { homePlanet: "Earth / primordial realms", primaryLocations: "Hidden dimensions and Earth", lifespan: "Thousands to millions of years", population: "Extremely rare", language: "Ancient languages / telepathy", government: "Ancient hierarchy", technologyLevel: "Primordial", origins: "Primordial creation." }),
+  seed("Kaiju", "Colossal Creature", "Enormous creatures whose scale and destructive capabilities can threaten cities or entire regions.", "Massive strength, durability, energy attacks, and regeneration.", "Species-specific biological weaknesses.", { homePlanet: "Variable", primaryLocations: "Oceans, wilderness, and cities", lifespan: "50\u20131,000+ years", population: "Rare", language: "Animalistic / unknown", government: "None", technologyLevel: "None", origins: "Natural, mutated, extraterrestrial, or supernatural." }),
+  seed("Symbiote", "Bonding Organism", "An adaptive organism capable of bonding with a host to form a combined lifeform.", "Regeneration, adaptation, enhanced strength, biological weapon formation, and host ability incorporation.", "Host rejection, extreme environments, and species-specific frequencies or substances.", { homePlanet: "Variable", primaryLocations: "Host bodies and alien worlds", lifespan: "Variable", population: "Unknown", language: "Telepathic / host language", government: "Collective / individual", technologyLevel: "Biological", origins: "Extraterrestrial or biological." }),
+  seed("Shapeshifter", "Transformative Being", "A being whose defining ability is altering physical appearance or biological structure, making identity a weapon.", "Physical transformation, mimicry, disguise, and advanced impersonation.", "Mass limits, concentration, energy expenditure, and biological restrictions.", { homePlanet: "Variable", primaryLocations: "Worldwide", lifespan: "Variable", population: "Rare", language: "Variable", origins: "Mutation, alien biology, or magic." }),
+  seed("Energy Being", "Non-Biological Entity", "A lifeform existing primarily as energy rather than conventional matter.", "Energy projection, flight, intangibility, energy absorption, and temporary physical bodies.", "Energy depletion, containment technology, and opposing energy types.", { homePlanet: "Variable", primaryLocations: "Energy fields and cosmic space", lifespan: "Potentially indefinite", population: "Unknown", language: "Telepathic / electromagnetic", technologyLevel: "Cosmic", origins: "Cosmic events." }),
+  seed("Voidborn", "Void Entity", "An entity originating from the space between realities, often perceiving existence and time differently from known species.", "Void manipulation, dimensional movement, energy absorption, and reality interaction.", "Reality anchors and dimensional stabilization.", { homePlanet: "The Void", primaryLocations: "Void and dimensional boundaries", lifespan: "Unknown", population: "Unknown", language: "Void communication", technologyLevel: "Transcendent", origins: "The Void." }),
+  seed("Celestial", "Cosmic Entity", "An immense cosmic being associated with creation, observation, judgment, or cosmic balance.", "Cosmic energy manipulation, dimensional travel, immense durability, and reality-scale abilities.", "Cosmic laws and higher-order entities.", { homePlanet: "Celestial realms", primaryLocations: "Cosmic space and higher dimensions", lifespan: "Immortal", population: "Extremely rare", language: "Cosmic communication", government: "Cosmic hierarchy", technologyLevel: "Transcendent", origins: "Cosmic creation", notesReferences: "Do not confuse Celestials with Angels." }),
+  seed("Astral", "Spiritual / Dimensional", "A being existing primarily within non-physical dimensions of consciousness where thought can function as a physical force.", "Astral projection, telepathy, possession, dream manipulation, and psychic techniques.", "Mental defenses, spiritual barriers, and dimensional anchors.", { homePlanet: "Astral plane", primaryLocations: "Astral realm and Earth", lifespan: "Variable", population: "Unknown", language: "Telepathic", government: "Psychic communities", technologyLevel: "Psychic / dimensional", origins: "Astral plane." }),
+  seed("Cosmic Being", "Cosmic Lifeform", "An entity whose existence operates on a universal or interstellar scale, where planets and civilizations are pieces in larger processes.", "Space travel, cosmic energy, extreme durability, and reality manipulation.", "Higher cosmic laws and entities.", { homePlanet: "Cosmic space", primaryLocations: "Universe", lifespan: "Millions to infinite years", population: "Unknown", language: "Cosmic / telepathic", government: "Cosmic civilizations", technologyLevel: "Cosmic", origins: "Universal." }),
+  seed("Interdimensional", "Dimensional Entity", "A being native to or naturally interacting with multiple dimensions and reality boundaries.", "Dimensional travel, phase shifting, portal creation, and reality navigation.", "Dimensional anchors and unstable portals.", { homePlanet: "Variable dimensions", primaryLocations: "Multiple realities", lifespan: "Variable", population: "Unknown", language: "Variable", government: "Variable", technologyLevel: "Dimensional", origins: "Alternate dimensions." }),
+  seed("Multiversal", "Multiversal Entity", "An extremely rare being whose awareness, existence, or influence extends across multiple universes.", "Cross-universe awareness, dimensional travel, and reality interaction.", "Higher-order cosmic laws.", { homePlanet: "Multiple realities", primaryLocations: "Multiverse", lifespan: "Potentially infinite", population: "Unknown", language: "Multiversal / telepathic", technologyLevel: "Transcendent", origins: "Unknown", notesReferences: "Use sparingly for characters that genuinely operate across universes." }),
+  seed("Primordial", "Ancient Cosmic Entity", "An entity that existed before or during the earliest stages of cosmic development and may predate stars.", "Reality-scale energy manipulation and ancient cosmic knowledge.", "Fundamental laws of existence.", { homePlanet: "Before conventional civilization", primaryLocations: "Cosmic and primordial realms", lifespan: "Potentially billions of years", population: "Unknown", language: "Ancient / conceptual", government: "Ancient hierarchy", technologyLevel: "Beyond conventional", origins: "Early universe." }),
+  seed("Godlike", "Transcendent Being", "An extraordinarily powerful being approaching divine levels without necessarily being a true god or omnipotent.", "Extreme strength, durability, energy manipulation, dimensional abilities, and divine techniques.", "Individual-specific limits and cosmic laws.", { homePlanet: "Variable", primaryLocations: "Cosmic and divine realms", lifespan: "Immortal", population: "Extremely rare", language: "Divine / cosmic", government: "Divine hierarchy / independent", technologyLevel: "Transcendent", origins: "Ascension, cosmic birth, divine creation, or extreme evolution." }),
+  seed("Construct", "Artificial Entity", "An artificial being created through technology, magic, or both, sometimes developing an identity beyond its original purpose.", "Construction-dependent abilities, upgrades, enchantments, and combat training.", "Creator limitations, power source, and structural damage.", { homePlanet: "Artificial / creator-dependent", primaryLocations: "Anywhere", lifespan: "Potentially indefinite", population: "Variable", language: "Programmed / learned", government: "Creator-dependent", origins: "Artificial creation." }),
+  seed("Technomorph", "Technological Lifeform", "A living being capable of manipulating, transforming, or merging with technology.", "Technology manipulation, machine integration, self-modification, hacking, and weaponization.", "EMP effects, incompatible systems, and technological dependency.", { homePlanet: "Variable", primaryLocations: "Cities, machines, and networks", lifespan: "Potentially indefinite", population: "Unknown", language: "Digital / technological", government: "Networked", technologyLevel: "Extremely advanced", origins: "Evolutionary technology or artificial creation." }),
+  seed("Parasite", "Symbiotic / Predatory Organism", "An organism surviving by living within or upon another organism, ranging from destructive to mutually beneficial.", "Host manipulation, biological adaptation, and ability acquisition through hosts.", "Host death, immune response, and environmental vulnerability.", { homePlanet: "Variable", primaryLocations: "Hosts and biological environments", lifespan: "Variable", population: "Variable", language: "Biological / telepathic", government: "None / colonies", technologyLevel: "Biological", origins: "Evolutionary or extraterrestrial." }),
+  seed("Hive Mind", "Collective Intelligence", "A society or species whose individual bodies share a collective consciousness and distributed intelligence.", "Collective communication, synchronized action, shared knowledge, and tactical coordination.", "Central nodes, communication disruption, and collective vulnerability.", { homePlanet: "Variable", primaryLocations: "Colonies and networks", lifespan: "Variable", population: "Potentially millions", language: "Collective communication", government: "Central consciousness / hierarchy", origins: "Biological evolution or artificial networking." }),
+  seed("Unknown", "Unclassified", "A deliberate gap in the universe's knowledge used when an individual's species has not yet been identified.", "Unknown.", "Unknown.", { status: "Unknown", homePlanet: "Unknown", primaryLocations: "Unknown", lifespan: "Unknown", population: "Unknown", language: "Unknown", government: "Unknown", technologyLevel: "Unknown", appearance: "Unknown or insufficient data.", biology: "Unknown.", origins: "Unknown.", currentStatus: "Under investigation.", notesReferences: "Update this classification when evidence becomes available.", seeAlso: "Other" }),
+  seed("Other", "Unclassified / Unique", "An expansion slot for species that do not fit any existing classification.", "Species-specific.", "Species-specific.", { status: "Active / Variable", homePlanet: "Variable", primaryLocations: "Variable", lifespan: "Variable", population: "Variable", language: "Variable", government: "Variable", technologyLevel: "Variable", origins: "Species-specific.", currentStatus: "Variable.", notesReferences: "Replace with a specific classification whenever sufficient lore becomes available.", seeAlso: "Unknown" })
+];
+
 // server.ts
 var app = (0, import_express.default)();
 var PORT = Number(process.env.PORT || 3e3);
+var normalizeListField = (value) => {
+  if (Array.isArray(value)) {
+    return value.map((entry) => String(entry).trim()).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value.split(/[\n,]/).map((entry) => entry.trim()).filter(Boolean);
+  }
+  return [];
+};
+var normalizeListFields = (record) => {
+  const next = { ...record };
+  for (const key of [
+    "powers",
+    "skills",
+    "weaknesses",
+    "equipment",
+    "friends",
+    "family",
+    "aliases",
+    "members",
+    "formerMembers",
+    "allies",
+    "enemies"
+  ]) {
+    if (next[key] === void 0 || next[key] === null) continue;
+    next[key] = normalizeListField(next[key]);
+  }
+  return next;
+};
 var keyConfigPath = import_path.default.join(process.cwd(), ".ai-key-config.json");
 var aiProvider = (process.env.AI_PROVIDER || (process.env.GROQ_API_KEY || process.env.GROQ_KEYS ? "groq" : "gemini")).toLowerCase();
 var cachedGroqModel = null;
@@ -761,8 +1126,32 @@ async function sendResendEmail(to, subject, html) {
 app.use(import_express.default.json({ limit: "1mb" }));
 app.use(import_express.default.urlencoded({ extended: true }));
 app.use((req, res, next) => {
-  const origin = process.env.CORS_ORIGIN || "*";
-  res.setHeader("Access-Control-Allow-Origin", origin);
+  const configuredOrigins = (process.env.CORS_ORIGIN || "").split(",").map((value) => value.trim()).filter(Boolean);
+  const defaultOrigins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "https://infernalarchive.vercel.app",
+    "https://www.infernalarchive.vercel.app",
+    "https://infernal-archive.onrender.com"
+  ];
+  const allowedOrigins = /* @__PURE__ */ new Set([...configuredOrigins, ...defaultOrigins]);
+  const requestOrigin = req.headers.origin;
+  if (!requestOrigin) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  } else if (allowedOrigins.has(requestOrigin)) {
+    res.setHeader("Access-Control-Allow-Origin", requestOrigin);
+    res.setHeader("Vary", "Origin");
+  } else if (/^https:\/\/.*\.vercel\.app$/i.test(requestOrigin)) {
+    res.setHeader("Access-Control-Allow-Origin", requestOrigin);
+    res.setHeader("Vary", "Origin");
+  } else if (/^http:\/\/localhost:\d+$/i.test(requestOrigin)) {
+    res.setHeader("Access-Control-Allow-Origin", requestOrigin);
+    res.setHeader("Vary", "Origin");
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader(
     "Access-Control-Allow-Methods",
@@ -1338,9 +1727,53 @@ function saveDB(db2) {
     console.error("Failed to save DB", e);
   }
 }
+var normalizeSpeciesName = (value) => String(value || "").toLowerCase().replace(/\s*\([^)]*\)\s*/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
+function mergeSpeciesBible(database) {
+  const existingSpecies = Array.isArray(database.species) ? database.species : [];
+  let changed = false;
+  for (const [index, seedSpecies] of speciesBibleSeed.entries()) {
+    const existing = existingSpecies.find(
+      (species) => normalizeSpeciesName(species.name) === normalizeSpeciesName(seedSpecies.name)
+    );
+    if (existing) {
+      for (const [key, value] of Object.entries(seedSpecies)) {
+        if (key !== "image" && (existing[key] === void 0 || existing[key] === null || existing[key] === "")) {
+          existing[key] = value;
+          changed = true;
+        }
+      }
+      continue;
+    }
+    existingSpecies.push({
+      id: `spec-bible-${String(index + 1).padStart(2, "0")}`,
+      ...seedSpecies
+    });
+    changed = true;
+  }
+  database.species = existingSpecies;
+  if (changed) saveDB(database);
+  return changed;
+}
 var db = loadDB();
 db.chatMessages = db.chatMessages || [];
 db.simulations = db.simulations || [];
+mergeSpeciesBible(db);
+async function seedRemoteSpecies() {
+  if (!supabaseAdmin) return;
+  const { data: existing, error: readError } = await supabaseAdmin.from("species").select("id, name");
+  if (readError) return;
+  const existingNames = new Set(
+    (existing || []).map((species) => normalizeSpeciesName(species.name))
+  );
+  const missing = speciesBibleSeed.map((species, index) => ({
+    id: `spec-bible-${String(index + 1).padStart(2, "0")}`,
+    ...species
+  })).filter((species) => !existingNames.has(normalizeSpeciesName(species.name))).map(toSupabaseRow);
+  if (missing.length > 0) {
+    await supabaseAdmin.from("species").insert(missing);
+  }
+}
+void seedRemoteSpecies();
 async function getCurrentArchive() {
   if (!supabase) return db;
   const entries = await Promise.all(
@@ -1372,6 +1805,25 @@ function inferCharacterCountFromText(text) {
 function makeEntityId(col) {
   return `${col.slice(0, 4)}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
+app.post("/api/species/seed", async (req, res) => {
+  const actor = await getAuthenticatedProfile(req.headers.authorization);
+  if (!actor) return res.status(401).json({ error: "Authentication required." });
+  const client = getUserClient(req.headers.authorization);
+  if (!client) return res.status(401).json({ error: "Invalid session." });
+  const { data: existing, error: readError } = await client.from("species").select("id, name");
+  if (readError) return res.status(400).json({ error: readError.message });
+  const existingNames = new Set(
+    (existing || []).map((species) => normalizeSpeciesName(species.name))
+  );
+  const missing = speciesBibleSeed.map((species, index) => ({
+    id: `spec-bible-${String(index + 1).padStart(2, "0")}`,
+    ...species
+  })).filter((species) => !existingNames.has(normalizeSpeciesName(species.name))).map(toSupabaseRow);
+  if (missing.length === 0) return res.json({ inserted: 0, total: existing?.length || 0 });
+  const { error: insertError } = await client.from("species").insert(missing);
+  if (insertError) return res.status(400).json({ error: insertError.message });
+  res.status(201).json({ inserted: missing.length, total: (existing?.length || 0) + missing.length });
+});
 app.post("/api/admin/invite", async (req, res) => {
   const actor = await getAuthenticatedProfile(req.headers.authorization);
   if (!actor || actor.profile.role !== "god")
@@ -1662,6 +2114,9 @@ var collections = [
 for (const col of collections) {
   app.get(`/api/${col}`, async (req, res) => {
     const remote = await readCollection(col);
+    if (col === "species" && Array.isArray(remote.data) && remote.data.length === 0 && Array.isArray(db.species) && db.species.length > 0) {
+      return res.json(db.species);
+    }
     if (remote.data !== null && supabase) {
       return res.json(remote.data);
     }
@@ -1704,11 +2159,15 @@ for (const col of collections) {
         }
       }
     }
+    const sanitizedBody = normalizeListFields(req.body || {});
     const newItem = {
       id: makeEntityId(col),
-      ...req.body,
-      canonStatus: req.body.canonStatus || "CANON"
+      ...sanitizedBody,
+      canonStatus: sanitizedBody.canonStatus || "CANON"
     };
+    const createdLabel = String(
+      newItem.name || newItem.title || newItem.id || "record"
+    );
     const remote = await createRow(col, newItem);
     if (remote.data) {
       return res.status(201).json(remote.data);
@@ -1721,14 +2180,20 @@ for (const col of collections) {
       timestamp: (/* @__PURE__ */ new Date()).toISOString(),
       user: req.body.author || "Andrei Thorne (Editor)",
       action: `CREATE_${col.toUpperCase()}`,
-      details: `Created new ${col.slice(0, -1)}: ${newItem.name || newItem.title || newItem.id}`
+      details: `Created new ${col.slice(0, -1)}: ${createdLabel}`
     });
     saveDB(db);
     res.status(201).json(newItem);
   });
   app.put(`/api/${col}/:id`, async (req, res) => {
     const { id } = req.params;
-    const remote = await updateRow(col, id, req.body);
+    const sanitizedBody = normalizeListFields(req.body || {});
+    const remote = await updateRow(
+      col,
+      id,
+      sanitizedBody,
+      req.headers.authorization
+    );
     if (remote.data) {
       return res.json(remote.data);
     }
@@ -1738,7 +2203,7 @@ for (const col of collections) {
     if (index === -1) {
       return res.status(404).json({ error: "Item not found" });
     }
-    const updated = { ...db[col][index], ...req.body, id };
+    const updated = { ...db[col][index], ...sanitizedBody, id };
     db[col][index] = updated;
     db.auditLogs.unshift({
       id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1817,7 +2282,7 @@ app.post("/api/simulate", async (req, res) => {
       morals,
       conditions,
       winCondition,
-      seed
+      seed: seed2
     } = req.body;
     if (!combatant1Id || !combatant2Id)
       return res.status(400).json({ error: "Two combatants are required." });
@@ -1856,7 +2321,7 @@ app.post("/api/simulate", async (req, res) => {
       conditions: conditions || "Day",
       winCondition: winCondition || "Incapacitation"
     };
-    const computation = runSimulation([c1, c2], location, setup, seed);
+    const computation = runSimulation([c1, c2], location, setup, seed2);
     const prompt = buildNarrativePrompt([c1, c2], location, setup, computation);
     let rounds;
     try {
@@ -1887,12 +2352,14 @@ app.post("/api/simulate", async (req, res) => {
       primaryCause: computation.primaryCause,
       unexpectedFactor: computation.unexpectedFactor,
       isUpset: computation.isUpset,
+      finishState: computation.finishState,
       engineReport: {
         stats: computation.stats,
         modifiers: computation.modifiers,
         effective: computation.effective,
         probability: computation.probability,
-        winnerIndex: computation.winnerIndex
+        winnerIndex: computation.winnerIndex,
+        finishState: computation.finishState
       },
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     };

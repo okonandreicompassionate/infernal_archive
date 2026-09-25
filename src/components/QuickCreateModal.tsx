@@ -655,6 +655,8 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
   const [saveError, setSaveError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [species, setSpecies] = useState("Human");
+  const [availableSpecies, setAvailableSpecies] =
+    useState<string[]>(speciesOptions);
   const [speciesQuery, setSpeciesQuery] = useState("");
   const [showSpecies, setShowSpecies] = useState(false);
   const [profileFields, setProfileFields] = useState<Record<string, string>>(
@@ -670,11 +672,32 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
       fetch("/api/characters").then((res) => res.json()),
       fetch("/api/planets").then((res) => res.json()),
       fetch("/api/locations").then((res) => res.json()),
+      fetch("/api/species").then((res) => res.json()),
     ])
-      .then(([characters, planets, locations]) => {
+      .then(([characters, planets, locations, archiveSpecies]) => {
         setAvailableCharacters(characters || []);
         setAvailablePlanets(planets || []);
         setAvailableLocations(locations || []);
+        const archiveSpeciesNames = (
+          Array.isArray(archiveSpecies) ? archiveSpecies : []
+        )
+          .map(
+            (record: any) =>
+              record.name ||
+              record.speciesName ||
+              record.commonName ||
+              record.title ||
+              record.id,
+          )
+          .filter((name: unknown): name is string => Boolean(name));
+        setAvailableSpecies(
+          [...archiveSpeciesNames, ...speciesOptions].filter(
+            (name, index, names) =>
+              names.findIndex(
+                (candidate) => candidate.toLowerCase() === name.toLowerCase(),
+              ) === index,
+          ),
+        );
       })
       .catch((err) => console.error(err));
   }, []);
@@ -1117,7 +1140,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
                 {showSpecies && (
                   <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-44 overflow-y-auto rounded border border-white/10 bg-zinc-950 shadow-xl">
                     {speciesQuery.trim() &&
-                      !speciesOptions.some(
+                      !availableSpecies.some(
                         (option) =>
                           option.toLowerCase() ===
                           speciesQuery.trim().toLowerCase(),
@@ -1134,7 +1157,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
                           Use custom: “{speciesQuery.trim()}”
                         </button>
                       )}
-                    {speciesOptions
+                    {availableSpecies
                       .filter((option) =>
                         option
                           .toLowerCase()
