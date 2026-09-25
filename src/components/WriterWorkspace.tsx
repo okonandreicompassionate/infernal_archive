@@ -92,6 +92,17 @@ export const WriterWorkspace: React.FC = () => {
   const [scriptImportPreview, setScriptImportPreview] = useState<any>(null);
   const [importingScript, setImportingScript] = useState(false);
 
+  const buildCharacterLabel = (character: any) => {
+    if (!character) return "";
+    if (typeof character === "string") return character.trim();
+    if (typeof character === "object") {
+      const name = character.name || "";
+      const codeName = character.codeName || "";
+      return codeName ? `${name} (${codeName})` : name;
+    }
+    return String(character);
+  };
+
   const loadScripts = () => {
     setLoading(true);
     fetch("/api/scripts")
@@ -874,17 +885,6 @@ export const WriterWorkspace: React.FC = () => {
           Number(asset.pageNumber) === Number(script.pageNumber) &&
           Number(asset.panelNumber) === Number(script.panelNumber)),
     );
-
-  const buildCharacterLabel = (character: any) => {
-    if (!character) return "";
-    if (typeof character === "string") return character.trim();
-    if (typeof character === "object") {
-      const name = character.name || "";
-      const codeName = character.codeName || "";
-      return codeName ? `${name} (${codeName})` : name;
-    }
-    return String(character);
-  };
 
   const CharacterPicker: React.FC<{
     value: string;
