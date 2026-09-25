@@ -875,10 +875,16 @@ export const WriterWorkspace: React.FC = () => {
           Number(asset.panelNumber) === Number(script.panelNumber)),
     );
 
-  const buildCharacterLabel = (character: any) =>
-    character.codeName
-      ? `${character.name} (${character.codeName})`
-      : character.name;
+  const buildCharacterLabel = (character: any) => {
+    if (!character) return "";
+    if (typeof character === "string") return character.trim();
+    if (typeof character === "object") {
+      const name = character.name || "";
+      const codeName = character.codeName || "";
+      return codeName ? `${name} (${codeName})` : name;
+    }
+    return String(character);
+  };
 
   const CharacterPicker: React.FC<{
     value: string;
@@ -896,7 +902,8 @@ export const WriterWorkspace: React.FC = () => {
     const relevant = [...issueSpeakerOptions].filter((speaker) => {
       const normalizedQuery = query.trim().toLowerCase();
       return (
-        !normalizedQuery || speaker.toLowerCase().includes(normalizedQuery)
+        !normalizedQuery ||
+        String(speaker).toLowerCase().includes(normalizedQuery)
       );
     });
 
@@ -917,20 +924,20 @@ export const WriterWorkspace: React.FC = () => {
         />
         {open && query.trim() && relevant.length > 0 && (
           <div className="absolute z-20 mt-1 w-full rounded-xl border border-white/10 bg-zinc-950/95 p-1 shadow-2xl">
-            {relevant.slice(0, 8).map((character) => (
+            {relevant.slice(0, 8).map((speaker, index) => (
               <button
-                key={character.id}
+                key={`${speaker}-${index}`}
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
-                  const label = buildCharacterLabel(character);
+                  const label = buildCharacterLabel(speaker);
                   setQuery(label);
                   setOpen(false);
                   onChange(label);
                 }}
                 className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-[11px] text-zinc-200 transition hover:bg-white/5"
               >
-                <span>{buildCharacterLabel(character)}</span>
+                <span>{buildCharacterLabel(speaker)}</span>
                 <span className="text-[9px] uppercase tracking-wider text-zinc-500">
                   Cast
                 </span>
@@ -945,10 +952,12 @@ export const WriterWorkspace: React.FC = () => {
   const handleRunCanonCheck = async () => {
     setCheckingCanon(true);
     const combinedText = scripts
-      .map(
-        (s) =>
-          `${s.setting} ${s.description} ${s.dialogue.map((d: any) => d.text).join(" ")}`,
-      )
+      .map((s) => {
+        const dialogueText = Array.isArray(s?.dialogue)
+          ? s.dialogue.map((d: any) => String(d?.text || "")).join(" ")
+          : "";
+        return `${s?.setting || ""} ${s?.description || ""} ${dialogueText}`;
+      })
       .join(" ");
     try {
       const res = await fetch("/api/ai/canon-check", {
