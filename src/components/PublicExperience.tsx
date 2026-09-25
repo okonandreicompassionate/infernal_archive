@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { CombatSimulator } from "./CombatSimulator";
 import { BattleArena } from "./BattleArena";
+import { getEntityDescription } from "../utils/entitySummary";
 
 const PUBLIC_SECTIONS = [
   { id: "dashboard", label: "Dashboard", icon: Layers3 },
@@ -173,12 +174,7 @@ export const PublicExperience: React.FC<PublicExperienceProps> = ({
   const getName = (item: any) =>
     item.name || item.title || item.codeName || "Untitled record";
   const getSummary = (item: any) =>
-    item.description ||
-    item.biography ||
-    item.synopsis ||
-    item.goals ||
-    item.biology ||
-    "Canon record in the Infernal Archive.";
+    getEntityDescription(item) || "Canon record in the Infernal Archive.";
   const getImage = (item: any) =>
     item.portrait || item.cover || item.image || item.logo;
 

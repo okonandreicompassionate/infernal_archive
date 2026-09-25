@@ -105,52 +105,44 @@ export const Dashboard: React.FC<DashboardProps> = ({
   ];
 
   return (
-    <div className="dashboard-page max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-6 sm:space-y-8">
-      {/* Hero Welcome Banner */}
-      <div className="dashboard-hero relative rounded-2xl sm:rounded-3xl overflow-hidden border border-white/5 bg-zinc-900/70 backdrop-blur-xl p-5 sm:p-8">
-        <div className="absolute -top-10 -right-10 opacity-20 pointer-events-none">
-          <Globe className="w-48 h-48 sm:w-64 sm:h-64 text-yellow-400" />
-        </div>
-        <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="inline-flex items-center space-x-2 bg-yellow-400/10 border border-yellow-400/20 text-yellow-300 text-xs px-2.5 py-1 rounded-full font-mono">
-            <Bot className="w-3.5 h-3.5" />
-            <span>Workspace overview</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-100">
-            Welcome, {displayName || "Admin"}
+    <div className="dashboard-page max-w-[1200px] mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-6 sm:space-y-8">
+      <div className="dashboard-hero flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div className="space-y-4">
+          <h1 className="text-4xl font-normal leading-none tracking-[-0.04em] text-[#f3ebdf] sm:text-5xl xl:text-[4rem]">
+            Welcome, {displayName || "levi0"}
           </h1>
-          <p className="text-sm text-zinc-400 leading-relaxed">
+          <p className="max-w-2xl text-sm text-[#b7afa5]">
             Keep your characters, locations, issues, and production work in one
             place.
           </p>
-          <div className="flex flex-wrap gap-2.5 sm:gap-3 pt-2">
-            <button
-              onClick={() => setActiveTab("writer")}
-              className="bg-yellow-400 hover:bg-yellow-300 text-zinc-950 text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-yellow-400/10 flex items-center space-x-2 cursor-pointer"
-            >
-              <FileText className="w-4 h-4" />
-              <span>Open Writer Studio</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("lorekeeper")}
-              className="bg-white/5 hover:bg-white/10 text-zinc-200 text-xs font-semibold px-4 py-2.5 rounded-xl border border-white/10 transition-all flex items-center space-x-2 cursor-pointer"
-            >
-              <Bot className="w-4 h-4 text-yellow-400" />
-              <span>Ask AI Lorekeeper</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("graph")}
-              className="bg-white/5 hover:bg-white/10 text-zinc-200 text-xs font-semibold px-4 py-2.5 rounded-xl border border-white/10 transition-all flex items-center space-x-2 cursor-pointer"
-            >
-              <Globe className="w-4 h-4 text-yellow-400" />
-              <span>Explore Knowledge Graph</span>
-            </button>
-          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => setActiveTab("writer")}
+            className="flex items-center gap-2 rounded-xl bg-[#d05b48] px-4 py-3 text-sm font-medium text-[#fff8f4] transition hover:bg-[#c74c3d]"
+          >
+            <FileText className="h-4 w-4" />
+            <span>Open Writer Studio</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("lorekeeper")}
+            className="flex items-center gap-2 rounded-xl border border-[#3a312e] bg-[#1d1a18] px-4 py-3 text-sm font-medium text-[#f3ebdf] transition hover:bg-[#27221f]"
+          >
+            <Bot className="h-4 w-4 text-[#d4b280]" />
+            <span>Ask AI Lorekeeper</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("graph")}
+            className="flex items-center gap-2 rounded-xl border border-[#3a312e] bg-[#1d1a18] px-4 py-3 text-sm font-medium text-[#f3ebdf] transition hover:bg-[#27221f]"
+          >
+            <Globe className="h-4 w-4 text-[#d4b280]" />
+            <span>Explore Knowledge Graph</span>
+          </button>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
         {statCards.map((item, idx) => {
           const Icon = item.icon;
           const featured = idx === 0;
@@ -158,32 +150,32 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div
               key={idx}
               onClick={() => setActiveTab(item.tab)}
-              className={`dashboard-stat p-4 rounded-2xl transition-all cursor-pointer group border ${
+              className={`dashboard-stat group flex min-h-[142px] cursor-pointer flex-col justify-between rounded-xl border p-4 transition-all ${
                 featured
-                  ? "bg-yellow-400 border-yellow-300 hover:bg-yellow-300"
-                  : "bg-zinc-900/70 backdrop-blur-xl border-white/5 hover:border-white/10"
+                  ? "border-[#ef7c6a] bg-[#d15d48] text-[#fffaf7]"
+                  : "border-[#312d2a] bg-[#1a1715] text-[#f5efe9] hover:border-[#3a312e]"
               }`}
             >
               <div className="flex items-center justify-between">
-                <Icon
-                  className={`w-5 h-5 ${featured ? "text-zinc-950" : "text-yellow-400"}`}
-                />
+                <div
+                  className={`flex h-9 w-9 items-center justify-center rounded-md ${featured ? "bg-[#e97d68]/20" : "bg-[#221f1d]"}`}
+                >
+                  <Icon
+                    className={`h-5 w-5 ${featured ? "text-[#fffaf7]" : "text-[#d4b280]"}`}
+                  />
+                </div>
                 <ArrowUpRight
-                  className={`w-4 h-4 transition-colors ${
-                    featured
-                      ? "text-zinc-950/50 group-hover:text-zinc-950"
-                      : "text-zinc-600 group-hover:text-zinc-300"
-                  }`}
+                  className={`h-4 w-4 ${featured ? "text-[#ffeae3]" : "text-[#8a817b]"}`}
                 />
               </div>
-              <div className="mt-3">
+              <div>
                 <div
-                  className={`text-xl sm:text-2xl font-bold font-mono ${featured ? "text-zinc-950" : "text-zinc-100"}`}
+                  className={`text-3xl font-medium leading-none tracking-[-0.06em] ${featured ? "text-[#fffaf7]" : "text-[#f5efe9]"}`}
                 >
                   {item.count || 0}
                 </div>
                 <div
-                  className={`text-xs mt-0.5 ${featured ? "text-zinc-900/70" : "text-zinc-400"}`}
+                  className={`mt-3 text-sm ${featured ? "text-[#ffeae3]" : "text-[#b7afa5]"}`}
                 >
                   {item.label}
                 </div>
@@ -194,15 +186,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* Main Two-Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-8">
-        {/* Recent Audit & Canon Logs */}
-        <div className="dashboard-panel lg:col-span-2 bg-zinc-900/70 backdrop-blur-xl border border-white/5 rounded-2xl sm:rounded-3xl p-5 sm:p-6 space-y-4">
-          <div className="flex items-center justify-between border-b border-white/5 pb-3">
-            <h2 className="text-sm font-semibold text-zinc-200 uppercase tracking-wider flex items-center space-x-2">
-              <Clock className="w-4 h-4 text-yellow-400" />
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 sm:gap-8">
+        <div className="dashboard-panel xl:col-span-2 rounded-2xl border border-[#312d2a] bg-[#1a1715] p-5 sm:p-6">
+          <div className="flex items-center justify-between border-b border-[#312d2a] pb-3">
+            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.22em] text-[#f3ebdf]">
+              <Clock className="h-4 w-4 text-[#d4b280]" />
               <span>Recent activity</span>
             </h2>
-            <span className="text-xs text-zinc-400 font-mono">Live Sync</span>
+            <span className="text-xs font-mono text-[#a89d93]">Live Sync</span>
           </div>
 
           <div className="space-y-3">
@@ -244,10 +235,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Production Pipeline & Canon Alerts */}
         <div className="space-y-5 sm:space-y-6">
-          {/* Canon Alerts Box */}
-          <div className="dashboard-panel bg-zinc-900/70 backdrop-blur-xl border border-white/5 rounded-2xl sm:rounded-3xl p-5 sm:p-6 space-y-4">
-            <h2 className="text-sm font-semibold text-zinc-200 uppercase tracking-wider flex items-center space-x-2 border-b border-white/5 pb-3">
-              <AlertTriangle className="w-4 h-4 text-yellow-400" />
+          <div className="dashboard-panel rounded-2xl border border-[#312d2a] bg-[#1a1715] p-5 sm:p-6">
+            <h2 className="flex items-center gap-2 border-b border-[#312d2a] pb-3 text-sm font-semibold uppercase tracking-[0.22em] text-[#f3ebdf]">
+              <AlertTriangle className="h-4 w-4 text-[#d4b280]" />
               <span>Workspace status</span>
             </h2>
             <div className="space-y-3">
@@ -285,13 +275,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Active Production Tasks */}
-          <div className="dashboard-panel dashboard-pipeline bg-zinc-900/70 backdrop-blur-xl border border-white/5 rounded-2xl sm:rounded-3xl p-5 sm:p-6 space-y-4">
-            <h2 className="text-sm font-semibold text-zinc-200 uppercase tracking-wider flex items-center space-x-2 border-b border-white/5 pb-3">
-              <FileText className="w-4 h-4 text-yellow-400" />
+          <div className="dashboard-panel dashboard-pipeline rounded-2xl border border-[#312d2a] bg-[#1a1715] p-5 sm:p-6">
+            <h2 className="flex items-center gap-2 border-b border-[#312d2a] pb-3 text-sm font-semibold uppercase tracking-[0.22em] text-[#f3ebdf]">
+              <FileText className="h-4 w-4 text-[#d4b280]" />
               <span>
                 {primaryIssue
                   ? `Issue ${primaryIssue.issueNumber || ""} production`
-                  : "Production pipeline"}
+                  : "Issue 1 production"}
               </span>
             </h2>
             <div className="space-y-2.5">

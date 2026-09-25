@@ -19,6 +19,7 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { subscribeToTable } from "../utils/supabase";
+import { getEntityDescription } from "../utils/entitySummary";
 
 interface EntityBrowserProps {
   entityType: string; // 'characters', 'teams', 'planets', 'locations', 'powers', 'artifacts', 'events', 'issues'
@@ -195,10 +196,9 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
     const name = item.name || item.title || item.codeName || "";
     const matchesSearch =
       name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.description &&
-        item.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (item.synopsis &&
-        item.synopsis.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      getEntityDescription(item)
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
       (item.tags &&
         item.tags.some((t: string) =>
           t.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -453,10 +453,7 @@ export const EntityBrowser: React.FC<EntityBrowserProps> = ({
                       </h3>
 
                       <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
-                        {item.description ||
-                          item.synopsis ||
-                          item.biography ||
-                          item.goals ||
+                        {getEntityDescription(item) ||
                           "No description provided."}
                       </p>
 

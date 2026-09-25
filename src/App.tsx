@@ -166,75 +166,77 @@ export default function App() {
   if (passwordRecovery) return <PasswordSetupScreen />;
 
   return (
-    <div className="universe-shell min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500 selection:text-white">
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onOpenCommandPalette={() => setShowCommandPalette(true)}
-        onOpenQuickCreate={() => openQuickCreate("characters")}
-        onOpenBibleExport={() => setShowBibleExport(true)}
-        onRefreshData={handleRefresh}
-        onSelectItem={handleSelectItem}
-        role={role}
-        userEmail={user.email}
-        displayName={displayName}
-        onOpenGuide={() => setShowGuide(true)}
-        onOpenInvite={() => setShowInvite(true)}
-        onOpenForbiddenArchive={() => setShowForbiddenArchive(true)}
-        onSignOut={() => supabase?.auth.signOut()}
-      />
+    <div className="universe-shell min-h-screen bg-[#171411] text-[#f5efe9] selection:bg-[#d8be95] selection:text-[#171411]">
+      <div className="flex min-h-screen">
+        <Navbar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onOpenCommandPalette={() => setShowCommandPalette(true)}
+          onOpenQuickCreate={() => openQuickCreate("characters")}
+          onOpenBibleExport={() => setShowBibleExport(true)}
+          onRefreshData={handleRefresh}
+          onSelectItem={handleSelectItem}
+          role={role}
+          userEmail={user.email}
+          displayName={displayName}
+          onOpenGuide={() => setShowGuide(true)}
+          onOpenInvite={() => setShowInvite(true)}
+          onOpenForbiddenArchive={() => setShowForbiddenArchive(true)}
+          onSignOut={() => supabase?.auth.signOut()}
+        />
 
-      <main key={refreshKey}>
-        {activeTab === "dashboard" && (
-          <Dashboard
-            setActiveTab={setActiveTab}
-            onSelectItem={handleSelectItem}
-            displayName={displayName}
-          />
-        )}
-        {[
-          "characters",
-          "species",
-          "teams",
-          "planets",
-          "locations",
-          "powers",
-          "artifacts",
-          "events",
-          "issues",
-        ].includes(activeTab) && (
-          <EntityBrowser
-            key={activeTab}
-            entityType={activeTab}
-            onSelectItem={handleSelectItem}
-            onOpenQuickCreate={openQuickCreate}
-          />
-        )}
-        {activeTab === "drafts" && (
-          <DraftsView onSelectItem={handleSelectItem} />
-        )}
-        {activeTab === "simulator" && <CombatSimulator />}
-        {activeTab === "battle-arena" && <BattleArena />}
-        {activeTab === "graph" && <UniverseGraph />}
-        {activeTab === "timeline" && <VisualTimeline />}
-        {activeTab === "writer" && <WriterWorkspace />}
-        {activeTab === "artist" && <ArtistWorkspace />}
-        {activeTab === "lorekeeper" && (
-          <div className="space-y-8">
-            <AILorekeeperChat />
-            <CharacterForge />
-          </div>
-        )}
-        {activeTab === "settings" && (
-          <SettingsPage
-            userId={user.id}
-            email={user.email}
-            displayName={displayName}
-            role={role}
-            onDisplayNameChange={setDisplayName}
-          />
-        )}
-      </main>
+        <main key={refreshKey} className="flex-1 px-6 py-6 lg:px-8 xl:px-10">
+          {activeTab === "dashboard" && (
+            <Dashboard
+              setActiveTab={setActiveTab}
+              onSelectItem={handleSelectItem}
+              displayName={displayName}
+            />
+          )}
+          {[
+            "characters",
+            "species",
+            "teams",
+            "planets",
+            "locations",
+            "powers",
+            "artifacts",
+            "events",
+            "issues",
+          ].includes(activeTab) && (
+            <EntityBrowser
+              key={activeTab}
+              entityType={activeTab}
+              onSelectItem={handleSelectItem}
+              onOpenQuickCreate={openQuickCreate}
+            />
+          )}
+          {activeTab === "drafts" && (
+            <DraftsView onSelectItem={handleSelectItem} />
+          )}
+          {activeTab === "simulator" && <CombatSimulator />}
+          {activeTab === "battle-arena" && <BattleArena />}
+          {activeTab === "graph" && <UniverseGraph />}
+          {activeTab === "timeline" && <VisualTimeline />}
+          {activeTab === "writer" && <WriterWorkspace />}
+          {activeTab === "artist" && <ArtistWorkspace />}
+          {activeTab === "lorekeeper" && (
+            <div className="space-y-8">
+              <AILorekeeperChat />
+              <CharacterForge />
+            </div>
+          )}
+          {activeTab === "settings" && (
+            <SettingsPage
+              userId={user.id}
+              email={user.email}
+              displayName={displayName}
+              role={role}
+              onDisplayNameChange={setDisplayName}
+            />
+          )}
+        </main>
+      </div>
 
       {/* Modals */}
       {selectedEntity && (

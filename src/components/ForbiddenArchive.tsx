@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Lock, Skull, X, RefreshCw } from "lucide-react";
+import { getEntityDescription } from "../utils/entitySummary";
 
 interface ForbiddenArchiveProps {
   onClose: () => void;
@@ -186,11 +187,9 @@ export const ForbiddenArchive: React.FC<ForbiddenArchiveProps> = ({
                           {item.canonStatus}
                         </span>
                       </div>
-                      {(item.description ||
-                        item.biography ||
-                        item.synopsis) && (
+                      {getEntityDescription(item) && (
                         <p className="text-[10px] text-red-400/40 font-mono mt-1 line-clamp-1">
-                          {item.description || item.biography || item.synopsis}
+                          {getEntityDescription(item)}
                         </p>
                       )}
                     </button>

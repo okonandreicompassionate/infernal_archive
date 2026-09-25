@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { FileEdit, RefreshCw } from "lucide-react";
 import { subscribeToTables } from "../utils/supabase";
+import { getEntityDescription } from "../utils/entitySummary";
 
 interface DraftsViewProps {
   onSelectItem: (type: string, id: string) => void;
@@ -123,11 +124,7 @@ export const DraftsView: React.FC<DraftsViewProps> = ({ onSelectItem }) => {
                 {getTitle(item)}
               </h3>
               <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
-                {item.description ||
-                  item.synopsis ||
-                  item.biography ||
-                  item.goals ||
-                  "No summary yet."}
+                {getEntityDescription(item) || "No summary yet."}
               </p>
             </div>
           ))}

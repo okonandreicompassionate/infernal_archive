@@ -29,6 +29,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { uploadArchiveImage } from "../utils/supabase";
+import { getEntityDescription } from "../utils/entitySummary";
 import { speciesOptions } from "./QuickCreateModal";
 
 interface EntityDetailModalProps {
@@ -692,8 +693,7 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                             Character dossier
                           </p>
                           <h3 className="mt-1 text-2xl font-bold text-zinc-100">
-                            {item.description ||
-                              item.biography ||
+                            {getEntityDescription(item) ||
                               "No overview recorded yet."}
                           </h3>
                         </div>
@@ -918,10 +918,7 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({
                     )}
                   </div>
                   <p className="text-sm text-zinc-300 leading-relaxed">
-                    {item.description ||
-                      item.synopsis ||
-                      item.biography ||
-                      item.goals ||
+                    {getEntityDescription(item) ||
                       "No detailed summary available."}
                   </p>
 
