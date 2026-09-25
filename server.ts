@@ -1934,12 +1934,14 @@ app.post("/api/simulate", async (req, res) => {
       primaryCause: computation.primaryCause,
       unexpectedFactor: computation.unexpectedFactor,
       isUpset: computation.isUpset,
+      finishState: computation.finishState,
       engineReport: {
         stats: computation.stats,
         modifiers: computation.modifiers,
         effective: computation.effective,
         probability: computation.probability,
         winnerIndex: computation.winnerIndex,
+        finishState: computation.finishState,
       },
       createdAt: new Date().toISOString(),
     };

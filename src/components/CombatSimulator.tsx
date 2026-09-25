@@ -380,6 +380,25 @@ export const CombatSimulator: React.FC<CombatSimulatorProps> = () => {
               </div>
               <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4">
                 <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                  Finisher
+                </p>
+                <p className="mt-2 text-sm text-zinc-300">
+                  {result.finishState?.finisherName || result.winnerName}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4">
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                  Final blow
+                </p>
+                <p className="mt-2 text-sm text-zinc-300">
+                  {result.finishState?.finalBlow || result.turningPoint}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3 mt-3">
+              <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4">
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
                   Turning point
                 </p>
                 <p className="mt-2 text-sm text-zinc-300">
@@ -392,6 +411,19 @@ export const CombatSimulator: React.FC<CombatSimulatorProps> = () => {
                 </p>
                 <p className="mt-2 text-sm text-zinc-300">
                   {result.primaryCause}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4">
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                  Stamina state
+                </p>
+                <p className="mt-2 text-sm text-zinc-300">
+                  {result.finishState?.loserTired
+                    ? "Loser tired"
+                    : "Still in it"}
+                  {result.finishState?.canContinue
+                    ? " — could keep fighting"
+                    : " — worn down"}
                 </p>
               </div>
             </div>

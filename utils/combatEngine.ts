@@ -82,7 +82,21 @@ interface RoundEvent {
   staminaAfter: [number, number];
 }
 
+export interface FightFinishState {
+  winnerIndex: 0 | 1;
+  loserIndex: 0 | 1;
+  finisherIndex: 0 | 1;
+  finisherName: string;
+  loserName: string;
+  finalBlow: string;
+  loserTired: boolean;
+  winnerTired: boolean;
+  canContinue: boolean;
+  finishType: "knockout" | "exhaustion" | "technical" | "decision";
+}
+
 export interface SimComputation {
+  combatants: [SimCombatant, SimCombatant];
   stats: [StatBundle, StatBundle];
   modifiers: [ModifierBreakdown, ModifierBreakdown];
   effective: [number, number];
@@ -94,6 +108,7 @@ export interface SimComputation {
   unexpectedFactor: string;
   why: string;
   rounds: RoundEvent[];
+  finishState: FightFinishState;
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -602,6 +617,10 @@ export function runSimulation(
   const rounds: RoundEvent[] = [];
   let winnerIndex: 0 | 1 = probability[0] >= probability[1] ? 0 : 1;
   let lastReason = "statistical model";
+  let lastStrikeIndex: 0 | 1 = 0;
+  let finalBlow =
+    "The fight turns on a decisive exchange of pressure and timing.";
+  let finishType: FightFinishState["finishType"] = "decision";
 
   for (let round = 1; round <= 7; round++) {
     const actionA =
@@ -725,6 +744,8 @@ export function runSimulation(
         ? `${combatants[0].name} attacks first, forcing ${combatants[1].name} to react under pressure.`
         : `${combatants[1].name} lands the sharper sequence, pushing ${combatants[0].name} back on the back foot.`;
 
+    lastStrikeIndex = strikeA >= strikeB ? 0 : 1;
+
     rounds.push({
       round,
       summary,
@@ -743,11 +764,22 @@ export function runSimulation(
     if (state[0].health <= 0 || state[1].health <= 0) {
       winnerIndex = state[0].health > state[1].health ? 0 : 1;
       lastReason = roundReason;
+      finishType = "knockout";
+      const finisherIndex = lastStrikeIndex ?? winnerIndex;
+      const loserIndex = finisherIndex === 0 ? 1 : 0;
+      finalBlow = `${combatants[finisherIndex].name} closes the fight with a brutal finish while ${combatants[loserIndex].name} is already collapsing from the damage.`;
       break;
     }
     if (round === 6) {
       winnerIndex = state[0].health >= state[1].health ? 0 : 1;
       lastReason = `Late-round resource drift favored ${combatants[winnerIndex].name}.`;
+      finishType = state[winnerIndex].stamina > 35 ? "technical" : "exhaustion";
+      const finisherIndex = lastStrikeIndex ?? winnerIndex;
+      const loserIndex = finisherIndex === 0 ? 1 : 0;
+      finalBlow =
+        state[loserIndex].stamina < 28 || state[loserIndex].energy < 25
+          ? `${combatants[finisherIndex].name} lands the last decisive exchange as ${combatants[loserIndex].name} tires out and can no longer answer.`
+          : `${combatants[finisherIndex].name} takes the momentum and wins the exchange before ${combatants[loserIndex].name} can recover.`;
     }
   }
 
@@ -792,9 +824,36 @@ export function runSimulation(
     ? `${combatants[finalWinner].name} won by outlasting the favored profile through ${primaryCause}.`
     : `${combatants[finalWinner].name} won as the stronger profile; the model expected it.`;
 
-  const why = `${combatants[finalWinner].name} won because ${primaryCause} carried more weight than the opponent's resilience, and the decisive shift was ${turningPoint}. This outcome was shaped by the environment, preparation, and round-to-round adaptation, not by random narrative overrides.`;
+  const loserIndex = finalWinner === 0 ? 1 : 0;
+  const finisherIndex = lastStrikeIndex ?? finalWinner;
+  const loserTired =
+    state[loserIndex].stamina < 28 || state[loserIndex].energy < 25;
+  const winnerTired =
+    state[finalWinner].stamina < 28 || state[finalWinner].energy < 25;
+  const canContinue =
+    state[loserIndex].health > 15 &&
+    state[loserIndex].stamina > 22 &&
+    state[loserIndex].energy > 18;
+
+  const finishState: FightFinishState = {
+    winnerIndex: finalWinner,
+    loserIndex,
+    finisherIndex,
+    finisherName: combatants[finisherIndex].name,
+    loserName: combatants[loserIndex].name,
+    finalBlow:
+      finalBlow ||
+      `${combatants[finisherIndex].name} finished the exchange with a decisive ${primaryCause} sequence that broke ${combatants[loserIndex].name}'s rhythm.`,
+    loserTired,
+    winnerTired,
+    canContinue,
+    finishType,
+  };
+
+  const why = `${combatants[finalWinner].name} won because ${primaryCause} carried more weight than the opponent's resilience, and the decisive shift was ${turningPoint}. This outcome was shaped by the environment, preparation, and round-to-round adaptation, not by random narrative overrides. ${combatants[finisherIndex].name} was the one who closed the fight; ${combatants[loserIndex].name}${loserTired ? " was worn down and couldn't keep answering" : " still had enough left to continue"}.`;
 
   return {
+    combatants,
     stats,
     modifiers,
     effective,
@@ -806,6 +865,7 @@ export function runSimulation(
     unexpectedFactor,
     why,
     rounds,
+    finishState,
   };
 }
 
@@ -840,13 +900,17 @@ WIN CONDITION: ${setup.winCondition}
 
 ENGINE RESULT (do not contradict this):
 - Winner: ${winner.name}
+- Finisher: ${computation.finishState.finisherName}
+- Final blow: ${computation.finishState.finalBlow}
+- Loser tired: ${computation.finishState.loserTired ? "yes" : "no"}
+- Could continue: ${computation.finishState.canContinue ? "yes" : "no"}
 - Win probability at simulation start: ${(computation.probability[0] * 100).toFixed(0)}% / ${(computation.probability[1] * 100).toFixed(0)}%
 - Turning point: ${computation.turningPoint}
 - Primary cause of outcome: ${computation.primaryCause}
 - Why this happened: ${computation.why}
 - Was this an upset over the statistical favorite: ${computation.isUpset ? "yes" : "no"}
 
-Write 4 to 6 short "ROUND" beats (label each "ROUND 01", "ROUND 02", etc.), each 2-4 short sentences, escalating tension, in present tense. Reference the turning point explicitly in the round it occurs. End with one short "TWIST" paragraph revealing something about ${winner.name} or ${loser.name} that recontextualizes the fight (tie it to their personality, weakness, or relationship if plausible), still consistent with ${winner.name} winning. Do not use markdown headers, just plain paragraphs separated by "---" on their own line.`;
+Write 4 to 6 short "ROUND" beats (label each "ROUND 01", "ROUND 02", etc.), each 2-4 short sentences, escalating tension, in present tense. Reference the turning point explicitly in the round it occurs. Mention who lands the final blow and whether the loser is too tired to continue. End with one short "TWIST" paragraph revealing something about ${winner.name} or ${loser.name} that recontextualizes the fight (tie it to their personality, weakness, or relationship if plausible), still consistent with ${winner.name} winning. Do not use markdown headers, just plain paragraphs separated by "---" on their own line.`;
 }
 
 export function fallbackNarrative(
