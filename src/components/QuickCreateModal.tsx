@@ -857,9 +857,11 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
           culture: profileFields.culture || "",
           language: profileFields.language || "",
           population: profileFields.population || "",
-          description: profileFields.overview || description,
+          overview: profileFields.overview || description,
         });
         Object.assign(payload, profileFields);
+        payload.overview = profileFields.overview || description;
+        delete payload.description;
         if (imageFile) {
           const upload = await uploadArchiveImage(imageFile, "species");
           if (upload.error) throw upload.error;
